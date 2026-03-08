@@ -1,0 +1,12 @@
+src/**
+.vscode/**
+.memory/**
+opencode/**
+tsconfig.json
+eslint.config.mjs
+esbuild.js
+*.map
+PLAN.md
+AGENTS.md
+README.md
+bun.lock
