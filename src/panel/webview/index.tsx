@@ -1064,7 +1064,7 @@ function ToolTextPanel({ part, active = false }: { part: Extract<MessagePart, { 
           {details.args.map((item) => <span key={item} className="oc-pill oc-pill-file">{item}</span>)}
         </div>
       ) : null}
-      {expanded && body ? <pre className="oc-partTerminal">{body}</pre> : null}
+      {expanded ? <ToolFallbackText part={part} body={body} /> : null}
     </section>
   )
 }
@@ -1200,7 +1200,7 @@ function ToolFilesPanel({ part, active = false, diffMode = "unified" }: { part: 
           ))}
         </div>
       ) : null}
-      {expanded && files.length === 0 && toolTextBody(part) ? <pre className="oc-partTerminal">{toolTextBody(part)}</pre> : null}
+      {expanded && files.length === 0 ? <ToolFallbackText part={part} body={toolTextBody(part)} /> : null}
     </section>
   )
 }
@@ -1232,7 +1232,7 @@ function ToolWritePanel({ part, active = false }: { part: Extract<MessagePart, {
         </div>
       </button>
       {expanded && content ? <CodeBlock value={content} filePath={details.title} /> : null}
-      {expanded && !content && toolTextBody(part) ? <pre className="oc-partTerminal">{toolTextBody(part)}</pre> : null}
+      {expanded && !content ? <ToolFallbackText part={part} body={toolTextBody(part)} /> : null}
       {expanded && toolDiagnostics(part).length > 0 ? <DiagnosticsList items={toolDiagnostics(part)} /> : null}
     </section>
   )
@@ -1265,7 +1265,7 @@ function ToolEditPanel({ part, active = false, diffMode = "unified" }: { part: E
         </div>
       </button>
       {expanded && diff ? <DiffBlock value={diff} mode={diffMode} /> : null}
-      {expanded && !diff && toolTextBody(part) ? <pre className="oc-partTerminal">{toolTextBody(part)}</pre> : null}
+      {expanded && !diff ? <ToolFallbackText part={part} body={toolTextBody(part)} /> : null}
       {expanded && toolDiagnostics(part).length > 0 ? <DiagnosticsList items={toolDiagnostics(part)} /> : null}
     </section>
   )
@@ -1296,10 +1296,20 @@ function ToolApplyPatchPanel({ part, active = false, diffMode = "unified" }: { p
           ))}
         </div>
       ) : null}
-      {files.length === 0 && toolTextBody(part) ? <pre className="oc-partTerminal">{toolTextBody(part)}</pre> : null}
+      {files.length === 0 ? <ToolFallbackText part={part} body={toolTextBody(part)} /> : null}
       {toolDiagnostics(part).length > 0 ? <DiagnosticsList items={toolDiagnostics(part)} /> : null}
     </section>
   )
+}
+
+function ToolFallbackText({ part, body }: { part: Extract<MessagePart, { type: "tool" }>; body: string }) {
+  if (!body) {
+    return null
+  }
+  if (part.state?.error) {
+    return <pre className="oc-errorBlock">{body}</pre>
+  }
+  return <pre className="oc-partTerminal">{body}</pre>
 }
 
 function CodeBlock({ value, filePath }: { value: string; filePath?: string }) {
