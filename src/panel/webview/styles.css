@@ -75,6 +75,11 @@
   --oc-success: var(--vscode-testing-iconPassed, #4caf50);
   --oc-mono: var(--vscode-editor-font-family, monospace);
   --oc-ui: var(--oc-mono);
+  --oc-font-size: var(--vscode-editor-font-size, 12px);
+  --oc-font-size-xs: calc(var(--oc-font-size) - 2px);
+  --oc-font-size-sm: calc(var(--oc-font-size) - 1px);
+  --oc-font-size-lg: calc(var(--oc-font-size) + 1px);
+  --oc-font-size-xl: calc(var(--oc-font-size) + 6px);
 }
 
 * {
@@ -93,6 +98,7 @@ body,
 body,
 button {
   font-family: var(--oc-ui);
+  font-size: var(--oc-font-size);
 }
 
 textarea {
@@ -145,12 +151,12 @@ button {
 .oc-partMeta {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
 }
 
 .oc-emptyTitle {
   margin: 6px 0 0;
-  font-size: 18px;
+  font-size: var(--oc-font-size-xl);
   line-height: 1.35;
   font-weight: 600;
 }
@@ -161,7 +167,7 @@ button {
   margin: 8px 0 0;
   white-space: pre-wrap;
   line-height: 1.6;
-  font-size: 12px;
+  font-size: var(--oc-font-size);
 }
 
 .oc-transcript {
@@ -225,14 +231,14 @@ button {
 }
 
 .oc-turnUser .oc-entryRole {
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   font-weight: 500;
 }
 
 .oc-turnMeta {
   padding: 0 12px 10px;
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.5;
   font-family: var(--oc-ui);
 }
@@ -326,7 +332,7 @@ button {
 .oc-taskLineSecondary {
   padding-left: 16px;
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.5;
 }
 
@@ -339,7 +345,7 @@ button {
 }
 
 .oc-taskAgent {
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   font-weight: 500;
   color: var(--oc-fg-primary);
 }
@@ -358,7 +364,7 @@ button {
 }
 
 .oc-taskSessionTitle {
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   color: var(--oc-fg-primary);
 }
 
@@ -391,7 +397,7 @@ button {
 .oc-toolRowTitle,
 .oc-toolPanelTitle,
 .oc-fileToolPath {
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   color: var(--oc-fg-primary);
 }
 
@@ -479,13 +485,13 @@ button {
 
 .oc-outputWindowAction {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .oc-outputWindowTitle {
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   font-weight: 600;
 }
 
@@ -547,7 +553,7 @@ button {
   top: 50%;
   right: calc(100% + 6px);
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: var(--oc-font-size-xs);
   line-height: 1;
   white-space: nowrap;
   color: color-mix(in srgb, var(--oc-outputWindow-head-fg) 68%, var(--oc-surface-canvas) 32%);
@@ -610,7 +616,7 @@ button {
   overflow-wrap: anywhere;
   word-break: break-word;
   line-height: 1.65;
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   font-family: var(--oc-mono);
 }
 
@@ -653,7 +659,7 @@ button {
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: var(--oc-font-size-xs);
   line-height: 1;
   color: color-mix(in srgb, var(--oc-outputWindow-head-fg) 72%, transparent 28%);
   pointer-events: none;
@@ -661,7 +667,7 @@ button {
 
 .oc-toolRowSummary {
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.5;
 }
 
@@ -673,12 +679,12 @@ button {
 
 .oc-toolRowExtra {
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.45;
 }
 
 .oc-taskBody {
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   line-height: 1.5;
 }
 
@@ -695,7 +701,7 @@ button {
 .oc-linkItem {
   color: var(--vscode-textLink-foreground);
   text-decoration: none;
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   line-height: 1.55;
 }
 
@@ -727,12 +733,12 @@ button {
 .oc-fileToolSummary,
 .oc-toolAnswerItem {
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.5;
 }
 
 .oc-toolTodoItem {
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   line-height: 1.6;
 }
 
@@ -753,7 +759,7 @@ button {
   padding: 6px 8px;
   border-left: 2px solid color-mix(in srgb, var(--oc-warning) 64%, transparent 36%);
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.5;
 }
 
@@ -775,7 +781,7 @@ button {
 .oc-entryRole,
 .oc-dockTitle,
 .oc-inlineValue {
-  font-size: 13px;
+  font-size: var(--oc-font-size-lg);
   font-weight: 600;
 }
 
@@ -791,12 +797,12 @@ button {
 
 .oc-contextRow {
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.5;
 }
 
 .oc-entryTime {
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
 }
 
 .oc-part,
@@ -831,7 +837,7 @@ button {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.65;
-  font-size: 12px;
+  font-size: var(--oc-font-size);
 }
 
 .oc-partText,
@@ -929,7 +935,7 @@ button {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.35;
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
 }
 
 .oc-codeWindowLineNo {
@@ -1052,7 +1058,7 @@ button {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.35;
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
 }
 
 .oc-diffLineNo {
@@ -1174,7 +1180,7 @@ button {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--oc-mono);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.35;
 }
 
@@ -1211,7 +1217,7 @@ button {
   --oc-md-current-syntax-operator: var(--oc-md-syntax-operator);
   --oc-md-current-syntax-punctuation: var(--oc-md-syntax-punctuation);
   font-family: var(--oc-ui);
-  font-size: 12px;
+  font-size: var(--oc-font-size);
   line-height: 1.65;
   color: var(--oc-md-current-text);
 }
@@ -1238,6 +1244,7 @@ button {
   --oc-md-current-syntax-type: color-mix(in srgb, var(--oc-md-syntax-type) 60%, var(--oc-surface-canvas) 40%);
   --oc-md-current-syntax-operator: color-mix(in srgb, var(--oc-md-syntax-operator) 60%, var(--oc-surface-canvas) 40%);
   --oc-md-current-syntax-punctuation: color-mix(in srgb, var(--oc-md-syntax-punctuation) 60%, var(--oc-surface-canvas) 40%);
+  line-height: 1.5;
 }
 
 .oc-markdown p,
@@ -1261,7 +1268,7 @@ button {
 .oc-markdown h5,
 .oc-markdown h6 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--oc-font-size-lg);
   line-height: 1.45;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1286,6 +1293,7 @@ button {
 
 .oc-markdown ol {
   list-style-type: oc-md-ordered;
+  padding-left: 24px;
 }
 
 .oc-markdown li {
@@ -1297,9 +1305,8 @@ button {
 }
 
 .oc-markdown ol li::marker {
-  position: relative;
-  left: -1px;
   color: var(--oc-md-current-list-enum);
+  font-family: var(--oc-mono);
 }
 
 .oc-markdown li + li {
@@ -1475,7 +1482,7 @@ button {
   margin: 0;
   padding: 8px 12px;
   color: var(--oc-fg-muted);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   line-height: 1.4;
 }
 
@@ -1494,7 +1501,7 @@ button {
   margin: 0;
   padding-left: 20px;
   line-height: 1.6;
-  font-size: 12px;
+  font-size: var(--oc-font-size);
 }
 
 .oc-footer {
@@ -1526,7 +1533,7 @@ button {
   align-items: center;
   padding: 3px 8px;
   border: 1px solid var(--oc-border-strong);
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -1553,7 +1560,7 @@ button {
   background: var(--oc-surface-control);
   color: var(--oc-fg-primary);
   padding: 5px 9px;
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
 }
 
 .oc-pill-file {
@@ -1598,7 +1605,7 @@ button {
 .oc-inlineLinkBtn {
   color: var(--vscode-textLink-foreground);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
 }
 
 .oc-inlineLinkBtn:hover {
@@ -1609,7 +1616,7 @@ button {
   border: 1px solid var(--oc-border-strong);
   color: var(--oc-fg-muted);
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: var(--oc-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: pointer;
