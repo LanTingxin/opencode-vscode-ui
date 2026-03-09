@@ -77,6 +77,11 @@ markdown.renderer.rules.code_inline = (...args: Parameters<NonNullable<typeof co
   return codeInlineDefault ? codeInlineDefault(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options)
 }
 
+markdown.renderer.rules.hr = (tokens, idx) => {
+  const value = tokens[idx]?.markup || "---"
+  return `<p>${markdown.utils.escapeHtml(value)}</p>`
+}
+
 if (initialRef) {
   vscode.setState(initialRef)
 }
@@ -494,24 +499,31 @@ function TimelineBlockView({ block, activeToolID, diffMode }: { block: TimelineB
   if (block.kind === "user-message") {
     const userText = primaryUserText(block.message)
     const userFiles = userAttachments(block.message)
+    const hasCompaction = userHasCompaction(block.message)
+    if (hasCompaction && !userText && userFiles.length === 0) {
+      return <CompactionDivider />
+    }
     return (
-      <section className="oc-turnUser">
-        <div className="oc-entryHeader">
-          <div className="oc-entryRole">You</div>
-          <div className="oc-entryTime">{formatTime(block.message.info.time?.created)}</div>
-        </div>
-        {userText ? <MarkdownBlock content={userText.text || ""} /> : <div className="oc-partEmpty">No visible prompt text.</div>}
-        {userFiles.length > 0 ? (
-          <div className="oc-attachmentRow">
-            {userFiles.map((part) => (
-              <span key={part.id} className="oc-pill oc-pill-file">
-                <span className="oc-pillFileType">{fileTypeLabel(part)}</span>
-                <span className="oc-pillFilePath">{attachmentFilePath(part)}</span>
-              </span>
-            ))}
+      <>
+        {hasCompaction ? <CompactionDivider /> : null}
+        <section className="oc-turnUser">
+          <div className="oc-entryHeader">
+            <div className="oc-entryRole">You</div>
+            <div className="oc-entryTime">{formatTime(block.message.info.time?.created)}</div>
           </div>
-        ) : null}
-      </section>
+          {userText ? <MarkdownBlock content={userText.text || ""} /> : <div className="oc-partEmpty">No visible prompt text.</div>}
+          {userFiles.length > 0 ? (
+            <div className="oc-attachmentRow">
+              {userFiles.map((part) => (
+                <span key={part.id} className="oc-pill oc-pill-file">
+                  <span className="oc-pillFileType">{fileTypeLabel(part)}</span>
+                  <span className="oc-pillFilePath">{attachmentFilePath(part)}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      </>
     )
   }
 
@@ -1666,6 +1678,10 @@ function primaryUserText(message: SessionMessage) {
   return message.parts.find((part): part is TextPart => part.type === "text" && !part.synthetic && !part.ignored)
 }
 
+function userHasCompaction(message: SessionMessage) {
+  return message.parts.some((part) => part.type === "compaction")
+}
+
 function userAttachments(message: SessionMessage) {
   return message.parts.filter((part): part is FilePart => part.type === "file")
 }
@@ -1881,7 +1897,7 @@ function partBucket(part: MessagePart, options: { showThinking: boolean; showInt
     return "hidden"
   }
 
-  if (part.type === "compaction" || part.type === "retry" || part.type === "agent" || part.type === "subtask") {
+  if (part.type === "retry" || part.type === "agent" || part.type === "subtask") {
     return "divider"
   }
 
@@ -3330,18 +3346,13 @@ function partMeta(part: MessagePart) {
 }
 
 function isDividerPart(part: MessagePart) {
-  return part.type === "compaction"
-    || part.type === "retry"
+  return part.type === "retry"
     || part.type === "agent"
     || part.type === "subtask"
     || part.type === "step-start"
 }
 
 function dividerText(part: MessagePart) {
-  if (part.type === "compaction") {
-    return (part as Record<string, unknown>).auto ? "Automatic compaction" : "Compaction"
-  }
-
   if (part.type === "retry") {
     return retryText((part as Record<string, unknown>).error) || "Retry"
   }
@@ -3360,6 +3371,15 @@ function dividerText(part: MessagePart) {
   }
 
   return partTitle(part)
+}
+
+function CompactionDivider() {
+  return (
+    <div className="oc-dividerPart oc-dividerPart-compaction">
+      <span className="oc-dividerCompactionLine" />
+      <span className="oc-dividerText">Compaction</span>
+    </div>
+  )
 }
 
 function activeTodos(todos: Todo[]) {

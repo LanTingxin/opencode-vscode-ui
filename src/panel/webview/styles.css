@@ -1503,6 +1503,10 @@ label.oc-questionOption:hover {
   margin: 1em 0;
 }
 
+.oc-markdown li p {
+  margin: 0;
+}
+
 .oc-markdown h1,
 .oc-markdown h2,
 .oc-markdown h3,
@@ -1743,6 +1747,31 @@ label.oc-questionOption:hover {
   color: var(--oc-fg-muted);
   font-size: var(--oc-font-size-sm);
   line-height: 1.4;
+}
+
+.oc-dividerPart-compaction {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  text-align: center;
+}
+
+.oc-dividerCompactionLine {
+  position: absolute;
+  top: 16px;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: color-mix(in srgb, var(--oc-accent) 56%, var(--oc-border) 44%);
+}
+
+.oc-dividerPart-compaction .oc-dividerText {
+  position: relative;
+  display: inline-block;
+  padding: 0 8px;
+  background: var(--oc-surface-canvas);
+  color: color-mix(in srgb, var(--oc-accent) 24%, var(--oc-fg-muted) 76%);
 }
 
 .oc-dividerText {
