@@ -1607,7 +1607,6 @@ label.oc-questionOption:hover {
 
 .oc-markdown pre {
   overflow-x: auto;
-  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 58%, transparent 42%);
   border-left: 1px solid color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
   color: var(--oc-md-current-code-block);
