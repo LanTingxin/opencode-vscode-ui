@@ -312,8 +312,8 @@ button {
 .oc-taskRow {
   display: grid;
   gap: 4px;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .oc-taskLine {
@@ -1297,6 +1297,8 @@ button {
 }
 
 .oc-markdown ol li::marker {
+  position: relative;
+  left: -1px;
   color: var(--oc-md-current-list-enum);
 }
 
