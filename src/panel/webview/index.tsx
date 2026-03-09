@@ -931,6 +931,10 @@ function ToolPartView({ part, active = false, diffMode = "unified" }: { part: Ex
     return <ToolRow part={part} active={active} />
   }
 
+  if (isMcpTool(part.tool)) {
+    return <ToolRow part={part} active={active} />
+  }
+
   const variant = toolVariant(part.tool)
 
   if (variant === "row") {
@@ -973,15 +977,16 @@ function ToolRow({ part, active = false }: { part: Extract<MessagePart, { type: 
   const workspaceDir = useWorkspaceDir()
   const summary = toolRowSummary(part)
   const extras = toolRowExtras(part)
+  const isMcp = isMcpTool(part.tool)
   return (
-    <section className={`oc-toolRowWrap oc-toolRowWrap-${part.tool}${active ? " is-active" : ""}${part.state?.status === "completed" ? " is-completed" : ""}`}>
+    <section className={`oc-toolRowWrap oc-toolRowWrap-${part.tool}${isMcp ? " oc-toolRowWrap-mcp" : ""}${active ? " is-active" : ""}${part.state?.status === "completed" ? " is-completed" : ""}`}>
       <div className="oc-toolRow">
-        <div className="oc-toolRowMain">
+        <div className={`oc-toolRowMain${isMcp ? " oc-toolRowMain-mcp" : ""}`}>
           <span className="oc-kicker">{toolLabel(part.tool)}</span>
-          <span className="oc-toolRowTitle">{renderToolRowTitle(part, details, workspaceDir)}</span>
+          <span className={`oc-toolRowTitle${isMcp ? " oc-toolRowTitle-mcp" : ""}`}>{renderToolRowTitle(part, details, workspaceDir)}</span>
           {part.tool === "task" ? <span className="oc-pill oc-pill-file">Subagent</span> : null}
         </div>
-        <div className="oc-toolRowMeta">
+        <div className={`oc-toolRowMeta${isMcp ? " oc-toolRowMeta-mcp" : ""}`}>
           {renderToolRowSubtitle(part, details, workspaceDir)}
           {summary ? <span className="oc-toolRowSummary">{summary}</span> : null}
           {childSessionID ? <button type="button" className="oc-inlineLinkBtn" onClick={() => vscode.postMessage({ type: "navigateSession", sessionID: childSessionID })}>Open child</button> : null}
@@ -1911,6 +1916,9 @@ function toolVariant(tool: string): ToolDisplayVariant {
 }
 
 function toolLabel(tool: string) {
+  if (isMcpTool(tool)) {
+    return "mcp"
+  }
   if (tool === "bash") {
     return "shell"
   }
@@ -2087,6 +2095,9 @@ function bashHasPanel(part: Extract<MessagePart, { type: "tool" }>) {
 
 function toolRowTitle(part: Extract<MessagePart, { type: "tool" }>, details: ToolDetails) {
   const input = recordValue(part.state?.input)
+  if (isMcpTool(part.tool)) {
+    return mcpDisplayTitle(part)
+  }
   if (part.tool === "read") {
     const path = stringValue(input.filePath) || stringValue(input.path)
     const items: string[] = [fileLabel(path) || details.title]
@@ -2123,6 +2134,9 @@ function toolRowTitle(part: Extract<MessagePart, { type: "tool" }>, details: Too
 
 function renderToolRowTitle(part: Extract<MessagePart, { type: "tool" }>, details: ToolDetails, workspaceDir = "") {
   const input = recordValue(part.state?.input)
+  if (isMcpTool(part.tool)) {
+    return mcpDisplayTitle(part)
+  }
   if (part.tool === "read") {
     const path = stringValue(input.filePath) || stringValue(input.path)
     const label = fileLabel(path) || details.title
@@ -2152,9 +2166,12 @@ function renderToolRowTitle(part: Extract<MessagePart, { type: "tool" }>, detail
 
 function toolRowSubtitle(part: Extract<MessagePart, { type: "tool" }>, details: ToolDetails, workspaceDir = "") {
   const input = recordValue(part.state?.input)
+  if (isMcpTool(part.tool)) {
+    return ""
+  }
   if (part.tool === "grep" || part.tool === "glob") {
     const rawPath = stringValue(input.path) || stringValue(input.filePath)
-    const relPath = relativeWorkspacePath(rawPath, workspaceDir)
+    const relPath = displayWorkspacePath(rawPath, workspaceDir)
     return relPath ? `in ${relPath}` : ""
   }
   if (part.tool === "read") {
@@ -2177,9 +2194,12 @@ function toolRowSubtitle(part: Extract<MessagePart, { type: "tool" }>, details: 
 
 function renderToolRowSubtitle(part: Extract<MessagePart, { type: "tool" }>, details: ToolDetails, workspaceDir = "") {
   const input = recordValue(part.state?.input)
+  if (isMcpTool(part.tool)) {
+    return null
+  }
   if (part.tool === "grep" || part.tool === "glob") {
     const rawPath = stringValue(input.path) || stringValue(input.filePath)
-    const relPath = relativeWorkspacePath(rawPath, workspaceDir)
+    const relPath = displayWorkspacePath(rawPath, workspaceDir)
     if (!relPath) {
       return null
     }
@@ -2204,6 +2224,9 @@ function renderToolRowSubtitle(part: Extract<MessagePart, { type: "tool" }>, det
 
 function toolRowSummary(part: Extract<MessagePart, { type: "tool" }>) {
   const metadata = recordValue(part.state?.metadata)
+  if (isMcpTool(part.tool)) {
+    return ""
+  }
   if (part.tool === "glob") {
     const count = numberValue(metadata.count)
     if (count > 0) {
@@ -2251,6 +2274,9 @@ function taskSummary(part: Extract<MessagePart, { type: "tool" }>, messages: Ses
 
 function toolRowExtras(part: Extract<MessagePart, { type: "tool" }>) {
   const metadata = recordValue(part.state?.metadata)
+  if (isMcpTool(part.tool)) {
+    return [] as string[]
+  }
   if (part.tool === "read") {
     return stringList(metadata.loaded).map((item) => `Loaded ${item}`)
   }
@@ -2678,9 +2704,85 @@ function relativeWorkspacePath(value: string, workspaceDir: string) {
   return path
 }
 
+function isMcpTool(tool: string) {
+  return !!tool && !KNOWN_TOOLS.has(tool) && !tool.startsWith("lsp_")
+}
+
+function mcpDisplayTitle(part: Extract<MessagePart, { type: "tool" }>) {
+  const input = recordValue(part.state?.input)
+  const name = mcpName(part.tool)
+  const args = mcpArgs(input)
+  return args ? `${name} [${args}]` : name
+}
+
+function mcpName(tool: string) {
+  const idx = tool.indexOf("_")
+  return idx > 0 ? tool.slice(0, idx) : tool
+}
+
+function mcpArgs(input: Record<string, unknown>) {
+  return Object.entries(input)
+    .flatMap(([key, value]) => {
+      const item = mcpArgValue(value)
+      return item ? [`${key}=${item}`] : []
+    })
+    .join(", ")
+}
+
+function mcpArgValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim()
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value)
+  }
+  if (Array.isArray(value)) {
+    const items = value.map((item) => mcpArgValue(item)).filter(Boolean)
+    return items.length ? `[${items.join(", ")}]` : ""
+  }
+  if (value && typeof value === "object") {
+    return JSON.stringify(value)
+  }
+  return ""
+}
+
+function displayWorkspacePath(value: string, workspaceDir: string) {
+  const path = normalizePath(value)
+  const root = normalizePath(workspaceDir)
+  if (path && root && path === root) {
+    return "."
+  }
+  return relativeWorkspacePath(value, workspaceDir)
+}
+
 function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "")
 }
+
+const KNOWN_TOOLS = new Set([
+  "apply_patch",
+  "batch",
+  "bash",
+  "codesearch",
+  "doom_loop",
+  "edit",
+  "external_directory",
+  "glob",
+  "grep",
+  "invalid",
+  "list",
+  "lsp",
+  "lsp_diagnostics",
+  "plan_exit",
+  "question",
+  "read",
+  "skill",
+  "task",
+  "todowrite",
+  "webfetch",
+  "websearch",
+  "write",
+])
 
 function toolChildSessionId(part: Extract<MessagePart, { type: "tool" }>) {
   const metadata = recordValue(part.state?.metadata)
