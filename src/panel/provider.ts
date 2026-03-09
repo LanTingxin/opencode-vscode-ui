@@ -44,6 +44,7 @@ class SessionPanelController implements vscode.Disposable {
     panel.webview.options = { enableScripts: true }
     panel.webview.html = sessionPanelHtml(panel.webview, this.extensionUri, ref)
     panel.title = panelTitle(ref.sessionId)
+    panel.iconPath = panelIconPath(this.extensionUri)
 
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewMessage) => {
@@ -593,6 +594,7 @@ export class SessionPanelManager implements vscode.Disposable {
     if (!ref) {
       panel.webview.html = sessionPanelHtml(panel.webview, this.extensionUri)
       panel.title = panelTitle("unknown")
+      panel.iconPath = panelIconPath(this.extensionUri)
       this.out.appendLine("[panel] skipped restore due to invalid state")
       return
     }
@@ -687,7 +689,14 @@ function panelKey(ref?: SessionPanelRef) {
 }
 
 function panelTitle(title: string) {
-  return `OpenCode: ${(title || "session").slice(0, 80)}`
+  const prefix = "OC:"
+  const clean = (title || "session").trim() || "session"
+  const maxTitleLength = 24
+  return `${prefix}${clean.length > maxTitleLength ? `${clean.slice(0, maxTitleLength - 1)}…` : clean}`
+}
+
+function panelIconPath(extensionUri: vscode.Uri) {
+  return vscode.Uri.joinPath(extensionUri, "images", "logo.svg")
 }
 
 function boot(payload: SessionSnapshot): SessionBootstrap {

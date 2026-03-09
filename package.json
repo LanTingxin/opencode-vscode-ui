@@ -6,6 +6,7 @@
   "private": true,
   "version": "0.0.1",
   "publisher": "local",
+  "icon": "images/logo.svg",
   "license": "MIT",
   "engines": {
     "vscode": "^1.94.0"
@@ -61,7 +62,7 @@
         {
           "id": "opencode-ui",
           "title": "OpenCode",
-          "icon": "images/open.svg"
+          "icon": "images/activity.svg"
         }
       ]
     },
