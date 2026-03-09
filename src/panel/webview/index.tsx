@@ -469,7 +469,7 @@ function Timeline({ state }: { state: AppState }) {
 type TimelineBlock =
   | { kind: "user-message"; key: string; message: SessionMessage }
   | { kind: "assistant-part"; key: string; part: MessagePart }
-  | { kind: "assistant-meta"; key: string; text: string }
+  | { kind: "assistant-meta"; key: string; messages: SessionMessage[] }
 
 type ToolDisplayVariant = "row" | "panel" | "links" | "files" | "todos" | "question"
 
@@ -516,7 +516,7 @@ function TimelineBlockView({ block, activeToolID, diffMode }: { block: TimelineB
   }
 
   if (block.kind === "assistant-meta") {
-    return <section className="oc-turnMeta">{block.text}</section>
+    return <AssistantTurnMeta messages={block.messages} />
   }
 
   const part = block.part
@@ -1015,8 +1015,7 @@ function TaskToolRow({ part, active = false }: { part: Extract<MessagePart, { ty
     <>
       <div className="oc-taskRow">
         <div className="oc-taskLine oc-taskLinePrimary">
-          <span className="oc-agentSwatch" style={{ background: agentColor(agentName) }} />
-          <span className="oc-taskAgent">{agentName}</span>
+          <AgentBadge name={agentName} />
           <span className="oc-taskColon">:</span>
           <span className="oc-taskSessionTitle">{title}</span>
           <ToolStatus state={part.state?.status} />
@@ -1587,17 +1586,50 @@ function sessionTitle(bootstrap: SessionBootstrap) {
   return bootstrap.session?.title || bootstrap.sessionRef.sessionId?.slice(0, 8) || "session"
 }
 
+function AssistantTurnMeta({ messages }: { messages: SessionMessage[] }) {
+  const first = messages[0]?.info
+  const agent = first?.agent?.trim()
+  const created = formatTime(first?.time?.created)
+  const summary = assistantSummary(messages)
+  const items: React.ReactNode[] = []
+
+  if (agent) {
+    items.push(<AgentBadge key="agent" name={agent} />)
+  }
+  if (created) {
+    items.push(<span key="created">{created}</span>)
+  }
+  if (summary) {
+    items.push(<span key="summary">{summary}</span>)
+  }
+  if (items.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="oc-turnMeta">
+      <div className="oc-turnMetaContent">
+        {items.map((item, index) => (
+          <React.Fragment key={index}>
+            {index > 0 ? <span className="oc-turnMetaSep">·</span> : null}
+            {item}
+          </React.Fragment>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function buildTimelineBlocks(messages: SessionMessage[], options: { showThinking: boolean; showInternals: boolean }) {
   const blocks: TimelineBlock[] = []
   let assistants: SessionMessage[] = []
 
   const flush = () => {
-    const meta = assistantTurnMeta(assistants)
-    if (meta) {
+    if (assistantTurnMeta(assistants)) {
       blocks.push({
         kind: "assistant-meta",
         key: `meta:${assistants[0]?.info.id || assistants.length}`,
-        text: meta,
+        messages: assistants,
       })
     }
     assistants = []
@@ -2673,16 +2705,24 @@ function formatLineCount(value: number) {
   return `${value} ${value === 1 ? "line" : "lines"}`
 }
 
+function AgentBadge({ name }: { name: string }) {
+  return (
+    <span className="oc-agentBadge">
+      <span className="oc-agentSwatch" style={{ background: agentColor(name) }} />
+      <span className="oc-agentName">{name}</span>
+    </span>
+  )
+}
+
 function agentColor(name: string) {
   const palette = [
-    "#7aa2f7",
     "#9ece6a",
-    "#e0af68",
-    "#bb9af7",
-    "#f7768e",
-    "#7dcfff",
-    "#73daca",
-    "#ff9e64",
+    "#6ab5ce",
+    "#6a8cce",
+    "#a06ace",
+    "#ce6ab5",
+    "#ce8c6a",
+    "#ceb56a",
   ]
   let hash = 0
   for (const char of name) {

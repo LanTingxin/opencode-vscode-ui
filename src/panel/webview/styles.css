@@ -243,6 +243,17 @@ button {
   font-family: var(--oc-ui);
 }
 
+.oc-turnMetaContent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.oc-turnMetaSep {
+  color: var(--oc-fg-muted);
+}
+
 .oc-turnUser,
 .oc-turnMeta,
 .oc-toolRowWrap,
@@ -380,12 +391,24 @@ button {
   height: 10px;
   border-radius: 1px;
   flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--oc-accent) 72%, transparent 28%);
 }
 
-.oc-taskAgent {
+.oc-agentBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.oc-agentName {
   font-size: var(--oc-font-size);
   font-weight: 500;
   color: var(--oc-fg-primary);
+}
+
+.oc-turnMeta .oc-agentName {
+  font-size: var(--oc-font-size-sm);
 }
 
 .oc-taskColon,
@@ -1471,11 +1494,11 @@ label.oc-questionOption:hover {
 .oc-markdown ol,
 .oc-markdown blockquote,
 .oc-markdown table,
-.oc-markdown pre,
 .oc-markdown hr {
   margin: 0;
 }
 
+.oc-markdown pre,
 .oc-markdown p {
   margin: 1em 0;
 }
@@ -1615,6 +1638,10 @@ label.oc-questionOption:hover {
 .oc-markdown pre code {
   padding: 0;
   border: 0;
+}
+
+.oc-markdown pre code .outputWindowHead {
+  padding: 2px 10px;
 }
 
 .oc-markdown table {
