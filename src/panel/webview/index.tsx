@@ -125,6 +125,7 @@ const initialState: AppState = {
 
 function App() {
   const [state, setState] = React.useState(initialState)
+  const [pendingMcpActions, setPendingMcpActions] = React.useState<Record<string, boolean>>({})
   const timelineRef = React.useRef<HTMLDivElement | null>(null)
   const composerRef = React.useRef<HTMLTextAreaElement | null>(null)
   const stickToBottomRef = React.useRef(true)
@@ -184,6 +185,18 @@ function App() {
           fileRefStatus.set(item.key, item.exists)
         }
         window.dispatchEvent(new CustomEvent("oc-file-refs-updated"))
+        return
+      }
+
+      if (message?.type === "mcpActionFinished") {
+        setPendingMcpActions((current) => {
+          if (!current[message.name]) {
+            return current
+          }
+          const next = { ...current }
+          delete next[message.name]
+          return next
+        })
       }
     }
 
@@ -418,7 +431,7 @@ function App() {
                 <ComposerMetrics state={state} />
                 {state.error ? <div className="oc-errorText oc-composerErrorText">{state.error}</div> : null}
               </div>
-              <ComposerStatusBadges state={state} />
+          <ComposerStatusBadges state={state} pendingMcpActions={pendingMcpActions} onMcpActionStart={(name) => setPendingMcpActions((current) => ({ ...current, [name]: true }))} />
             </div>
             </section>
           ) : null}
@@ -486,19 +499,19 @@ function ComposerMetrics({ state }: { state: AppState }) {
   )
 }
 
-function ComposerStatusBadges({ state }: { state: AppState }) {
+function ComposerStatusBadges({ state, pendingMcpActions, onMcpActionStart }: { state: AppState; pendingMcpActions: Record<string, boolean>; onMcpActionStart: (name: string) => void }) {
   const mcp = overallMcpStatus(state.snapshot.mcp)
   const lsp = overallLspStatus(state.snapshot.lsp)
   return (
     <div className="oc-actionRow oc-composerBadgeRow">
-      <StatusBadge label="MCP" tone={mcp.tone} items={mcp.items} />
+      <StatusBadge label="MCP" tone={mcp.tone} items={mcp.items} pendingActions={pendingMcpActions} onActionStart={onMcpActionStart} />
       <StatusBadge label="LSP" tone={lsp.tone} items={lsp.items} />
     </div>
   )
 }
 
-function StatusBadge(props: { label: string; tone: StatusTone; items: StatusItem[] }) {
-  const { label, tone, items } = props
+function StatusBadge(props: { label: string; tone: StatusTone; items: StatusItem[]; pendingActions?: Record<string, boolean>; onActionStart?: (name: string) => void }) {
+  const { label, tone, items, pendingActions, onActionStart } = props
   return (
     <div className="oc-statusBadgeWrap">
       <div className="oc-statusBadge">
@@ -511,12 +524,71 @@ function StatusBadge(props: { label: string; tone: StatusTone; items: StatusItem
             <div key={`${label}-${item.name}`} className="oc-statusPopoverItem">
               <span className={`oc-statusLight is-${item.tone}`} />
               <span className="oc-statusPopoverName">{item.name}</span>
-              <span className="oc-statusPopoverValue">{item.value}</span>
+              <span className="oc-statusPopoverValue" title={item.value}>{item.value}</span>
+              {item.action ? <StatusPopoverAction item={item} pending={!!pendingActions?.[item.name]} onActionStart={onActionStart} /> : null}
             </div>
           ))}
         </div>
       ) : null}
     </div>
+  )
+}
+
+function StatusPopoverAction({ item, pending, onActionStart }: { item: StatusItem; pending: boolean; onActionStart?: (name: string) => void }) {
+  const onClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!item.action || pending) {
+      return
+    }
+    onActionStart?.(item.name)
+    vscode.postMessage({ type: "toggleMcp", name: item.name, action: item.action })
+  }
+
+  return (
+    <button type="button" disabled={pending} className={`oc-statusPopoverAction${item.action === "disconnect" ? " is-disconnect" : ""}${item.action === "connect" ? " is-connect" : ""}${pending ? " is-pending" : ""}`} onClick={onClick} title={item.actionLabel} aria-label={item.actionLabel}>
+      {item.action === "disconnect" ? <DisconnectIcon /> : null}
+      {item.action === "connect" ? <ConnectIcon /> : null}
+      {item.action === "reconnect" ? <ReconnectIcon /> : null}
+    </button>
+  )
+}
+
+function ConnectIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 22L6 18" className="oc-statusActionPath" />
+      <rect x="5" y="13" width="7" height="5" rx="1" transform="rotate(-45 8.5 15.5)" className="oc-statusActionPath" />
+      <path d="M8 14L10 12" className="oc-statusActionPath" />
+      <path d="M10 16L12 14" className="oc-statusActionPath" />
+      <rect x="12" y="6" width="7" height="5" rx="1" transform="rotate(-45 15.5 8.5)" className="oc-statusActionPath" />
+      <path d="M18 6L22 2" className="oc-statusActionPath" />
+    </svg>
+  )
+}
+
+function DisconnectIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 22L6 18" className="oc-statusActionPath" />
+      <rect x="5" y="13" width="7" height="5" rx="1" transform="rotate(-45 8.5 15.5)" className="oc-statusActionPath" />
+      <path d="M8 14L10 12" className="oc-statusActionPath" />
+      <path d="M10 16L12 14" className="oc-statusActionPath" />
+      <rect x="12" y="6" width="7" height="5" rx="1" transform="rotate(-45 15.5 8.5)" className="oc-statusActionPath" />
+      <path d="M18 6L22 2" className="oc-statusActionPath" />
+      <path d="M4 4L20 20" className="oc-statusActionPath" />
+    </svg>
+  )
+}
+
+function ReconnectIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M12.5 6.5A4.5 4.5 0 0 0 5.25 4" className="oc-statusActionPath" />
+      <path d="M4.75 2.75v2.5h2.5" className="oc-statusActionPath" />
+      <path d="M3.5 9.5A4.5 4.5 0 0 0 10.75 12" className="oc-statusActionPath" />
+      <path d="M11.25 13.25v-2.5h-2.5" className="oc-statusActionPath" />
+    </svg>
   )
 }
 
@@ -3811,8 +3883,10 @@ type StatusTone = "green" | "orange" | "red" | "gray"
 
 type StatusItem = {
   name: string
-  tone: Exclude<StatusTone, "gray">
+  tone: StatusTone
   value: string
+  action?: "connect" | "disconnect" | "reconnect"
+  actionLabel?: string
 }
 
 function composerIdentity(state: AppState) {
@@ -3949,7 +4023,6 @@ function formatUsd(value: number) {
 
 function overallMcpStatus(statuses: Record<string, McpStatus>) {
   const items = Object.entries(statuses)
-    .filter(([, status]) => status.status !== "disabled")
     .map(([name, status]) => statusItemForMcp(name, status))
 
   if (items.length === 0) {
@@ -3986,18 +4059,18 @@ function overallLspStatus(statuses: LspStatus[]) {
 
 function statusItemForMcp(name: string, status: McpStatus): StatusItem {
   if (status.status === "connected") {
-    return { name, tone: "green", value: "Connected" }
+    return { name, tone: "green", value: "Connected", action: "disconnect", actionLabel: `Disconnect ${name}` }
   }
   if (status.status === "disabled") {
-    return { name, tone: "red", value: "Disabled" }
+    return { name, tone: "gray", value: "Disabled", action: "connect", actionLabel: `Connect ${name}` }
   }
   if (status.status === "needs_auth") {
-    return { name, tone: "orange", value: "Needs authentication" }
+    return { name, tone: "orange", value: "Needs authentication", action: "reconnect", actionLabel: `Reconnect ${name}` }
   }
   if (status.status === "needs_client_registration") {
-    return { name, tone: "red", value: status.error || "Client registration required" }
+    return { name, tone: "red", value: status.error || "Client registration required", action: "reconnect", actionLabel: `Reconnect ${name}` }
   }
-  return { name, tone: "red", value: status.error || "Error" }
+  return { name, tone: "red", value: status.error || "Error", action: "reconnect", actionLabel: `Reconnect ${name}` }
 }
 
 function statusItemForLsp(status: LspStatus): StatusItem {

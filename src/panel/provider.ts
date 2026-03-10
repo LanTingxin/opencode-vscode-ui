@@ -94,6 +94,11 @@ class SessionPanelController implements vscode.Disposable {
 
         if (message?.type === "resolveFileRefs") {
           void this.resolveFileRefs(message.refs)
+          return
+        }
+
+        if (message?.type === "toggleMcp") {
+          void this.toggleMcp(message.name, message.action)
         }
       },
       undefined,
@@ -412,6 +417,36 @@ class SessionPanelController implements vscode.Disposable {
     } finally {
       this.pendingSubmitCount = Math.max(0, this.pendingSubmitCount - 1)
       await this.push(true)
+    }
+  }
+
+  private async toggleMcp(name: string, action: "connect" | "disconnect" | "reconnect") {
+    if (!name || this.disposed) {
+      return
+    }
+
+    const rt = this.mgr.get(this.ref.dir)
+    if (!rt || rt.state !== "ready" || !rt.sdk) {
+      return
+    }
+
+    try {
+      if (action === "disconnect") {
+        await rt.sdk.mcp.disconnect({ name, directory: rt.dir })
+      } else {
+        await rt.sdk.mcp.connect({ name, directory: rt.dir })
+      }
+      await this.push(true)
+    } catch (err) {
+      const message = `Failed to update MCP ${name}: ${text(err)}`
+      this.out.appendLine(message)
+      void vscode.window.showErrorMessage(message)
+      await this.push(true)
+    } finally {
+      await postToWebview(this.panel.webview, {
+        type: "mcpActionFinished",
+        name,
+      })
     }
   }
 

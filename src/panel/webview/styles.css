@@ -2177,8 +2177,8 @@ label.oc-questionOption:hover {
 .oc-composerProvider {
   color: color-mix(in srgb, var(--oc-accent) 58%, var(--oc-surface-canvas) 42%);
 }
+
 .oc-statusPopoverValue {
-  flex: 0 1 32%;
   color: color-mix(in srgb, var(--oc-accent) 58%, var(--oc-surface-canvas) 42%);
 }
 
@@ -2226,7 +2226,9 @@ label.oc-questionOption:hover {
 }
 
 .oc-statusLight {
+  flex: 0 0 8px;
   width: 8px;
+  min-width: 8px;
   height: 8px;
   border-radius: 999px;
   box-shadow: 0 0 6px currentColor;
@@ -2259,6 +2261,7 @@ label.oc-questionOption:hover {
   bottom: calc(100% + 8px);
   display: none;
   min-width: 220px;
+  max-width: min(32rem, calc(100vw - 32px));
   padding: 8px 10px;
   border: 1px solid var(--oc-border-strong);
   background: color-mix(in srgb, var(--oc-surface-block) 92%, #5a5a5a 8%);
@@ -2272,16 +2275,90 @@ label.oc-questionOption:hover {
 }
 
 .oc-statusPopoverItem {
+  display: flex;
+  align-items: center;
   gap: 6px;
   font-size: var(--oc-font-size-sm);
   line-height: 1.45;
   white-space: nowrap;
+  min-width: 0;
 }
 
-.oc-statusPopoverName,
 .oc-statusPopoverValue {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.oc-statusPopoverName {
+  flex: 0 0 auto;
+}
+
+.oc-statusPopoverValue {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.oc-statusPopoverAction {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+}
+
+.oc-statusPopoverAction:disabled,
+.oc-statusPopoverAction.is-pending {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.oc-statusPopoverAction.is-disconnect {
+  color: var(--oc-error);
+}
+
+.oc-statusPopoverAction.is-connect {
+  color: var(--oc-success);
+}
+
+.oc-statusPopoverAction:hover,
+.oc-statusPopoverAction:focus-visible {
+  color: var(--oc-fg);
+}
+
+.oc-statusPopoverAction.is-disconnect:hover,
+.oc-statusPopoverAction.is-disconnect:focus-visible {
+  color: color-mix(in srgb, var(--oc-error) 82%, white 18%);
+}
+
+.oc-statusPopoverAction.is-connect:hover,
+.oc-statusPopoverAction.is-connect:focus-visible {
+  color: color-mix(in srgb, var(--oc-success) 82%, white 18%);
+}
+
+.oc-statusPopoverAction:disabled:hover,
+.oc-statusPopoverAction:disabled:focus-visible,
+.oc-statusPopoverAction.is-pending:hover,
+.oc-statusPopoverAction.is-pending:focus-visible {
+  color: inherit;
+}
+
+.oc-statusPopoverAction svg {
+  width: 14px;
+  height: 14px;
+}
+
+.oc-statusActionPath {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .oc-emptyWrap {

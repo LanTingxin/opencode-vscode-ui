@@ -60,6 +60,10 @@ export type HostMessage =
         exists: boolean
       }>
     }
+  | {
+      type: "mcpActionFinished"
+      name: string
+    }
 
 export type WebviewMessage =
   | {
@@ -102,4 +106,9 @@ export type WebviewMessage =
         key: string
         filePath: string
       }>
+    }
+  | {
+      type: "toggleMcp"
+      name: string
+      action: "connect" | "disconnect" | "reconnect"
     }

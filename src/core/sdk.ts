@@ -317,6 +317,16 @@ export type Client = {
       directory?: string
       workspace?: string
     }): Promise<{ data?: Record<string, McpStatus> }>
+    connect(input: {
+      name: string
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: boolean }>
+    disconnect(input: {
+      name: string
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: boolean }>
   }
   lsp: {
     status(input?: {
