@@ -1,6 +1,6 @@
 import * as path from "node:path"
 import type { SessionPanelRef, SessionSnapshot } from "../../bridge/types"
-import type { Client, FileDiff, LspStatus, McpStatus, ProviderInfo, SessionMessage } from "../../core/sdk"
+import type { AgentInfo, Client, FileDiff, LspStatus, McpStatus, ProviderInfo, SessionMessage } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { collectRelatedSessionIds, filterPermission, filterQuestion, nav, relatedSessionMap } from "./navigation"
 import { sortMessages } from "./mutations"
@@ -36,7 +36,7 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
   }
 
   try {
-    const [sessionRes, sessionsRes, rootMessageRes, statusRes, todoRes, diffRes, permissionRes, questionRes, providerRes, mcpRes, lspRes] = await Promise.all([
+    const [sessionRes, sessionsRes, rootMessageRes, statusRes, todoRes, diffRes, permissionRes, questionRes, configRes, configProvidersRes, agentRes, providerRes, mcpRes, lspRes] = await Promise.all([
       rt.sdk.session.get({
         sessionID: ref.sessionId,
         directory: rt.dir,
@@ -66,6 +66,9 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       rt.sdk.question.list({
         directory: rt.dir,
       }),
+      configInfo(rt.sdk, rt.dir),
+      configProviders(rt.sdk, rt.dir),
+      agentInfo(rt.sdk, rt.dir),
       rt.sdk.provider.list({
         directory: rt.dir,
       }),
@@ -88,6 +91,24 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
     const [messages, childMessages] = await relatedMessages(rt.sdk, rt.dir, ref.sessionId, relatedSessionIds, rootMessageRes.data ?? [])
     const childSessions = relatedSessionMap(sessionsRes.data ?? [], ref.sessionId, relatedSessionIds)
     const navigation = nav(session, sessionsRes.data ?? [])
+    const agents = agentList(agentRes.data)
+    const defaultAgent = defaultAgentName(agentRes.data)
+    const providers = providerSnapshot(configProvidersRes.data, providerRes.data)
+    const defaults = providerDefaults(configProvidersRes.data, providerRes.data)
+    const configuredModel = parseModelRef(configRes.data?.model)
+    const firstAgent = agents[0]
+    const freshModel = firstAgent?.model || (agents.length === 0 ? configuredModel || fallbackModelRef(providers, defaults) : undefined)
+
+    log(
+      [
+        `agent count=${agents.length}`,
+        `first=${firstAgent?.name || "-"}`,
+        `firstModel=${modelLabel(firstAgent?.model)}`,
+        `defaultAgent=${defaultAgent || "-"}`,
+        `freshModel=${modelLabel(freshModel)}`,
+        `agentSource=${agents.length > 0 ? "agent" : "fallback"}`,
+      ].join(" "),
+    )
 
     return patch({
       status: "ready",
@@ -103,8 +124,11 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       diff: sortDiff(diffRes.data ?? []),
       permissions: filterPermission(permissionRes.data ?? [], relatedSessionIds),
       questions: filterQuestion(questionRes.data ?? [], relatedSessionIds),
-      providers: providerList(providerRes.data),
-      providerDefault: providerRes.data?.default,
+      agents,
+      defaultAgent,
+      providers,
+      providerDefault: defaults,
+      configuredModel,
       mcp: mcpStatusMap(mcpRes.data),
       lsp: lspStatuses(lspRes.data ?? [], rt.dir),
       relatedSessionIds,
@@ -177,8 +201,11 @@ function fallbackSnapshot(
     diff: [],
     permissions: [],
     questions: [],
+    agents: [],
+    defaultAgent: undefined,
     providers: [],
     providerDefault: undefined,
+    configuredModel: undefined,
     mcp: {},
     lsp: [],
     relatedSessionIds: [ref.sessionId],
@@ -187,8 +214,101 @@ function fallbackSnapshot(
   }
 }
 
-function providerList(data?: { all?: ProviderInfo[] }) {
+function configProviderList(data?: { providers?: ProviderInfo[] }) {
+  return Array.isArray(data?.providers) ? data.providers : []
+}
+
+function legacyProviderList(data?: { all?: ProviderInfo[] }) {
   return Array.isArray(data?.all) ? data.all : []
+}
+
+function providerSnapshot(configData?: { providers?: ProviderInfo[] }, legacyData?: { all?: ProviderInfo[] }) {
+  const providers = configProviderList(configData)
+  if (providers.length > 0) {
+    return providers
+  }
+
+  return legacyProviderList(legacyData)
+}
+
+function providerDefaults(configData?: { default?: Record<string, string> }, legacyData?: { default?: Record<string, string> }) {
+  return configData?.default ?? legacyData?.default
+}
+
+function fallbackModelRef(providers: ProviderInfo[], defaults?: Record<string, string>) {
+  for (const provider of providers) {
+    const modelID = defaults?.[provider.id]?.trim()
+    if (modelID && provider.models?.[modelID]) {
+      return {
+        providerID: provider.id,
+        modelID,
+      }
+    }
+  }
+
+  for (const provider of providers) {
+    const model = provider.models ? Object.values(provider.models)[0] : undefined
+    if (model?.id) {
+      return {
+        providerID: provider.id,
+        modelID: model.id,
+      }
+    }
+  }
+}
+
+function agentList(data?: AgentInfo[]) {
+  return Array.isArray(data) ? data : []
+}
+
+function defaultAgentName(data?: AgentInfo[]) {
+  return agentList(data)[0]?.name
+}
+
+async function configInfo(sdk: Client, directory: string) {
+  const config = readSdkMember(sdk, "config")
+  const get = readSdkMethod(config, "get")
+  if (!get) {
+    return { data: undefined as { model?: string } | undefined }
+  }
+
+  return get({ directory }) as Promise<{ data?: { model?: string } }>
+}
+
+async function configProviders(sdk: Client, directory: string) {
+  const config = readSdkMember(sdk, "config")
+  const providers = readSdkMethod(config, "providers")
+  if (!providers) {
+    return { data: undefined as { providers?: ProviderInfo[]; default?: Record<string, string> } | undefined }
+  }
+
+  return providers({ directory }) as Promise<{ data?: { providers?: ProviderInfo[]; default?: Record<string, string> } }>
+}
+
+async function agentInfo(sdk: Client, directory: string) {
+  const app = readSdkMember(sdk, "app")
+  const agents = readSdkMethod(app, "agents")
+  if (!agents) {
+    return { data: undefined as AgentInfo[] | undefined }
+  }
+
+  return agents({ directory }) as Promise<{ data?: AgentInfo[] }>
+}
+
+function readSdkMember(target: object, key: string) {
+  const value = Reflect.get(target, key)
+  return value && typeof value === "object" ? value as Record<string, unknown> : undefined
+}
+
+function readSdkMethod(target: Record<string, unknown> | undefined, key: string) {
+  const value = target ? Reflect.get(target, key) : undefined
+  return typeof value === "function"
+    ? ((input: { directory: string }) => Reflect.apply(value, target, [input])) as (input: { directory: string }) => Promise<unknown>
+    : undefined
+}
+
+function modelLabel(model?: { providerID: string; modelID: string }) {
+  return model ? `${model.providerID}/${model.modelID}` : "-"
 }
 
 function mcpStatusMap(data?: Record<string, McpStatus>) {
@@ -246,6 +366,23 @@ function partAgentMode(part: SessionMessage["parts"][number]) {
     return "build" as const
   }
   return undefined
+}
+
+function parseModelRef(model?: string) {
+  if (!model) {
+    return undefined
+  }
+
+  const [providerID, ...rest] = model.split("/")
+  const modelID = rest.join("/").trim()
+  if (!providerID?.trim() || !modelID) {
+    return undefined
+  }
+
+  return {
+    providerID: providerID.trim(),
+    modelID,
+  }
 }
 
 function summary(payload: Omit<SessionSnapshot, "message">) {

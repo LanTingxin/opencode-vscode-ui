@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { postToWebview } from "../../bridge/host"
 import type { SessionPanelRef } from "../../bridge/types"
-import type { PermissionReply } from "../../core/sdk"
+import type { MessageInfo, PermissionReply } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { text, textError, wait } from "./utils"
 
@@ -20,7 +20,7 @@ type ActionContext = {
   push: (force?: boolean) => Promise<void>
 }
 
-export async function submit(ctx: ActionContext, textValue: string) {
+export async function submit(ctx: ActionContext, textValue: string, agent?: string, model?: MessageInfo["model"]) {
   const value = textValue.trim()
 
   if (!value || ctx.state.disposed) {
@@ -42,6 +42,8 @@ export async function submit(ctx: ActionContext, textValue: string) {
     await rt.sdk.session.promptAsync({
       sessionID: ctx.ref.sessionId,
       directory: rt.dir,
+      agent,
+      model,
       parts: [
         {
           type: "text",

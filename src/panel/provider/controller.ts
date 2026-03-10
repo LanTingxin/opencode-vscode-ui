@@ -52,7 +52,7 @@ export class SessionPanelController implements vscode.Disposable {
         }
 
         if (message?.type === "submit") {
-          void submit(this.actionContext(), message.text)
+          void submit(this.actionContext(), message.text, message.agent, message.model)
           return
         }
 

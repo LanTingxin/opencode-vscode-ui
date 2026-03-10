@@ -1,5 +1,5 @@
 import type { SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
-import type { FileDiff, LspStatus, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
+import type { AgentInfo, FileDiff, LspStatus, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 
 export type VsCodeApi = {
   postMessage(message: unknown): void
@@ -24,8 +24,14 @@ export type AppState = {
     diff: FileDiff[]
     permissions: PermissionRequest[]
     questions: QuestionRequest[]
+    agents: AgentInfo[]
+    defaultAgent?: string
     providers: ProviderInfo[]
     providerDefault?: Record<string, string>
+    configuredModel?: {
+      providerID: string
+      modelID: string
+    }
     mcp: Record<string, McpStatus>
     lsp: LspStatus[]
     agentMode: "build" | "plan"
@@ -58,8 +64,11 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
       diff: [],
       permissions: [],
       questions: [],
+      agents: [],
+      defaultAgent: undefined,
       providers: [],
       providerDefault: undefined,
+      configuredModel: undefined,
       mcp: {},
       lsp: [],
       agentMode: "build",
@@ -96,8 +105,11 @@ export function normalizeSnapshotPayload(payload: SessionSnapshot): AppState["sn
     diff: Array.isArray(payload.diff) ? payload.diff : [],
     permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
     questions: Array.isArray(payload.questions) ? payload.questions : [],
+    agents: Array.isArray(payload.agents) ? payload.agents : [],
+    defaultAgent: payload.defaultAgent,
     providers: Array.isArray(payload.providers) ? payload.providers : [],
     providerDefault: payload.providerDefault,
+    configuredModel: payload.configuredModel,
     mcp: recordValue(payload.mcp) as Record<string, McpStatus>,
     lsp: Array.isArray(payload.lsp) ? payload.lsp : [],
     agentMode: payload.agentMode === "plan" ? "plan" : "build",

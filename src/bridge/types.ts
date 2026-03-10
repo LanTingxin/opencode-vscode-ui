@@ -1,4 +1,4 @@
-import type { FileDiff, LspStatus, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
+import type { AgentInfo, FileDiff, LspStatus, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
 
 export const SESSION_PANEL_VIEW_TYPE = "opencode-ui.session"
 
@@ -27,8 +27,14 @@ export type SessionSnapshot = SessionBootstrap & {
   diff: FileDiff[]
   permissions: PermissionRequest[]
   questions: QuestionRequest[]
+  agents: AgentInfo[]
+  defaultAgent?: string
   providers: ProviderInfo[]
   providerDefault?: Record<string, string>
+  configuredModel?: {
+    providerID: string
+    modelID: string
+  }
   mcp: Record<string, McpStatus>
   lsp: LspStatus[]
   relatedSessionIds: string[]
@@ -75,6 +81,11 @@ export type WebviewMessage =
   | {
       type: "submit"
       text: string
+      agent?: string
+      model?: {
+        providerID: string
+        modelID: string
+      }
     }
   | {
       type: "permissionReply"

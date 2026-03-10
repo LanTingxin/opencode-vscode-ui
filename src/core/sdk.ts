@@ -93,6 +93,22 @@ export type ProviderList = {
   default?: Record<string, string>
 }
 
+export type AgentInfo = {
+  name: string
+  mode: "subagent" | "primary" | "all"
+  hidden?: boolean
+  model?: {
+    providerID: string
+    modelID: string
+  }
+  variant?: string
+}
+
+export type ConfigInfo = {
+  model?: string
+  default_agent?: string
+}
+
 export type McpStatus =
   | { status: "connected" }
   | { status: "disabled" }
@@ -334,6 +350,22 @@ export type Client = {
       workspace?: string
     }): Promise<{ data?: LspStatus[] }>
   }
+  config: {
+    get(input?: {
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: ConfigInfo }>
+    providers(input?: {
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: { providers?: ProviderInfo[]; default?: Record<string, string> } }>
+  }
+  app: {
+    agents(input?: {
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: AgentInfo[] }>
+  }
   session: {
     list(input?: {
       directory?: string
@@ -380,6 +412,10 @@ export type Client = {
       directory?: string
       workspace?: string
       messageID?: string
+      model?: {
+        providerID: string
+        modelID: string
+      }
       agent?: string
       noReply?: boolean
       variant?: string

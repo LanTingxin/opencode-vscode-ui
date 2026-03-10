@@ -10,7 +10,7 @@ import { resizeComposer, useComposerResize } from "../hooks/useComposer"
 import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
-import { agentColor, composerIdentity, composerMetrics, formatUsd, isSessionRunning, overallLspStatus, overallMcpStatus, sessionTitle, type StatusItem, type StatusTone } from "../lib/session-meta"
+import { agentColor, composerIdentity, composerMetrics, composerSelection, formatUsd, isSessionRunning, overallLspStatus, overallMcpStatus, sessionTitle, type StatusItem, type StatusTone } from "../lib/session-meta"
 
 declare global {
   interface Window {
@@ -55,13 +55,19 @@ export function App() {
       return
     }
 
-    vscode.postMessage({ type: "submit", text })
+    const selection = composerSelection(state.snapshot)
+    vscode.postMessage({
+      type: "submit",
+      text,
+      agent: selection.agent,
+      model: selection.model,
+    })
     setState((current) => ({
       ...current,
       draft: "",
       error: "",
     }))
-  }, [blocked, state.draft])
+  }, [blocked, state.draft, state.snapshot])
 
   const sendQuestionReply = React.useCallback((request: QuestionRequest) => {
     const answers = request.questions.map((_item, index) => {

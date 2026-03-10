@@ -1,5 +1,5 @@
 import type { SessionBootstrap } from "../../../bridge/types"
-import type { LspStatus, McpStatus, MessageInfo, ProviderInfo, SessionMessage, SessionStatus } from "../../../core/sdk"
+import type { AgentInfo, LspStatus, McpStatus, MessageInfo, ProviderInfo, SessionMessage, SessionStatus } from "../../../core/sdk"
 
 export type StatusTone = "green" | "orange" | "red" | "gray"
 
@@ -80,14 +80,14 @@ export function displayProviderRef(model: MessageInfo["model"] | undefined, prov
 }
 
 export function fallbackModelRef(providers: ProviderInfo[], defaults?: Record<string, string>) {
-  const provider = providers[0]
+  const provider = preferredProvider(providers, defaults)
   if (!provider?.id) {
     return undefined
   }
 
   const modelID = defaults?.[provider.id]?.trim()
   const model = modelID ? providerModelById(provider, modelID) : firstProviderModel(provider)
-  if (!provider?.id || !model?.id) {
+  if (!model?.id) {
     return undefined
   }
 
@@ -117,6 +117,30 @@ export function firstProviderModel(provider: ProviderInfo | undefined) {
     return undefined
   }
   return Object.values(provider.models)[0]
+}
+
+export function preferredProvider(providers: ProviderInfo[], defaults?: Record<string, string>) {
+  if (defaults) {
+    for (const provider of providers) {
+      const modelID = defaults[provider.id]?.trim()
+      if (modelID && providerModelById(provider, modelID)) {
+        return provider
+      }
+    }
+  }
+
+  return providers.find((provider) => !!firstProviderModel(provider))
+}
+
+export function primaryAgent(agents: AgentInfo[], name?: string) {
+  if (name) {
+    const match = agents.find((item) => item.name === name)
+    if (match) {
+      return match
+    }
+  }
+
+  return agents[0]
 }
 
 export function lastAssistantWithOutput(messages: SessionMessage[]) {
@@ -212,15 +236,52 @@ export function agentColor(name: string) {
 
 export function composerIdentity(snapshot: {
   messages: SessionMessage[]
+  agents: AgentInfo[]
+  defaultAgent?: string
   providers: ProviderInfo[]
   providerDefault?: Record<string, string>
+  configuredModel?: {
+    providerID: string
+    modelID: string
+  }
+  agentMode: "build" | "plan"
+}) {
+  const selection = composerSelection(snapshot)
+  const lastUser = lastUserMessage(snapshot.messages)
+  return {
+    agent: lastUser?.info.agent?.trim() || selection.agent || snapshot.agentMode,
+    model: displayModelRef(lastUser?.info.model, snapshot.providers) || displayModelRef(selection.model, snapshot.providers) || "",
+    provider: displayProviderRef(lastUser?.info.model, snapshot.providers) || displayProviderRef(selection.model, snapshot.providers) || "",
+  }
+}
+
+export function composerSelection(snapshot: {
+  messages: SessionMessage[]
+  agents: AgentInfo[]
+  defaultAgent?: string
+  providers: ProviderInfo[]
+  providerDefault?: Record<string, string>
+  configuredModel?: {
+    providerID: string
+    modelID: string
+  }
 }) {
   const lastUser = lastUserMessage(snapshot.messages)
-  const fallback = fallbackModelRef(snapshot.providers, snapshot.providerDefault)
+  if (lastUser?.info.agent?.trim() || lastUser?.info.model) {
+    return {
+      agent: lastUser?.info.agent?.trim() || undefined,
+      model: lastUser?.info.model,
+    }
+  }
+
+  const agent = primaryAgent(snapshot.agents, snapshot.defaultAgent)
+  const model = agent?.model && providerModelById(providerById(snapshot.providers, agent.model.providerID), agent.model.modelID)
+    ? agent.model
+    : undefined
+
   return {
-    agent: lastUser?.info.agent?.trim() || "main",
-    model: displayModelRef(lastUser?.info.model, snapshot.providers) || displayModelRef(fallback, snapshot.providers) || "",
-    provider: displayProviderRef(lastUser?.info.model, snapshot.providers) || displayProviderRef(fallback, snapshot.providers) || "",
+    agent: agent?.name,
+    model: model || (snapshot.agents.length === 0 ? snapshot.configuredModel || fallbackModelRef(snapshot.providers, snapshot.providerDefault) : undefined),
   }
 }
 
