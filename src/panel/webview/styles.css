@@ -1237,7 +1237,7 @@ label.oc-questionOption:hover {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.35;
-  font-size: var(--oc-font-size-sm);
+  font-size: var(--oc-font-size);
 }
 
 .oc-codeWindowLineNo {

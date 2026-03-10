@@ -182,6 +182,8 @@
 - `src/panel/webview/app/timeline.tsx`
 - `src/panel/webview/app/part-views.tsx`
 - `src/panel/webview/app/tool-rows.tsx`
+- `src/panel/webview/app/tool-row-meta.tsx`
+- `src/panel/webview/app/webview-bindings.tsx`
 - `src/panel/webview/tools/types.ts`
 - `src/panel/webview/tools/ToolTextPanel.tsx`
 - `src/panel/webview/tools/ToolLspPanel.tsx`
@@ -197,47 +199,45 @@
 - `src/panel/webview/renderers/OutputWindow.tsx`
 - `src/panel/webview/renderers/FileRefText.tsx`
 - `src/panel/webview/renderers/MarkdownBlock.tsx`
+- `src/panel/webview/lib/part-utils.ts`
+- `src/panel/webview/lib/tool-meta.ts`
+- `src/panel/webview/lib/session-meta.ts`
 - `src/panel/webview/hooks/useHostMessages.ts`
 - `src/panel/webview/hooks/useTimelineScroll.ts`
 - `src/panel/webview/hooks/useComposer.ts`
 - `src/panel/webview/hooks/useModifierState.ts`
 
-当前保留在 `src/panel/webview/app/App.tsx` 的主要大块：
+当前 `src/panel/webview/app/App.tsx` 的保留职责已经收口为：
 
-- `ToolTextPanel`
-- `ToolLspPanel`
-- `ToolShellPanel`
-- `ToolLinksPanel`
-- `ToolFilesPanel`
-- `ToolWritePanel`
-- `ToolEditPanel`
-- `ToolApplyPatchPanel`
-- `ToolTodosPanel`
-- `ToolQuestionPanel`
-- `OutputWindow`
-- `MarkdownBlock`
-- `CodeBlock`
-- `DiffBlock`
-- `FileRefText`
-- 与上述 renderer / tool panel 强绑定的大量 helper
+- 顶层 state 组织与 bootstrap / snapshot 装配
+- host message、scroll、modifier、composer hooks 调用
+- permission / question / retry / session nav / composer 的主布局组装
+- MCP status action 与 composer 状态展示
+
+本轮新增收口：
+
+- 已建立 `src/panel/webview/lib/` 第一轮 helper 收口，新增：`part-utils.ts`、`tool-meta.ts`、`session-meta.ts`
+- `App.tsx` 中一批稳定纯函数已迁出，包括 path / guard / part meta / tool meta / patch summary / session status / composer metrics 相关 helper
+- 已新增 `src/panel/webview/app/tool-row-meta.tsx`，把 tool row / task row 相关的 title、subtitle、summary、extras、task body 等行级 helper 从 `App.tsx` 继续迁出
+- `ToolLspPanel` 的 inline title 生成 helper 已继续就近迁入 `src/panel/webview/tools/ToolLspPanel.tsx`，`App.tsx` 不再保留这块 LSP 特化标题逻辑
+- 已新增 `src/panel/webview/app/webview-bindings.tsx`，把 tool / renderer / timeline 的 message-bound wrapper 与 `FileRefText`、`MarkdownBlock`、navigation 绑定统一搬出 `App.tsx`
+- `composerIdentity`、`composerMetrics` 也已下沉到 `src/panel/webview/lib/session-meta.ts`
 
 当前仍未完成的重点：
 
-- 各类 `Tool*Panel` 已完成两批迁移，但仍通过 `src/panel/webview/app/App.tsx` 做薄包装接线
-- markdown / diff / output / file-ref renderer 已迁入 `src/panel/webview/renderers/`，当前仍通过 `src/panel/webview/app/App.tsx` 做薄包装接线
-- 纯 helper 仍未系统性下沉到 `lib/` 或更细的模块中
+- Phase 1 的 webview 结构拆分目标已完成，下一阶段应切换到 Phase 2 的 `theme.css` 与样式镜像拆分
 
 建议的后续连续执行顺序：
 
-1. 梳理 tools 与 renderers 的共享 helper，决定下沉到 `lib/` 还是继续按目录就近保留
-2. 再次收口 `App.tsx` 中的薄包装与残余 helper
-3. 评估是否将少量稳定纯函数下沉到 `lib/`
+1. 开始 Phase 2：先建立 `src/panel/webview/theme.css`
+2. 抽出现有颜色、语义色、状态色 token，确保其他样式只消费变量
+3. 再按 layout / timeline / tool / dock / markdown / diff / status 做镜像拆分
 
 当前状态判断：
 
 - `src/panel/webview/index.tsx` 的“薄入口”目标已达成
-- `src/panel/webview/app/App.tsx` 已明显缩小职责，但仍未达到最终收口目标
-- Phase 1 目前属于**中段**，已经过了入口拆薄阶段，正在处理 tool panel 与 renderer 聚集区
+- `src/panel/webview/app/App.tsx` 已达到顶层 orchestration 为主的目标
+- Phase 1 现已完成，可进入 Phase 2 的 CSS / theme 拆分
 
 已完成拆分阶段均已重复通过：
 
@@ -430,23 +430,7 @@ src/panel/webview/
 - `patchFiles`
 - `toolDiagnostics`
 
-当前状态：**继续推进中**。`ToolPartView`、`ToolRow`、`TaskToolRow`、`ToolStatus` 已迁出；两批 `Tool*Panel` 已迁入 `src/panel/webview/tools/`，包括 `ToolTextPanel`、`ToolLspPanel`、`ToolLinksPanel`、`ToolFilesPanel`、`ToolWritePanel`、`ToolEditPanel`、`ToolApplyPatchPanel`、`ToolTodosPanel`、`ToolQuestionPanel`；tool helper 与 renderer 仍主要留在 `src/panel/webview/app/App.tsx`。
-
-建议下一批优先拆分：
-
-- `OutputWindow`
-- `CodeBlock`
-- `DiffBlock`
-- `FileRefText`
-- `MarkdownBlock`
-
-第二批建议拆分：
-
-- `toolDetails`
-- `toolTextBody`
-- `toolDiagnostics`
-- `toolFiles`
-- `defaultToolExpanded`
+当前状态：**Phase 1 已完成**。`ToolPartView`、`ToolRow`、`TaskToolRow`、`ToolStatus` 已迁出；两批 `Tool*Panel` 已迁入 `src/panel/webview/tools/`；`toolDetails`、`toolTextBody`、`toolDiagnostics`、`toolFiles`、`defaultToolExpanded` 等稳定 helper 已收拢到 `src/panel/webview/lib/tool-meta.ts`；行级的 `toolRowTitle`、`toolRowSubtitle`、`toolRowSummary`、`toolRowExtras`、`taskBody` 等 helper 已迁入 `src/panel/webview/app/tool-row-meta.tsx`；LSP inline title helper 已就近迁入 `src/panel/webview/tools/ToolLspPanel.tsx`；tool / renderer / timeline 的 message-bound wrapper 已集中到 `src/panel/webview/app/webview-bindings.tsx`，`App.tsx` 现已主要保留顶层 orchestration。
 
 #### E. renderers 层
 
@@ -470,7 +454,7 @@ src/panel/webview/
 - `normalizeFileReference`
 - `syncMarkdownFileRefs`
 
-当前状态：**已完成第一轮**。`MarkdownBlock`、`CodeBlock`、`DiffBlock`、`OutputWindow`、`FileRefText` 已迁入 `src/panel/webview/renderers/`，并保留 `App.tsx` 的薄包装接线以降低迁移风险。
+当前状态：**Phase 1 已完成**。`MarkdownBlock`、`CodeBlock`、`DiffBlock`、`OutputWindow`、`FileRefText` 已迁入 `src/panel/webview/renderers/`；原先留在 `App.tsx` 的薄包装接线已进一步集中到 `src/panel/webview/app/webview-bindings.tsx`，不再占用顶层 `App.tsx`。
 
 当前待迁出的大块：
 
@@ -488,7 +472,7 @@ src/panel/webview/
 - provider / model / tokens / cost 推导
 - question form answer key 组装
 
-当前状态：**未系统开始**。目前只完成了少量按模块就近迁移，尚未统一收口到 `lib/`。
+当前状态：**Phase 1 已完成**。当前已新增 `src/panel/webview/lib/part-utils.ts`、`src/panel/webview/lib/tool-meta.ts`、`src/panel/webview/lib/session-meta.ts`，并完成 path / guard / tool meta / session status / composer metrics 等稳定纯函数的第一轮收口，满足 `App.tsx` 收口所需。
 
 ### 7.5 迁移步骤
 
@@ -503,9 +487,9 @@ src/panel/webview/
 当前执行位置：
 
 - 第 5 步已完成
-- 第 4 步完成了一部分
-- 第 2 步和第 3 步正在持续推进
-- 第 1 步尚未系统性完成
+- 第 4 步已完成
+- 第 2 步和第 3 步已完成
+- 第 1 步已完成第一轮 helper 收口并支撑 Phase 1 收口
 
 更细的当前落点：
 
@@ -518,7 +502,8 @@ src/panel/webview/
 - 第一批 tool panels 拆分已完成
 - 第二批 tool panels 拆分已完成
 - renderers 第一轮拆分已完成
-- helper 向 `lib/` 收拢尚未开始
+- helper 向 `lib/` 收拢已完成第一轮
+- `App.tsx` 顶层收口完成，Phase 2 可以开始
 
 ### 7.6 本阶段验收
 
@@ -900,20 +885,20 @@ bun run test
 
 ### 11.2 index.tsx 细化清单
 
-1. 抽纯 helper 到 `lib/` - 进行中
-2. 抽 markdown / diff / output / file refs 到 `renderers/` - 未开始
+1. 抽纯 helper 到 `lib/` - 已完成并满足 Phase 1 需要
+2. 抽 markdown / diff / output / file refs 到 `renderers/` - 已完成
 3. 抽 permission / question / nav / subagent notice 到 `docks/` - 已完成第一轮
 4. 抽 timeline 组件到 `timeline/` - 已完成第一轮
-5. 抽 tool row 和各 tool panel 到 `tools/` - 部分完成
+5. 抽 tool row 和各 tool panel 到 `tools/` - 已完成两轮并补充 row helper 收口
 6. 抽 host message、scroll、composer、modifier hooks - 已完成
-7. 收口 `App.tsx` - 进行中
+7. 收口 `App.tsx` - 已完成
 8. 保留薄入口 `index.tsx` - 已完成
 
 当前建议接续执行清单：
 
-1. 梳理 tool / renderer 共享 helper，决定下沉到 `lib/` 还是就近模块
-2. 再次收口 `App.tsx`，只保留顶层装配职责
-3. 评估是否开始 Phase 2 的 `theme.css` 与样式镜像拆分
+1. 开始 Phase 2 的 `theme.css` 提取
+2. 抽当前颜色、语义色、状态色为 token，并让其他样式文件只消费变量
+3. 按 layout / timeline / tool / dock / markdown / diff / status 继续做 CSS 镜像拆分
 
 ### 11.3 CSS 细化清单
 
