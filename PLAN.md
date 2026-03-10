@@ -1,605 +1,991 @@
-# opencode-vscode-ui 方案
+# opencode-vscode-ui 重构执行蓝图
 
-面向独立仓库落地的 VS Code 扩展实施计划。
+本计划用于指导当前仓库的**结构性重构**，目标是降低超大文件带来的维护成本，同时**严格保证现有功能、行为和交互不发生任何变化**。
 
----
-
-## 目标
-
-在当前仓库中推进一个独立的 `opencode-vscode-ui` 项目，用 VS Code 原生扩展能力承载 opencode 会话体验。
-
-这个仓库现在不再挂在上游 opencode 仓库内部开发，而是作为单独 git 仓库维护；本地通过根目录下的 `opencode/` 软链接引用上游源码，供方案设计、代码复用和联调时参考。
-
-核心交付仍是 3 个入口：
-
-1. 打开工作区时自动启动对应目录的 opencode server
-2. 在编辑器 tab 中展示会话 UI
-3. 在左侧 Activity Bar 对应的 sidebar 中浏览、创建并打开会话
+本次计划只覆盖当前仓库，不包含 `opencode/` 软链接目录；扫描、设计、实施、验证均应**跳过 `opencode/`**。
 
 ---
 
-## 当前进展
+## 1. 背景
 
-### 已完成
+这个仓库已经持续开发较长时间，当前代码体量增长的主要问题**不是全库平均失控**，而是**高度集中在 panel / webview 主链路**。
 
-- 已完成独立仓库初始化，并把规划迁移到当前仓库根目录
-- 已创建 VS Code 扩展基础工程
-  - `package.json`
-  - `tsconfig.json`
-  - `esbuild.js`
-  - `eslint.config.mjs`
-  - `.vscodeignore`
-  - `.vscode/launch.json`
-- 已实现扩展激活入口与基础命令注册
-- 已实现 `WorkspaceRuntime` 管理器
-- 已实现按 workspace 自动启动和关闭 `opencode serve`
-- 已实现 `/global/health` 健康检查与 output channel 日志输出
-- 已实现基础 TreeDataProvider，可展示 workspace 运行状态
-- 已接入 SDK `session.list`、`session.create` 与 `session.delete`
-- 已实现 host 侧 `SessionStore`
-- 已实现按 workspace 分组展示的 session list sidebar
-- 已修正 session list / create 的目录过滤，避免混入其他项目 session
-- 已支持 sidebar 刷新 workspace sessions、新建 session、删除 session
-- 已调整 sidebar 操作入口：保留 workspace hover 的 `New Session` / `Refresh`，移除顶部 toolbar 与其他非必要按钮
-- 已将主入口从右侧 secondary sidebar 调整为左侧 Activity Bar，更符合实际使用体验
-- 已实现最小可用的 session webview panel、bootstrap bridge 和 panel restore
-- 已支持从 sidebar 打开 session tab，并保证同一 `sessionId + dir` 只复用一个 panel
-- 已支持 session hover inline `Open` 右箭头按钮与 `Delete` 按钮
-- 已支持删除 session 前的二次确认，以及删除后自动关闭已打开 tab
-- 已扩展 host 侧 SDK，接入 `session.get`、`session.messages`、`session.status` 与 `session.promptAsync`
-- 已扩展 panel bridge，支持 `snapshot`、`submit`、`refresh` 与错误反馈
-- 已将 session tab 从占位 shell 升级为最小单会话 UI，支持 timeline 与 composer
-- 已支持在 tab 内发送消息，并通过 host 侧轮询刷新会话状态与消息列表
-- 已新增 host 侧 `EventHub`，按 workspace 订阅 `/event`
-- 已让打开中的 session panel 基于事件做增量同步，覆盖 message、part 与 session status 变化
-- 已扩展 host 侧 SDK，接入 `session.todo`、`permission.list/reply` 与 `question.list/reply/reject`
-- 已让 session tab 支持最小阻塞态：permission、question、todo
-- 已支持在 tab 内响应 permission、回答或拒绝 question，并在未阻塞时展示 todo
-- 已完成依赖安装、lint、typecheck 和 compile 验证
+当前主要热点文件：
 
-### 当前状态
+- `src/panel/webview/index.tsx`：约 4114 行
+- `src/panel/webview/styles.css`：约 2390 行
+- `src/panel/provider.ts`：约 1360 行
+- `PLAN.md`：约 605 行
 
-当前仓库已经具备“可启动、可见、可浏览、可打开 session tab”的前三阶段基础：
-
-- 左侧 Activity Bar 中可看到 `OpenCode` 入口
-- 打开后可在 sidebar 中看到 workspace 节点与对应 session 列表
-- 扩展会尝试在工作区目录中启动 `opencode serve`
-- server ready 后会自动拉取该 workspace 的 session list
-- session list 已按 workspace 目录精确过滤
-- 可在 workspace 节点 hover 时刷新 session 列表并创建新 session
-- 可在 session 节点 hover 时通过右箭头按钮打开 session，通过 `x` 删除 session
-- 删除 session 前会弹出二次确认，删除成功后会自动关闭对应 tab
-- session 已可打开为真实 webview tab，且支持 reveal 与 restore
-- session tab 已具备最小真实会话 UI：可查看 timeline、输入消息并触发发送
-- 已接入 `/event` 增量同步，打开中的 tab 会随消息、part、status 变化实时更新
-- session tab 已支持最小 permission / question / todo 交互，阻塞请求会暂时接管底部区域
-- session tab 的 timeline 已完成一轮面向 upstream TUI 的重构：从 part 平铺改为 turn-based transcript，并补齐了 part 可见性语义、主要 tool renderer、tool 状态交互以及一轮视觉密度收口
-- 当前仍保留少量 host 侧兜底刷新，用于 submit 后和异常情况下的状态校正
-- `OpenCode UI` output channel 仍可通过命令访问，用于查看启动日志和错误
-
-同时，当前 UI 虽然已经完成第一轮结构性重构，但与 upstream OpenCode TUI 仍有剩余差距，主要集中在更细的 tool 细节保真、context tool 分组、timeline 导航类交互，以及继续基于真实使用反馈做针对性收口。
-
-### 下一步
-
-下一阶段不再是从零开始重构 timeline，而是在当前 4A ~ 4E 第一版基础上做第二轮对齐与验证，重点包括：
-
-- 继续提高各类 tool renderer 与 upstream 的细节保真度，尤其是 `bash`、`task`、`edit`、`write`、`apply_patch`
-- 评估并补齐 `read/glob/grep/list` 的 context grouping，而不是仅按单条工具结果展示
-- 根据真实会话使用反馈继续收口 transcript 的默认显隐、折叠和阅读流噪音
-- 评估是否补充轻量 timeline picker / turn jump 等导航能力
-- 在结构稳定后，再决定是否需要把当前部分本地 tool 元数据类型补强，避免 renderer 长期依赖宽松 metadata 解析
-
-当前 4A ~ 4E 的分阶段方案仍保留在下文，作为本轮已完成工作的记录和后续第二轮迭代的基线。
+其中真正需要优先处理的是前三个运行时代码文件；`PLAN.md` 只是文档体量较大，不是运行时风险源。
 
 ---
 
-## 当前仓库约束
+## 2. 重构目标
 
-### 仓库角色
+### 2.1 核心目标
 
-- 当前仓库是独立项目仓库
-- `opencode/` 是本地软链接，不属于本仓库源码
-- `opencode/` 只作为参考实现、依赖来源和联调对象
-- `opencode/` 不应提交到当前仓库的 git 历史中
+1. 降低单文件复杂度
+2. 让 host / bridge / webview 的职责边界更清晰
+3. 保持后续功能迭代仍能沿现有架构平滑推进
+4. 为后续主题定制、renderer 扩展、局部测试补充留出空间
 
-### 目录基线
+### 2.2 最重要约束
+
+本次重构必须满足以下约束：
+
+1. **不改变任何现有功能**
+2. **不改变任何现有交互行为**
+3. **不改变任何现有视觉语义**
+4. **不改变 bridge 协议语义**
+5. **不改变 runtime、session、workspace 的既有职责划分**
+6. **不把重构扩散成全仓库重写**
+
+换言之，本次重构是一次**低风险结构整理**，不是功能升级，也不是架构推翻重来。
+
+---
+
+## 3. 范围
+
+### 3.1 本次纳入范围
+
+- `src/panel/webview/index.tsx`
+- `src/panel/webview/styles.css`
+- `src/panel/provider.ts`
+- 与上述拆分直接相关的局部 import、导出、目录结构调整
+
+### 3.2 本次不纳入范围
+
+- `opencode/` 软链接目录
+- `src/core/` 的大规模重构
+- `src/sidebar/` 的大规模重构
+- `src/bridge/types.ts` 的协议重设计
+- 新功能开发
+- 视觉风格重做
+- upstream UI 的大规模复制
+- 为了“顺手优化”而做的领域命名重写
+
+说明：如果在重构过程中必须对少量类型、工具函数或 import 位置做配套调整，这类调整可以接受，但前提仍然是**行为不变**。
+
+---
+
+## 4. 重构策略
+
+整体采用：**按现有边界做垂直拆分，先搬运，后收敛，最后再清理命名与重复逻辑**。
+
+严禁以下做法：
+
+- 一次性重写整个 webview
+- 一次性改写 provider 的事件流模型
+- 先抽象一层“完美框架”再迁移代码
+- 在拆分同时引入新的 UI 方案或状态管理方案
+- 在 CSS 拆分时顺手改主题表现、间距体系或状态色语义
+
+建议顺序必须是：
+
+1. **搬运拆分**：把现有代码按职责拆开，逻辑尽量原样迁移
+2. **局部去重**：只抽已经稳定、明显重复的 helper
+3. **轻度清理**：在验证稳定后再做命名和文件组织收口
+
+---
+
+## 5. 架构判断
+
+### 5.1 现状判断
+
+当前问题集中在 panel/webview 这条链路：
+
+1. `index.tsx` 同时承担了：
+   - app 根组件
+   - host message 接收
+   - timeline 构建
+   - tool renderer 路由
+   - markdown / diff / code 渲染
+   - permission / question 底部阻塞区
+   - session 状态与 composer 信息推导
+   - 各类格式化与类型保护 helper
+
+2. `styles.css` 同时承担了：
+   - 全局基础样式
+   - 布局
+   - timeline
+   - tool row / panel
+   - output window
+   - diff
+   - markdown
+   - syntax highlight
+   - 状态色与语义色
+
+3. `provider.ts` 同时承担了：
+   - webview panel 生命周期
+   - bootstrap / snapshot 装配
+   - event reduce
+   - message / part mutation
+   - permission / question / MCP action
+   - file open / resolveFileRefs
+   - session navigation 相关逻辑
+
+### 5.2 结论
+
+最佳路径不是“全库一起整理”，而是先集中治理最重的 3 个热点文件，把 panel host 与 panel webview 的职责重新拉开。
+
+---
+
+## 6. 总体实施顺序
+
+优先级如下：
+
+### P0
+
+- `src/panel/webview/index.tsx`
+
+### P1
+
+- `src/panel/webview/styles.css`
+- 其中第一步先抽出 `theme.css`
+
+### P2
+
+- `src/panel/provider.ts`
+
+### P3
+
+- 文档和命名层面的补充收口
+
+说明：CSS 虽然体量巨大，但因为它紧贴 webview 组件结构，实际应在 `index.tsx` 完成第一轮拆分后再做镜像拆分；而 `provider.ts` 需要建立在前两步没有引入行为回归的前提下进行。
+
+---
+
+## 7. Phase 1：拆分 src/panel/webview/index.tsx
+
+### 7.0 当前进展
+
+当前 Phase 1 已经开始执行，并且以下拆分已经完成：
+
+- 薄入口已恢复：`src/panel/webview/index.tsx` 现在只负责挂载 `App` 和加载样式
+- 主实现已迁入：`src/panel/webview/app/App.tsx`
+- 状态归一化已拆出：`src/panel/webview/app/state.ts`
+- 上下文已拆出：`src/panel/webview/app/contexts.ts`
+- hooks 已拆出：`src/panel/webview/hooks/useHostMessages.ts`、`src/panel/webview/hooks/useTimelineScroll.ts`、`src/panel/webview/hooks/useComposer.ts`、`src/panel/webview/hooks/useModifierState.ts`
+- Dock 相关组件已拆出：`src/panel/webview/app/docks.tsx`
+- Timeline 相关组件和 helper 已拆出：`src/panel/webview/app/timeline.tsx`
+- Part / Tool dispatch 已拆出：`src/panel/webview/app/part-views.tsx`
+- Tool row / Task row / Tool spinner 已拆出：`src/panel/webview/app/tool-rows.tsx`
+
+当前新增文件清单：
+
+- `src/panel/webview/app/App.tsx`
+- `src/panel/webview/app/state.ts`
+- `src/panel/webview/app/contexts.ts`
+- `src/panel/webview/app/docks.tsx`
+- `src/panel/webview/app/timeline.tsx`
+- `src/panel/webview/app/part-views.tsx`
+- `src/panel/webview/app/tool-rows.tsx`
+- `src/panel/webview/hooks/useHostMessages.ts`
+- `src/panel/webview/hooks/useTimelineScroll.ts`
+- `src/panel/webview/hooks/useComposer.ts`
+- `src/panel/webview/hooks/useModifierState.ts`
+
+当前保留在 `src/panel/webview/app/App.tsx` 的主要大块：
+
+- `ToolTextPanel`
+- `ToolLspPanel`
+- `ToolShellPanel`
+- `ToolLinksPanel`
+- `ToolFilesPanel`
+- `ToolWritePanel`
+- `ToolEditPanel`
+- `ToolApplyPatchPanel`
+- `ToolTodosPanel`
+- `ToolQuestionPanel`
+- `OutputWindow`
+- `MarkdownBlock`
+- `CodeBlock`
+- `DiffBlock`
+- `FileRefText`
+- 与上述 renderer / tool panel 强绑定的大量 helper
+
+当前仍未完成的重点：
+
+- 各类 `Tool*Panel` 仍主要集中在 `src/panel/webview/app/App.tsx`
+- markdown / diff / output / file-ref renderer 仍主要集中在 `src/panel/webview/app/App.tsx`
+- 纯 helper 仍未系统性下沉到 `lib/` 或更细的模块中
+
+建议的后续连续执行顺序：
+
+1. 继续拆 `Tool*Panel`，优先 `ToolTextPanel`、`ToolLspPanel`、`ToolLinksPanel`、`ToolFilesPanel`
+2. 再拆 `ToolWritePanel`、`ToolEditPanel`、`ToolApplyPatchPanel`、`ToolTodosPanel`、`ToolQuestionPanel`
+3. 再拆 `OutputWindow`、`MarkdownBlock`、`CodeBlock`、`DiffBlock`、`FileRefText`
+4. 最后集中清理 `App.tsx` 中剩余 helper，并视耦合度下沉到 `lib/`
+
+当前状态判断：
+
+- `src/panel/webview/index.tsx` 的“薄入口”目标已达成
+- `src/panel/webview/app/App.tsx` 已明显缩小职责，但仍未达到最终收口目标
+- Phase 1 目前属于**中段**，已经过了入口拆薄阶段，正在处理 tool panel 与 renderer 聚集区
+
+已完成拆分阶段均已重复通过：
+
+- `bun run check-types`
+- `bun run lint`
+- `bun run compile`
+
+### 7.1 目标
+
+把当前 4000+ 行的 webview 入口拆成多个职责单一的模块，但**不改变现有 UI 渲染结果和交互路径**。
+
+### 7.2 拆分原则
+
+1. `App` 只保留应用级状态拼装和主布局
+2. hooks 只负责状态同步、监听、滚动、输入等行为逻辑
+3. timeline 相关组件独立目录
+4. tool renderer 独立目录
+5. markdown / diff / code / path / format helper 独立目录
+6. Dock 区块与时间线区块分离
+7. 保持原有 className 不变，避免 CSS 风险扩大
+
+### 7.3 建议目录
 
 ```txt
-opencode-vscode-ui/
-  PLAN.md
-  AGENTS.md
-  opencode/   -> ../opencode   (local symlink, git ignored)
+src/panel/webview/
+  index.tsx
+  theme.css
+  base.css
+  layout.css
+  timeline.css
+  tool.css
+  dock.css
+  markdown.css
+  diff.css
+  status.css
+  app/
+    App.tsx
+    initial-state.ts
+  hooks/
+    useHostMessages.ts
+    useTimelineScroll.ts
+    useComposer.ts
+    useModifierState.ts
+  timeline/
+    Timeline.tsx
+    TimelineBlockView.tsx
+    PartView.tsx
+    DividerPartView.tsx
+    AssistantTurnMeta.tsx
+  docks/
+    PermissionDock.tsx
+    QuestionDock.tsx
+    SessionNav.tsx
+    SubagentNotice.tsx
+  tools/
+    ToolRow.tsx
+    ToolPartView.tsx
+    TaskToolRow.tsx
+    ToolTextPanel.tsx
+    ToolLspPanel.tsx
+    ToolShellPanel.tsx
+    ToolLinksPanel.tsx
+    ToolFilesPanel.tsx
+    ToolWritePanel.tsx
+    ToolEditPanel.tsx
+    ToolApplyPatchPanel.tsx
+    ToolTodosPanel.tsx
+    ToolQuestionPanel.tsx
+    tool-registry.ts
+  renderers/
+    MarkdownBlock.tsx
+    CodeBlock.tsx
+    DiffBlock.tsx
+    OutputWindow.tsx
+    FileRefText.tsx
+  lib/
+    timeline.ts
+    tools.ts
+    diff.ts
+    markdown.ts
+    paths.ts
+    format.ts
+    guards.ts
+    questions.ts
+    composer.ts
 ```
 
-后续真正开始实现时，建议把扩展源码直接放在当前仓库，例如：
+说明：这是**推荐落点**，不要求一步到位完全长成，但拆分方向应保持一致，避免拆完后仍然回到一个“新的大文件”。
+
+### 7.4 组件与逻辑拆分建议
+
+#### A. App 层
+
+保留在 `App.tsx`：
+
+- 根 state 组织
+- bootstrap + snapshot 的组合
+- 顶层布局
+- `Timeline`、Composer、Dock、Nav 等区块组装
+
+移出 `App.tsx`：
+
+- `window.message` 监听
+- 自动滚动逻辑
+- textarea resize 逻辑
+- modifier key body class 同步
+- 各类格式化 helper
+
+当前状态：
+
+- 顶层布局、bootstrap/snapshot 组合、Dock/Timeline/Composer 组装仍保留在 `App.tsx`
+- host message、滚动、composer resize、modifier key 已移出
+- `App.tsx` 仍承载大部分 tool panel、renderer 与纯 helper，尚未收口完成
+
+#### B. hooks 层
+
+建议拆出：
+
+- `useHostMessages.ts`
+  - 接收 `bootstrap`
+  - 接收 `snapshot`
+  - 接收 `error`
+  - 接收 `fileRefsResolved`
+  - 接收 `mcpActionFinished`
+
+- `useTimelineScroll.ts`
+  - stick-to-bottom
+  - near-bottom threshold
+  - 滚动监听
+  - 新消息后自动贴底
+
+- `useComposer.ts`
+  - draft 管理
+  - auto resize
+  - submit 前置判断
+
+- `useModifierState.ts`
+  - `metaKey / ctrlKey` 状态同步到 `body`
+
+当前状态：**已完成**
+
+#### C. timeline 层
+
+建议承接：
+
+- `Timeline`
+- `TimelineBlockView`
+- `PartView`
+- `DividerPartView`
+- assistant meta 渲染
+- turn 级别组合逻辑
+
+相关 helper 建议从页面组件中抽走：
+
+- `buildTimelineBlocks`
+- `lastPendingAssistantIndex`
+- `primaryUserText`
+- `userAttachments`
+- `visibleAssistantPart`
+- `assistantSummary`
+- `assistantTurnMeta`
+- `lastStepFinish`
+
+当前状态：**第一轮已完成**。`Timeline`、assistant meta、timeline block 构建、queued user block 判定、user attachment 相关 helper、assistant part visibility 相关 helper 已迁入 `src/panel/webview/app/timeline.tsx`。后续仍可继续按 `timeline/` 目录目标细化拆分。
+
+#### D. tools 层
+
+建议把当前大量 tool 逻辑拆成“路由 + 面板”：
+
+- 入口：`ToolPartView` / `tool-registry.ts`
+- 行级摘要：`ToolRow`
+- 特殊任务：`TaskToolRow`
+- 各类 panel：bash / files / write / edit / patch / lsp / todos / question 等
+
+建议抽出的 helper：
+
+- `toolLabel`
+- `defaultToolTitle`
+- `defaultToolSubtitle`
+- `defaultToolArgs`
+- `toolTextBody`
+- `toolRowTitle`
+- `toolRowSubtitle`
+- `toolRowSummary`
+- `toolRowExtras`
+- `taskSummary`
+- `taskBody`
+- `toolWriteContent`
+- `toolEditDiff`
+- `patchFiles`
+- `toolDiagnostics`
+
+当前状态：**部分完成**。`ToolPartView`、`ToolRow`、`TaskToolRow`、`ToolStatus` 已迁出；各类 `Tool*Panel` 以及大量 tool helper 仍待继续拆分。
+
+建议下一批优先拆分：
+
+- `ToolTextPanel`
+- `ToolLspPanel`
+- `ToolLinksPanel`
+- `ToolFilesPanel`
+
+第二批建议拆分：
+
+- `ToolWritePanel`
+- `ToolEditPanel`
+- `ToolApplyPatchPanel`
+- `ToolTodosPanel`
+- `ToolQuestionPanel`
+
+#### E. renderers 层
+
+建议独立：
+
+- markdown 渲染
+- code window 渲染
+- unified / split diff 渲染
+- output window
+- 文件引用渲染
+
+相关 helper 建议集中：
+
+- `renderMarkdownCodeWindow`
+- `highlightCode`
+- `parseUnifiedDiffRows`
+- `parseDiffHunks`
+- `splitDiffRows`
+- `outputWindowBodyHeight`
+- `parseFileReference`
+- `normalizeFileReference`
+- `syncMarkdownFileRefs`
+
+当前状态：**未开始**。该层仍主要留在 `src/panel/webview/app/App.tsx`。
+
+当前待迁出的大块：
+
+- `MarkdownBlock`
+- `CodeBlock`
+- `DiffBlock`
+- `OutputWindow`
+- `FileRefText`
+- markdown code window / diff 解析 / output window 高度计算等 helper
+
+#### F. lib 层
+
+统一收拢无 UI 状态的纯函数：
+
+- path 处理
+- text / number / record guard
+- diff 统计
+- 时间与 duration 格式化
+- provider / model / tokens / cost 推导
+- question form answer key 组装
+
+当前状态：**未系统开始**。目前只完成了少量按模块就近迁移，尚未统一收口到 `lib/`。
+
+### 7.5 迁移步骤
+
+建议按以下顺序迁移：
+
+1. 先抽纯 helper 到 `lib/`
+2. 再抽 render-only 组件到 `renderers/`、`docks/`、`timeline/`
+3. 再抽 tool panel 到 `tools/`
+4. 最后收敛 `App.tsx` 和 hooks
+5. 保留一个很薄的 `index.tsx` 只负责入口挂载
+
+当前执行位置：
+
+- 第 5 步已完成
+- 第 4 步完成了一部分
+- 第 2 步和第 3 步正在持续推进
+- 第 1 步尚未系统性完成
+
+更细的当前落点：
+
+- 入口拆薄完成
+- hooks 拆分完成
+- docks 拆分完成
+- timeline 第一轮拆分完成
+- part/tool dispatch 第一轮拆分完成
+- tool rows 第一轮拆分完成
+- tool panels 拆分尚未开始
+- renderers 拆分尚未开始
+- helper 向 `lib/` 收拢尚未开始
+
+### 7.6 本阶段验收
+
+必须全部满足：
+
+1. 页面视觉结果与当前一致
+2. Timeline 阅读流、折叠行为、active tool 强调、completed tool 弱化保持一致
+3. Composer 行为、排队行为、running indicator、provider/model/agent 显示保持一致
+4. Permission / Question 底部阻塞区行为保持一致
+5. Child session / Parent / Prev / Next 导航保持一致
+6. File ref resolve、open file、MCP action 行为保持一致
+7. 不引入新的状态源和新的交互入口
+
+---
+
+## 8. Phase 2：拆分 src/panel/webview/styles.css
+
+### 8.1 目标
+
+把当前样式按职责拆开，同时建立**单独的主题层**，为后续不同 theme 定制打基础。
+
+### 8.2 主题层要求
+
+必须单独拆出：
+
+- `src/panel/webview/theme.css`
+
+这个文件用于集中保存：
+
+- 颜色 token
+- 背景 / 前景 token
+- border token
+- hover / active token
+- 状态色 token
+- markdown / code / diff 的语义色
+- 需要主题化的阴影、圆角、可选 spacing token
+
+原则：
+
+1. **颜色值优先全部收敛到 `theme.css`**
+2. 其他 CSS 文件尽量只消费 `var(--oc-...)`
+3. `theme.css` 先提供当前默认主题
+4. 后续如需扩展，可在同层继续增加 `theme-dark.css`、`theme-light.css` 或等价方案
+
+### 8.3 建议 CSS 文件拆分
 
 ```txt
-src/
-webview/
-scripts/
-package.json
-tsconfig.json
-esbuild.js
+src/panel/webview/
+  theme.css
+  base.css
+  layout.css
+  timeline.css
+  tool.css
+  dock.css
+  markdown.css
+  diff.css
+  status.css
 ```
 
-不再以 `sdks/opencode-ui/` 作为本仓库内路径前提，因为这里已经是独立仓库。
+### 8.4 各文件职责
+
+#### `theme.css`
+
+负责：
+
+- 主题变量
+- 颜色与语义 token
+- 组件公用视觉变量
+
+禁止：
+
+- 放具体组件结构样式
+- 放大段布局定义
+
+#### `base.css`
+
+负责：
+
+- reset / base typography
+- body / root 基础规则
+- 通用按钮、输入框基础规则
+
+#### `layout.css`
+
+负责：
+
+- page shell
+- 主区域布局
+- timeline / dock / composer 的主栅格和间距
+
+#### `timeline.css`
+
+负责：
+
+- turn block
+- user / assistant lane
+- divider
+- timeline meta
+
+#### `tool.css`
+
+负责：
+
+- tool row
+- tool panel
+- tool 状态表现
+- output window 的非 diff 部分
+
+#### `dock.css`
+
+负责：
+
+- permission dock
+- question dock
+- 底部阻塞区及相关表单
+
+#### `markdown.css`
+
+负责：
+
+- markdown 内容样式
+- inline code
+- code window 中的 markdown 相关规则
+
+#### `diff.css`
+
+负责：
+
+- unified diff
+- split diff
+- diff gutter
+- diff 行状态颜色映射
+
+#### `status.css`
+
+负责：
+
+- badge
+- MCP / LSP / session running / retry 等状态展示
+- popover 的状态色样式
+
+### 8.5 拆分约束
+
+1. 先抽 `theme.css`
+2. 然后按现有 className 镜像拆分，避免边拆边重命名 class
+3. 不在拆分时改变任何 spacing、contrast、hover、badge 语义
+4. 不在拆分时顺手做视觉优化
+5. 不把主题 token 和结构样式重新耦合回去
+
+### 8.6 本阶段验收
+
+必须全部满足：
+
+1. 视觉结果与拆分前一致
+2. 所有颜色、状态色、语义色都有稳定 token 来源
+3. 组件样式文件内不再散落大量硬编码颜色
+4. 后续新增主题时，不需要回头大量修改组件文件
 
 ---
 
-## 排除范围
+## 9. Phase 3：拆分 src/panel/provider.ts
 
-- 第一版只保证 VS Code 可用
-- 不处理 Cursor、Windsurf、VSCodium 兼容
-- 不重做 opencode 服务端业务逻辑
-- 不新增服务端协议
-- 不把上游 `sdks/vscode` 原地升级后直接提交到这里
-- 不优先处理多根工作区之外的复杂远程场景优化
+### 9.1 目标
 
----
+把 panel host 侧逻辑按职责拆分，但不改变现有消息流、快照结构和事件归并结果。
 
-## 设计架构
+### 9.2 当前职责分布问题
 
-建议保持“三层”结构：
+`provider.ts` 当前同时处理：
 
-1. **Extension host 层**
-   - 管 VS Code 生命周期、命令、sidebar、tab、server 进程管理
-2. **Webview UI 层**
-   - 管会话渲染、输入、事件订阅、轻量状态同步
-3. **Opencode server 层**
-   - 复用 `opencode serve` 和 `@opencode-ai/sdk/v2`
+- panel 生命周期
+- webview 消息接收
+- snapshot 拉取
+- bootstrap 构造
+- event reduce
+- message / part 增量更新
+- permission / question 回复
+- MCP connect / disconnect / reconnect
+- open file / resolve file refs
+- related session / navigation 推导
 
-建议目录：
+### 9.3 建议目录
 
 ```txt
-src/
-  extension.ts
-  core/
-    workspace.ts
-    server.ts
-    session.ts
-    tabs.ts
-    commands.ts
-    events.ts
-  sidebar/
-    provider.ts
-    item.ts
-  panel/
-    serializer.ts
-    provider.ts
-    html.ts
-  bridge/
-    host.ts
-    webview.ts
-    types.ts
-  ui/
-    main.tsx
-    app.tsx
-    styles.css
+src/panel/provider/
+  index.ts
+  controller.ts
+  snapshot.ts
+  reducer.ts
+  mutations.ts
+  actions.ts
+  navigation.ts
+  files.ts
+  utils.ts
 ```
 
-`src/core` 负责 VS Code 侧控制面，`src/ui` 负责 webview 前端壳，避免两侧状态和依赖互相污染。
+### 9.4 职责拆分建议
+
+#### `controller.ts`
+
+负责：
+
+- `SessionPanelController`
+- panel 创建 / reveal / dispose
+- `onDidReceiveMessage` 分发
+- ready / refresh / active state 协调
+
+#### `snapshot.ts`
+
+负责：
+
+- `snapshot()` 主流程
+- bootstrap 数据装配
+- runtime 不可用 / loading / error 的各类默认 payload
+- provider / mcp / lsp 等列表归一化
+
+#### `reducer.ts`
+
+负责：
+
+- `reduce(payload, event)`
+- `needsRefresh(event, payload)`
+- patch / summary 相关纯逻辑
+
+#### `mutations.ts`
+
+负责：
+
+- `upsertMessage`
+- `upsertPart`
+- `removePart`
+- `appendDelta`
+- `sortMessages`
+- `sortParts`
+- permission / question 的 upsert / filter / sort
+
+#### `navigation.ts`
+
+负责：
+
+- `collectRelatedSessionIds`
+- `relatedSessionMap`
+- `nav`
+- `ref`
+- `agentMode` 相关推导
+
+#### `actions.ts`
+
+负责：
+
+- `submit`
+- `replyPermission`
+- `replyQuestion`
+- `rejectQuestion`
+- `toggleMcp`
+
+#### `files.ts`
+
+负责：
+
+- `openFile`
+- `resolveFileUri`
+- `resolveFileRefs`
+- `toFileUri`
+
+#### `utils.ts`
+
+负责：
+
+- `panelKey`
+- `panelTitle`
+- `panelIconPath`
+- `wait`
+- `text`
+- `textError`
+- 其他无状态 helper
+
+### 9.5 迁移步骤
+
+建议顺序：
+
+1. 先抽纯函数：`utils.ts`、`mutations.ts`、`navigation.ts`
+2. 再抽 `reducer.ts`
+3. 再抽 `snapshot.ts`
+4. 最后抽 `actions.ts` 与 `files.ts`
+5. `controller.ts` 最后收口，保留最少 orchestration 逻辑
+
+### 9.6 本阶段验收
+
+必须全部满足：
+
+1. Snapshot payload 结构不变
+2. HostMessage / WebviewMessage 语义不变
+3. Event 归并结果不变
+4. submit、permission、question、MCP、openFile、resolveFileRefs 行为不变
+5. panel title、panel restore、active panel 跟踪行为不变
 
 ---
 
-## 和上游 opencode 的关系
+## 10. 验证与回归要求
 
-### 复用原则
+每一阶段都必须单独验证，不能等全部拆完后再一起看结果。
 
-优先复用上游仓库已有能力，但把“可运行产物”和“项目边界”留在当前独立仓库。
+### 10.1 必跑命令
 
-### 直接复用
+在每一个可提交阶段后，优先执行：
 
-1. `opencode/packages/sdk/js`
-   - 作为唯一 server client
-2. `opencode/packages/app`
-   - 复用单会话 UI 思路与可拆分组件
-3. `opencode/packages/ui`
-   - 复用基础 UI 组件
-4. `opencode/packages/opencode`
-   - 复用既有 server 接口与事件模型
-5. `opencode/sdks/vscode`
-   - 参考扩展打包、发布和最小脚手架
-
-### 谨慎复用
-
-- 借鉴 `packages/app` 的 session 页面和全局同步方式
-- 不把完整 web app 原样塞进 webview
-- 先抽“单会话最小闭环”，再补外围能力
-
-### 不建议复用
-
-- 直接照搬上游扩展里的终端驱动逻辑
-- 直接依赖 `/tui/*` 作为主交互接口
-
-新项目应以 `/session/*`、`/message/*`、`/event` 为主。
-
----
-
-## 生命周期规划
-
-### 激活时
-
-扩展在以下时机激活：
-
-- 打开工作区
-- 打开 sidebar view
-- 执行 `opencode-ui.*` 命令
-- 恢复已序列化 tab
-
-激活后先注册 provider、commands、serializer，再按当前 workspace folders 启动 runtime。
-
-### 打开文件夹时
-
-当首次打开文件夹或新增工作区文件夹时：
-
-1. 建立 `WorkspaceRuntime`
-2. 分配随机空闲端口
-3. 在对应工作区目录下执行 `opencode serve --port <port> --hostname 127.0.0.1`
-4. 轮询 `/global/health`
-5. 建立 SDK client
-6. 拉取会话列表并刷新 sidebar
-
-### 打开 tab 时
-
-1. 查找已有 session tab
-2. 若存在则 reveal
-3. 若不存在则新建 webview panel
-4. 通过 bridge 下发 `bootstrap`
-
-### 关闭时
-
-- panel 关闭时只销毁该 tab 的 webview 状态
-- workspace 被移除时终止对应 server
-- extension deactivate 时清理全部子进程和事件流
-
----
-
-## 核心数据模型
-
-### WorkspaceRuntime
-
-```ts
-type WorkspaceRuntime = {
-  dir: string
-  port: number
-  url: string
-  state: "starting" | "ready" | "error" | "stopped"
-  proc?: ChildProcess
-  sdk?: OpencodeClient
-  sessions: Map<string, SessionMeta>
-}
+```bash
+bun run check-types && bun run lint && bun run compile
 ```
 
-### SessionRef
+当前测试命令仍为：
 
-```ts
-type SessionRef = {
-  id: string
-  dir: string
-  title: string
-  status?: string
-  tab?: string
-}
+```bash
+bun run test
 ```
 
-### TabRef
+但当前仓库没有真正测试用例，因此该命令只作为辅助确认，不替代类型、lint 与构建验证。
 
-```ts
-type TabRef = {
-  key: string
-  sessionId: string
-  dir: string
-  panel: vscode.WebviewPanel
-}
-```
+### 10.2 必查项目
 
-约束：
+每个阶段至少要人工确认以下内容：
 
-- 一个 `sessionId + dir` 只允许一个 panel
-- 一个 workspace 对应一个 server runtime
-- sidebar 只展示 session list，不承担 panel 状态
+#### webview 主流程
+
+- 打开 session
+- restore session panel
+- timeline 渲染
+- submit prompt
+- streaming / 增量更新
+- queued user block
+- active tool / completed tool 展示
+
+#### 底部交互
+
+- permission reply
+- question answer / reject
+- todo 展示
+
+#### 导航与子任务
+
+- child session 展示
+- task 与 child session 的关联入口
+- Parent / Prev / Next 按钮
+
+#### 状态与辅助能力
+
+- composer 运行状态
+- provider / model / agent 显示
+- MCP 状态与动作
+- LSP 状态
+- file ref resolve
+- open file
+
+#### 样式一致性
+
+- markdown
+- code block
+- diff block
+- badge
+- popover
+- hover / selected / running / error 语义
+
+### 10.3 回归原则
+
+如果某一阶段引入行为差异，应优先回退该阶段的抽象，而不是继续在错误结构上叠补丁。
 
 ---
 
-## 数据流
+## 11. 迁移执行清单
 
-### 会话列表流
+### 11.1 执行顺序总表
 
-```txt
-opencode server
-  -> SDK session.list / event stream
-  -> Extension host SessionStore
-  -> TreeDataProvider.refresh()
-  -> Sidebar Tree View
-```
+1. 重构 `index.tsx`
+2. 在 CSS 中先抽 `theme.css`
+3. 再拆其他 CSS 文件
+4. 重构 `provider.ts`
+5. 做一次全链路回归验证
 
-### 会话 tab 流
+### 11.2 index.tsx 细化清单
 
-```txt
-Sidebar click
-  -> Extension command openSession
-  -> TabManager / SessionPanelManager
-  -> create or reveal WebviewPanel
-  -> bridge bootstrap payload
-  -> bridge postMessage
-  -> Webview shell render
-```
+1. 抽纯 helper 到 `lib/` - 进行中
+2. 抽 markdown / diff / output / file refs 到 `renderers/` - 未开始
+3. 抽 permission / question / nav / subagent notice 到 `docks/` - 已完成第一轮
+4. 抽 timeline 组件到 `timeline/` - 已完成第一轮
+5. 抽 tool row 和各 tool panel 到 `tools/` - 部分完成
+6. 抽 host message、scroll、composer、modifier hooks - 已完成
+7. 收口 `App.tsx` - 进行中
+8. 保留薄入口 `index.tsx` - 已完成
 
-### 新建会话流
+当前建议接续执行清单：
 
-```txt
-Sidebar click
-  -> Extension command
-  -> SessionStore.create(workspace)
-  -> SDK session.create
-  -> refresh list
-  -> session 出现在 sidebar 中
-```
+1. 从 `App.tsx` 中拆出第一批 `Tool*Panel`
+2. 从 `App.tsx` 中拆出第二批 `Tool*Panel`
+3. 从 `App.tsx` 中拆出 `OutputWindow` 与 markdown / diff / code renderer
+4. 梳理 tool / renderer 共享 helper，决定下沉到 `lib/` 还是就近模块
+5. 再次收口 `App.tsx`，只保留顶层装配职责
 
----
+### 11.3 CSS 细化清单
 
-## 体验决策
+1. 先建立 `theme.css`
+2. 抽所有颜色、语义色、状态色为变量
+3. 确保其他样式文件只消费变量
+4. 再按 layout / timeline / tool / dock / markdown / diff / status 拆分
+5. 做视觉一致性回归
 
-### 启动策略
+### 11.4 provider.ts 细化清单
 
-默认在工作区打开后自动启动 server，不等待用户首次点击。
-
-### tab 标题
-
-建议格式：
-
-```txt
-OpenCode: <session title>
-```
-
-标题缺失时回退到 `OpenCode: <session id 前缀>`。
-
-### 打开行为
-
-- 单击 session 树项执行 `openSession`
-- 回车可继续执行 `openSession`
-- session hover inline 显示右箭头 `Open` 按钮
-
-### 新建入口
-
-- workspace 节点 hover inline `New Session`
-- command palette `OpenCode: New Session`
-
-### 删除入口
-
-- session 节点 hover inline 显示 `Delete` 按钮
-- 删除前弹 modal 二次确认
-- 删除成功后自动关闭对应已打开 tab
-
-### 错误反馈
-
-server 启动失败、health check 超时、SDK 调用失败都通过 `window.showErrorMessage` 提示，并写入 output channel。
+1. 抽 `utils.ts`
+2. 抽 `mutations.ts`
+3. 抽 `navigation.ts`
+4. 抽 `reducer.ts`
+5. 抽 `snapshot.ts`
+6. 抽 `actions.ts`
+7. 抽 `files.ts`
+8. 收口 `controller.ts` 与 `index.ts`
 
 ---
 
-## VS Code API 选择
+## 12. 风险与控制
 
-- `vscode.ExtensionContext`
-- `vscode.commands.registerCommand`
-- `vscode.workspace.workspaceFolders`
-- `vscode.workspace.onDidChangeWorkspaceFolders`
-- `viewsContainers.activitybar`
-- `TreeDataProvider`
-- `TreeItem`
-- `EventEmitter`
-- `vscode.window.createWebviewPanel`
-- `vscode.WebviewPanelSerializer`
-- Node `child_process.spawn`
-- `OutputChannel`
+### 12.1 最大风险
 
-第一阶段优先 `WebviewPanel + serializer`，不急着上 `CustomEditorProvider`。
+#### A. 拆分时顺手改变行为
 
----
+这是本次重构最大的风险。
 
-## 里程碑
+控制方式：
 
-### 里程碑 1：仓库脚手架
+- 迁移时优先复制逻辑，不先改写逻辑
+- 每拆一层都做局部回归
 
-- 在当前独立仓库补齐扩展工程骨架
-- 建立基础构建链
-- 注册 Activity Bar 容器和基础命令
-- 建立 `WorkspaceRuntime` 管理器
-- 能在打开文件夹时启动/关闭 server
+#### B. CSS 拆分时顺手改视觉
 
-验收：打开项目后 output channel 可见健康启动日志。
+控制方式：
 
-当前状态：已完成。
+- className 不变
+- 主题 token 先映射当前颜色，不先追求更漂亮
 
-### 里程碑 2：打通 sidebar
+#### C. provider 抽象过度
 
-- 接入 SDK `session.list`
-- 实现 TreeDataProvider
-- 展示工作区节点和 session 节点
-- 支持刷新和新建 session
+控制方式：
 
-验收：sidebar 能稳定展示会话并创建新会话。
+- 只按现有职责切文件
+- 不引入新的事件模型和状态模型
 
-当前状态：已完成。
+#### D. 边界继续模糊
 
-### 里程碑 3：打通 tab
+控制方式：
 
-- 实现 webview panel
-- 定义 bridge 协议
-- 支持打开 session tab
-- 支持 panel restore
-
-验收：session 可在 tab 内打开、关闭、恢复。
-
-当前状态：已完成，目前 tab 内为最小 webview shell。
-
-### 里程碑 4：接入真实会话 UI
-
-- 从 `opencode/packages/app` 抽出单会话壳
-- 接入 timeline、composer、发送消息
-- 订阅 `/event` 做增量刷新
-
-验收：tab 内可收发消息并实时更新。
-
-当前状态：已完成基础闭环。现已具备最小 timeline/composer、`/event` 增量同步、最小 permission/question/todo 交互，以及 focused-session 的 Todo / Modified Files sidebar views。
-
-更新：里程碑 4 的“能用”目标已达成，并且 timeline presentation layer 已完成一轮专项重构。当前剩余工作不再是基础闭环，而是继续提高与 upstream 的保真度和稳定性。
-
-### 里程碑 4A：重建 timeline 信息架构
-
-目标：把当前按 part 平铺的 session 页面，重构为更接近 upstream 的 turn-based timeline。
-
-- 在 panel webview 中引入 turn 概念，而不是直接逐条输出 `SessionMessage.parts`
-- 明确 user turn 与 assistant turn 的组织关系
-- user message 只取首个可见文本作为主正文，附件 file 挂在该 turn 下方
-- assistant message 不再把所有 part 等权展示，而是先按 upstream 可见性做筛选
-- 预留 turn-level meta 区域，用于承载 model、duration、tokens、cost、finish reason 等元信息
-
-验收：
-
-- timeline 不再呈现“每个 part 一个卡片”的 inspector 风格
-- user / assistant 轮次结构清晰可辨
-- user prompt、assistant answer、attachment、meta 的层级稳定
-
-当前状态：已完成第一版。session timeline 已改为 turn-based transcript，user prompt / assistant lane / attachment / turn meta 的层级已经建立。
-
-### 里程碑 4B：建立 part 可见性与语义映射
-
-目标：对 schema 中存在的所有 part 类型建立明确展示策略，而不是默认全部直出。
-
-- `text`：保留为正文
-- `reasoning`：改为独立 Thinking block，并预留显示/隐藏开关
-- `file`：作为附件条目，而不是独立 section
-- `compaction`：改为 timeline divider
-- `step-finish`：转为 footer/meta 信息来源，而不是正文块
-- `step-start`、`snapshot`：默认不作为主正文显示，必要时仅保留轻量调试入口
-- `patch`：重新定义其与 Modified Files / tool diff 的关系，避免重复信息
-- `agent`、`subtask`、`retry`：明确是主展示、弱提示还是只在特定上下文出现
-
-验收：
-
-- 每种 part 类型都有清晰的展示归属
-- timeline 中不再出现大量无正文价值的空 section 或调试式 block
-- compaction、reasoning、step meta 的语义层级明确
-
-当前状态：已完成第一版。Thinking、Internals、divider/meta、隐藏内部 part、footer meta 等语义映射已接入。
-
-### 里程碑 4C：建立 tool renderer 体系
-
-目标：把 `tool` 从“统一 dump 输出”升级为按工具类别分派的专用 UI。
-
-建议先分三层：
-
-1. 上下文工具
-   - `read`
-   - `glob`
-   - `grep`
-   - `list`
-2. 执行工具
-   - `bash`
-   - `task`
-   - `webfetch`
-   - `websearch`
-   - `codesearch`
-3. 修改工具
-   - `write`
-   - `edit`
-   - `apply_patch`
-   - `todowrite`
-   - `question`
-   - `skill`
-
-具体改造项：
-
-- 建立 `tool -> renderer` 路由层
-- `bash` 展示 command、cwd、output、running/error/completed 状态
-- `read/glob/grep/list` 展示紧凑摘要，不霸占主时间线高度
-- `task` 展示 subagent 摘要并与 child session 导航联动
-- `write/edit/apply_patch` 展示结构化 diff / 写入结果，而不是原始文本 dump
-- `todowrite` 与当前 sidebar Todo 视图语义对齐
-- `question` 明确与底部阻塞问答区的关系，避免重复展示
-- 未命中专用 renderer 的工具，才走 generic fallback
-
-验收：
-
-- timeline 中主要 tool 都有稳定、可读、非调试风格的展示
-- 上下文工具足够紧凑，执行工具具备状态感，修改工具具备 diff 感
-- child task / child session 的关联入口自然可见
-
-当前状态：已完成第一版。主要 tool 已按 row、panel、links、files、todos、question 等形态拆分 renderer，但与 upstream 的细节保真仍可继续提高。
-
-### 里程碑 4D：对齐关键交互行为
-
-目标：不只对齐视觉，还要对齐 upstream TUI 的关键交互路径。
-
-- 为 reasoning block 增加显示策略，而不是永远展开
-- 对 completed tool 引入弱化/折叠策略，减少时间线噪音
-- 对 running / error tool 引入更明确状态视觉
-- 梳理 permission / question / retry 与主 timeline 的关系，避免信息重复和抢焦点
-- 把 task tool、child session 导航、当前已实现的 Parent / Prev / Next 按钮统一到一个连贯交互模型中
-- 评估是否需要类似 upstream timeline picker / turn jump 的轻量版导航
-
-验收：
-
-- timeline 的主阅读流畅度明显提升
-- 用户能区分正文、thinking、tool、阻塞态、子任务态
-- child session 与 task 的关系比当前更直观
-
-当前状态：已完成第一版。已接入 active tool 强调、completed tool 弱化/折叠、task 到 child session 的更直观入口。
-
-### 里程碑 4E：样式与密度收口
-
-目标：在信息架构和交互层稳定后，再进行统一的视觉收口，而不是先做零散像素微调。
-
-- 收口 turn 容器、正文、thinking、tool、divider、footer 的 spacing system
-- 对齐与 upstream 接近的终端式层级感，同时保持 VS Code webview 可读性
-- 校正字体层级、hover、选区、code block、tool block、diff block 的密度
-- 统一深色主题下的对比度、弱文本、错误文本、状态色
-- 避免 sidebar 与 tab 内出现重复但风格不一致的同类信息块
-
-验收：
-
-- timeline 各类块级元素风格一致
-- 相同语义在不同区域的视觉语言统一
-- 样式调整建立在正确的信息架构之上，而不是继续放大结构问题
-
-当前状态：已完成第一版。已对 spacing、contrast、turn hierarchy、footer command area 做过一轮统一收口。
-
-### 里程碑 5：完善体验
-
-- loading、error、empty 状态
-- server 异常恢复
-- tab 标题同步
-- context menu、快捷键、日志面板
-- 基础集成测试
-
-补充说明：里程碑 5 的体验工作现在可以开始逐步推进，但应建立在当前 4A ~ 4E 第一版结构之上，并优先结合真实会话反馈处理残余问题，而不是再次回到无结构的零散样式微调。
-
-验收：多工作区、重启、断流场景可用。
+- UI 纯渲染逻辑、host orchestration、纯函数 helper 必须分开
 
 ---
 
-## 风险
+## 13. 完成标准
 
-### UI 复用过重
+当以下条件全部满足时，本轮重构才算完成：
 
-直接搬 `packages/app` 会导致 webview 体积大、耦合高、落地慢，应优先抽离单会话必需能力。
-
-### 多工作区复杂度
-
-多根工作区会带来多个 server、多个 session 树、多个 tab 命名空间，必须始终保留 `dir` 维度。
-
-### server 生命周期漂移
-
-扩展只信任自己启动并持有 PID 的实例，不模糊复用外部已启动 server。
-
-### 本地软链接依赖
-
-`opencode/` 是本地开发便利手段，不应成为当前仓库提交物或 CI 前提。后续若要共享开发环境，应补正式依赖获取方案。
+1. `src/panel/webview/index.tsx` 不再承载绝大多数业务实现
+2. `src/panel/webview/styles.css` 已拆分，并且存在独立 `theme.css`
+3. `src/panel/provider.ts` 的核心职责已按模块拆开
+4. 所有现有功能和交互保持不变
+5. `bun run check-types && bun run lint && bun run compile` 通过
+6. 没有把改动扩散到 `opencode/`、`src/core/`、`src/sidebar/` 的无关区域
 
 ---
 
-## 建议落点
+## 14. 最终原则
 
-先把 `server + sidebar + open tab` 打通，再接入真实聊天 UI。
+本轮工作的本质是：
 
-只要 `WorkspaceRuntime`、`SessionStore`、`TabRef` 三个核心模型先站稳，后面的功能就能沿着上游 SDK 与 app 能力逐步填充。
+**在不改变用户感知结果的前提下，把已经跑通的 panel / webview 主链路重新整理成可长期维护的结构。**
+
+优先保证：
+
+1. 稳定性
+2. 可读性
+3. 局部可维护性
+4. 后续扩展空间
+
+而不是追求“看起来更高级”的一次性重构。
+
+后续所有相关改动都应以本蓝图为准。
