@@ -171,6 +171,7 @@
 - Timeline 相关组件和 helper 已拆出：`src/panel/webview/app/timeline.tsx`
 - Part / Tool dispatch 已拆出：`src/panel/webview/app/part-views.tsx`
 - Tool row / Task row / Tool spinner 已拆出：`src/panel/webview/app/tool-rows.tsx`
+- 第一批 `Tool*Panel` 已拆出：`src/panel/webview/tools/ToolTextPanel.tsx`、`src/panel/webview/tools/ToolLspPanel.tsx`、`src/panel/webview/tools/ToolLinksPanel.tsx`、`src/panel/webview/tools/ToolFilesPanel.tsx`
 
 当前新增文件清单：
 
@@ -181,6 +182,21 @@
 - `src/panel/webview/app/timeline.tsx`
 - `src/panel/webview/app/part-views.tsx`
 - `src/panel/webview/app/tool-rows.tsx`
+- `src/panel/webview/tools/types.ts`
+- `src/panel/webview/tools/ToolTextPanel.tsx`
+- `src/panel/webview/tools/ToolLspPanel.tsx`
+- `src/panel/webview/tools/ToolLinksPanel.tsx`
+- `src/panel/webview/tools/ToolFilesPanel.tsx`
+- `src/panel/webview/tools/ToolWritePanel.tsx`
+- `src/panel/webview/tools/ToolEditPanel.tsx`
+- `src/panel/webview/tools/ToolApplyPatchPanel.tsx`
+- `src/panel/webview/tools/ToolTodosPanel.tsx`
+- `src/panel/webview/tools/ToolQuestionPanel.tsx`
+- `src/panel/webview/renderers/CodeBlock.tsx`
+- `src/panel/webview/renderers/DiffBlock.tsx`
+- `src/panel/webview/renderers/OutputWindow.tsx`
+- `src/panel/webview/renderers/FileRefText.tsx`
+- `src/panel/webview/renderers/MarkdownBlock.tsx`
 - `src/panel/webview/hooks/useHostMessages.ts`
 - `src/panel/webview/hooks/useTimelineScroll.ts`
 - `src/panel/webview/hooks/useComposer.ts`
@@ -207,16 +223,15 @@
 
 当前仍未完成的重点：
 
-- 各类 `Tool*Panel` 仍主要集中在 `src/panel/webview/app/App.tsx`
-- markdown / diff / output / file-ref renderer 仍主要集中在 `src/panel/webview/app/App.tsx`
+- 各类 `Tool*Panel` 已完成两批迁移，但仍通过 `src/panel/webview/app/App.tsx` 做薄包装接线
+- markdown / diff / output / file-ref renderer 已迁入 `src/panel/webview/renderers/`，当前仍通过 `src/panel/webview/app/App.tsx` 做薄包装接线
 - 纯 helper 仍未系统性下沉到 `lib/` 或更细的模块中
 
 建议的后续连续执行顺序：
 
-1. 继续拆 `Tool*Panel`，优先 `ToolTextPanel`、`ToolLspPanel`、`ToolLinksPanel`、`ToolFilesPanel`
-2. 再拆 `ToolWritePanel`、`ToolEditPanel`、`ToolApplyPatchPanel`、`ToolTodosPanel`、`ToolQuestionPanel`
-3. 再拆 `OutputWindow`、`MarkdownBlock`、`CodeBlock`、`DiffBlock`、`FileRefText`
-4. 最后集中清理 `App.tsx` 中剩余 helper，并视耦合度下沉到 `lib/`
+1. 梳理 tools 与 renderers 的共享 helper，决定下沉到 `lib/` 还是继续按目录就近保留
+2. 再次收口 `App.tsx` 中的薄包装与残余 helper
+3. 评估是否将少量稳定纯函数下沉到 `lib/`
 
 当前状态判断：
 
@@ -415,22 +430,23 @@ src/panel/webview/
 - `patchFiles`
 - `toolDiagnostics`
 
-当前状态：**部分完成**。`ToolPartView`、`ToolRow`、`TaskToolRow`、`ToolStatus` 已迁出；各类 `Tool*Panel` 以及大量 tool helper 仍待继续拆分。
+当前状态：**继续推进中**。`ToolPartView`、`ToolRow`、`TaskToolRow`、`ToolStatus` 已迁出；两批 `Tool*Panel` 已迁入 `src/panel/webview/tools/`，包括 `ToolTextPanel`、`ToolLspPanel`、`ToolLinksPanel`、`ToolFilesPanel`、`ToolWritePanel`、`ToolEditPanel`、`ToolApplyPatchPanel`、`ToolTodosPanel`、`ToolQuestionPanel`；tool helper 与 renderer 仍主要留在 `src/panel/webview/app/App.tsx`。
 
 建议下一批优先拆分：
 
-- `ToolTextPanel`
-- `ToolLspPanel`
-- `ToolLinksPanel`
-- `ToolFilesPanel`
+- `OutputWindow`
+- `CodeBlock`
+- `DiffBlock`
+- `FileRefText`
+- `MarkdownBlock`
 
 第二批建议拆分：
 
-- `ToolWritePanel`
-- `ToolEditPanel`
-- `ToolApplyPatchPanel`
-- `ToolTodosPanel`
-- `ToolQuestionPanel`
+- `toolDetails`
+- `toolTextBody`
+- `toolDiagnostics`
+- `toolFiles`
+- `defaultToolExpanded`
 
 #### E. renderers 层
 
@@ -454,16 +470,12 @@ src/panel/webview/
 - `normalizeFileReference`
 - `syncMarkdownFileRefs`
 
-当前状态：**未开始**。该层仍主要留在 `src/panel/webview/app/App.tsx`。
+当前状态：**已完成第一轮**。`MarkdownBlock`、`CodeBlock`、`DiffBlock`、`OutputWindow`、`FileRefText` 已迁入 `src/panel/webview/renderers/`，并保留 `App.tsx` 的薄包装接线以降低迁移风险。
 
 当前待迁出的大块：
 
-- `MarkdownBlock`
-- `CodeBlock`
-- `DiffBlock`
-- `OutputWindow`
-- `FileRefText`
-- markdown code window / diff 解析 / output window 高度计算等 helper
+- markdown code window / diff 解析 / output window 高度计算等 helper 已随 renderer 一起迁移
+- 后续仍可继续评估哪些 renderer helper 适合进一步下沉到 `lib/`
 
 #### F. lib 层
 
@@ -503,8 +515,9 @@ src/panel/webview/
 - timeline 第一轮拆分完成
 - part/tool dispatch 第一轮拆分完成
 - tool rows 第一轮拆分完成
-- tool panels 拆分尚未开始
-- renderers 拆分尚未开始
+- 第一批 tool panels 拆分已完成
+- 第二批 tool panels 拆分已完成
+- renderers 第一轮拆分已完成
 - helper 向 `lib/` 收拢尚未开始
 
 ### 7.6 本阶段验收
@@ -898,11 +911,9 @@ bun run test
 
 当前建议接续执行清单：
 
-1. 从 `App.tsx` 中拆出第一批 `Tool*Panel`
-2. 从 `App.tsx` 中拆出第二批 `Tool*Panel`
-3. 从 `App.tsx` 中拆出 `OutputWindow` 与 markdown / diff / code renderer
-4. 梳理 tool / renderer 共享 helper，决定下沉到 `lib/` 还是就近模块
-5. 再次收口 `App.tsx`，只保留顶层装配职责
+1. 梳理 tool / renderer 共享 helper，决定下沉到 `lib/` 还是就近模块
+2. 再次收口 `App.tsx`，只保留顶层装配职责
+3. 评估是否开始 Phase 2 的 `theme.css` 与样式镜像拆分
 
 ### 11.3 CSS 细化清单
 

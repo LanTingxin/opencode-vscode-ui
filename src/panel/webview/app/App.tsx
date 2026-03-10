@@ -1,6 +1,4 @@
 import React from "react"
-import hljs from "highlight.js"
-import MarkdownIt from "markdown-it"
 import type { SessionBootstrap } from "../../../bridge/types"
 import type { LspStatus, McpStatus, MessageInfo, MessagePart, ProviderInfo, QuestionInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, useChildMessages, useChildSessions, useWorkspaceDir, WorkspaceDirContext } from "./contexts"
@@ -13,6 +11,21 @@ import { resizeComposer, useComposerResize } from "../hooks/useComposer"
 import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
+import { CodeBlock as BaseCodeBlock } from "../renderers/CodeBlock"
+import { DiffBlock as BaseDiffBlock, DiffWindowBody as BaseDiffWindowBody, diffOutputLineCount } from "../renderers/DiffBlock"
+import { FileRefText as BaseFileRefText } from "../renderers/FileRefText"
+import { MarkdownBlock as BaseMarkdownBlock } from "../renderers/MarkdownBlock"
+import { OutputWindow as BaseOutputWindow, normalizedLineCount } from "../renderers/OutputWindow"
+import { ToolFilesPanel as BaseToolFilesPanel } from "../tools/ToolFilesPanel"
+import { ToolLinksPanel as BaseToolLinksPanel } from "../tools/ToolLinksPanel"
+import { ToolLspPanel as BaseToolLspPanel } from "../tools/ToolLspPanel"
+import { ToolApplyPatchPanel as BaseToolApplyPatchPanel } from "../tools/ToolApplyPatchPanel"
+import { ToolEditPanel as BaseToolEditPanel } from "../tools/ToolEditPanel"
+import { ToolQuestionPanel as BaseToolQuestionPanel } from "../tools/ToolQuestionPanel"
+import { ToolTextPanel as BaseToolTextPanel } from "../tools/ToolTextPanel"
+import { ToolTodosPanel as BaseToolTodosPanel } from "../tools/ToolTodosPanel"
+import { ToolWritePanel as BaseToolWritePanel } from "../tools/ToolWritePanel"
+import type { ToolDetails, ToolFileSummary } from "../tools/types"
 
 declare global {
   interface Window {
@@ -25,35 +38,6 @@ declare function acquireVsCodeApi(): VsCodeApi
 const vscode = acquireVsCodeApi()
 const initialRef = window.__OPENCODE_INITIAL_STATE__ ?? null
 const fileRefStatus = new Map<string, boolean>()
-const markdown = new MarkdownIt({
-  breaks: true,
-  linkify: true,
-  highlight(value: string, language: string) {
-    return renderMarkdownCodeWindow(value, language)
-  },
-})
-
-const linkDefault = markdown.renderer.rules.link_open
-const copyTipTimers = new WeakMap<HTMLButtonElement, number>()
-
-markdown.renderer.rules.link_open = (...args: Parameters<NonNullable<typeof linkDefault>>) => {
-  const [tokens, idx, options, env, self] = args
-  tokens[idx]?.attrSet("target", "_blank")
-  tokens[idx]?.attrSet("rel", "noreferrer noopener")
-  return linkDefault ? linkDefault(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options)
-}
-
-const codeInlineDefault = markdown.renderer.rules.code_inline
-markdown.renderer.rules.code_inline = (...args: Parameters<NonNullable<typeof codeInlineDefault>>) => {
-  const [tokens, idx, options, env, self] = args
-  tokens[idx]?.attrSet("class", "oc-inlineCode")
-  return codeInlineDefault ? codeInlineDefault(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options)
-}
-
-markdown.renderer.rules.hr = (tokens, idx) => {
-  const value = tokens[idx]?.markup || "---"
-  return `<p>${markdown.utils.escapeHtml(value)}</p>`
-}
 
 if (initialRef) {
   vscode.setState(initialRef)
@@ -393,23 +377,6 @@ function isSessionRunning(status?: SessionStatus) {
   return status?.type === "busy" || status?.type === "retry"
 }
 
-type ToolDetails = {
-  title: string
-  subtitle: string
-  args: string[]
-}
-
-const OUTPUT_WINDOW_COLLAPSED_LINES = 10
-const OUTPUT_WINDOW_EXPANDED_LINES = 100
-const OUTPUT_WINDOW_FONT_SIZE_PX = 12
-const OUTPUT_WINDOW_LINE_HEIGHT = 1.65
-const OUTPUT_WINDOW_VERTICAL_PADDING_PX = 24
-
-type ToolFileSummary = {
-  path: string
-  summary: string
-}
-
 function PartView({ part, active = false, diffMode = "unified" }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) {
   return <BasePartView DividerPartView={DividerPartView} MarkdownBlock={MarkdownBlock} ToolPartView={ToolPartView} diffMode={diffMode} part={part} active={active} cleanReasoning={cleanReasoning} fileLabel={fileLabel} isDividerPart={isDividerPart} partMeta={partMeta} partTitle={partTitle} renderPartBody={renderPartBody} />
 }
@@ -441,70 +408,11 @@ function TaskToolRow({ part, active = false }: { part: Extract<MessagePart, { ty
 }
 
 function ToolTextPanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  const details = toolDetails(part)
-  const body = toolTextBody(part)
-  const [expanded, setExpanded] = React.useState(() => defaultToolExpanded(part, active, !!body))
-  const status = part.state?.status || "pending"
-
-  React.useEffect(() => {
-    if (status === "running" || status === "pending" || status === "error" || active) {
-      setExpanded(true)
-    }
-  }, [active, status])
-
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel oc-toolPanel-${part.tool}${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <button type="button" className="oc-toolTrigger" onClick={() => setExpanded((current: boolean) => !current)}>
-        <div className="oc-partHeader">
-          <div className="oc-toolHeaderMain">
-            <span className="oc-kicker">{toolLabel(part.tool)}</span>
-            <span className="oc-toolPanelTitle">{details.title}</span>
-          </div>
-          <div className="oc-toolHeaderMeta">
-            {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-            <ToolStatus state={part.state?.status} />
-          </div>
-        </div>
-      </button>
-      {expanded && details.args.length > 0 ? (
-        <div className="oc-attachmentRow">
-          {details.args.map((item) => <span key={item} className="oc-pill oc-pill-file">{item}</span>)}
-        </div>
-      ) : null}
-      {expanded ? <ToolFallbackText part={part} body={body} /> : null}
-    </section>
-  )
+  return <BaseToolTextPanel ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} part={part} toolDetails={toolDetails} toolLabel={toolLabel} toolTextBody={toolTextBody} />
 }
 
 function ToolLspPanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  const details = toolDetails(part)
-  const workspaceDir = useWorkspaceDir()
-  const body = toolTextBody(part)
-  const diagnostics = toolDiagnostics(part)
-  const status = part.state?.status || "pending"
-  const hasErrorBody = !diagnostics.length && !!body.trim() && body.trim() !== "No diagnostics found"
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel oc-toolPanel-lsp${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <div className="oc-partHeader">
-        <div className="oc-toolHeaderMain">
-          <span className="oc-kicker">{toolLabel(part.tool)}</span>
-          <span className="oc-toolPanelTitle">{renderLspToolTitle(part, workspaceDir) || details.title}</span>
-        </div>
-        <div className="oc-toolHeaderMeta">
-          {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-          <ToolStatus state={part.state?.status} />
-        </div>
-      </div>
-      {details.args.length > 0 ? (
-        <div className="oc-attachmentRow">
-          {details.args.map((item) => <span key={item} className="oc-pill oc-pill-file">{item}</span>)}
-        </div>
-      ) : null}
-      {diagnostics.length > 0
-        ? <DiagnosticsList items={diagnostics} tone="error" />
-        : hasErrorBody ? <pre className="oc-errorBlock">{body}</pre> : body ? <pre className="oc-partTerminal">{body}</pre> : null}
-    </section>
-  )
+  return <BaseToolLspPanel DiagnosticsList={DiagnosticsList} ToolStatus={ToolStatus} active={active} part={part} renderLspToolTitle={renderLspToolTitle} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolLabel={toolLabel} toolTextBody={toolTextBody} />
 }
 
 function ToolShellPanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
@@ -525,203 +433,23 @@ function ToolShellPanel({ part, active = false }: { part: Extract<MessagePart, {
 }
 
 function ToolLinksPanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  const details = toolDetails(part)
-  const links = uniqueStrings(extractUrls(part.state?.output || ""))
-  const status = part.state?.status || "pending"
-  const [expanded, setExpanded] = React.useState(() => defaultToolExpanded(part, active, links.length > 0))
-
-  React.useEffect(() => {
-    if (status === "running" || status === "pending" || status === "error" || active) {
-      setExpanded(true)
-    }
-  }, [active, status])
-
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <button type="button" className="oc-toolTrigger" onClick={() => setExpanded((current: boolean) => !current)}>
-        <div className="oc-partHeader">
-          <div className="oc-toolHeaderMain">
-            <span className="oc-kicker">{toolLabel(part.tool)}</span>
-            <span className="oc-toolPanelTitle">{details.title}</span>
-          </div>
-          <div className="oc-toolHeaderMeta">
-            {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-            <ToolStatus state={part.state?.status} />
-          </div>
-        </div>
-      </button>
-      {expanded && links.length > 0 ? (
-        <div className="oc-linkList">
-          {links.map((item) => <a key={item} className="oc-linkItem" href={item}>{item}</a>)}
-        </div>
-      ) : null}
-    </section>
-  )
+  return <BaseToolLinksPanel ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} extractUrls={extractUrls} part={part} toolDetails={toolDetails} toolLabel={toolLabel} uniqueStrings={uniqueStrings} />
 }
 
 function ToolFilesPanel({ part, active = false, diffMode = "unified" }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean; diffMode?: "unified" | "split" }) {
-  if (part.tool === "write") {
-    return <ToolWritePanel part={part} active={active} />
-  }
-
-  if (part.tool === "edit") {
-    return <ToolEditPanel part={part} active={active} diffMode={diffMode} />
-  }
-
-  if (part.tool === "apply_patch") {
-    return <ToolApplyPatchPanel part={part} active={active} diffMode={diffMode} />
-  }
-
-  const details = toolDetails(part)
-  const files = toolFiles(part)
-  const status = part.state?.status || "pending"
-  const [expanded, setExpanded] = React.useState(() => defaultToolExpanded(part, active, files.length > 0 || !!toolTextBody(part)))
-
-  React.useEffect(() => {
-    if (status === "running" || status === "pending" || status === "error" || active) {
-      setExpanded(true)
-    }
-  }, [active, status])
-
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel oc-toolPanel-files${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <button type="button" className="oc-toolTrigger" onClick={() => setExpanded((current: boolean) => !current)}>
-        <div className="oc-partHeader">
-          <div className="oc-toolHeaderMain">
-            <span className="oc-kicker">{toolLabel(part.tool)}</span>
-            <span className="oc-toolPanelTitle">{details.title}</span>
-          </div>
-          <div className="oc-toolHeaderMeta">
-            {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-            <ToolStatus state={part.state?.status} />
-          </div>
-        </div>
-      </button>
-      {expanded && files.length > 0 ? (
-        <div className="oc-fileToolList">
-          {files.map((item) => (
-            <div key={`${item.path}:${item.summary}`} className="oc-fileToolItem">
-              <div className="oc-fileToolPath">{item.path}</div>
-              {item.summary ? <div className="oc-fileToolSummary">{item.summary}</div> : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {expanded && files.length === 0 ? <ToolFallbackText part={part} body={toolTextBody(part)} /> : null}
-    </section>
-  )
+  return <BaseToolFilesPanel ToolApplyPatchPanel={ToolApplyPatchPanel} ToolEditPanel={ToolEditPanel} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} ToolWritePanel={ToolWritePanel} active={active} defaultToolExpanded={defaultToolExpanded} diffMode={diffMode} part={part} toolDetails={toolDetails} toolFiles={toolFiles} toolLabel={toolLabel} toolTextBody={toolTextBody} />
 }
 
 function ToolWritePanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  const details = toolDetails(part)
-  const status = part.state?.status || "pending"
-  const content = toolWriteContent(part)
-  const [expanded, setExpanded] = React.useState(() => defaultToolExpanded(part, active, !!content))
-
-  React.useEffect(() => {
-    if (status === "running" || status === "pending" || status === "error" || active) {
-      setExpanded(true)
-    }
-  }, [active, status])
-
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel oc-toolPanel-files${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <button type="button" className="oc-toolTrigger" onClick={() => setExpanded((current: boolean) => !current)}>
-        <div className="oc-partHeader">
-          <div className="oc-toolHeaderMain">
-            <span className="oc-kicker">{toolLabel(part.tool)}</span>
-            <span className="oc-toolPanelTitle">{details.title}</span>
-          </div>
-          <div className="oc-toolHeaderMeta">
-            {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-            <ToolStatus state={part.state?.status} />
-          </div>
-        </div>
-      </button>
-      {expanded && content ? <CodeBlock value={content} filePath={details.title} /> : null}
-      {expanded && !content ? <ToolFallbackText part={part} body={toolTextBody(part)} /> : null}
-      {expanded && toolDiagnostics(part).length > 0 ? <DiagnosticsList items={toolDiagnostics(part)} /> : null}
-    </section>
-  )
+  return <BaseToolWritePanel CodeBlock={CodeBlock} DiagnosticsList={DiagnosticsList} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} part={part} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolLabel={toolLabel} toolTextBody={toolTextBody} toolWriteContent={toolWriteContent} />
 }
 
 function ToolEditPanel({ part, active = false, diffMode = "unified" }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean; diffMode?: "unified" | "split" }) {
-  const details = toolDetails(part)
-  const status = part.state?.status || "pending"
-  const diff = toolEditDiff(part)
-  const [expanded, setExpanded] = React.useState(() => defaultToolExpanded(part, active, !!diff || !!toolTextBody(part)))
-
-  React.useEffect(() => {
-    if (status === "running" || status === "pending" || status === "error" || active) {
-      setExpanded(true)
-    }
-  }, [active, status])
-
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel oc-toolPanel-files${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <button type="button" className="oc-toolTrigger" onClick={() => setExpanded((current: boolean) => !current)}>
-        <div className="oc-partHeader">
-          <div className="oc-toolHeaderMain">
-            <span className="oc-kicker">{toolLabel(part.tool)}</span>
-            <span className="oc-toolPanelTitle">{details.title}</span>
-          </div>
-          <div className="oc-toolHeaderMeta">
-            {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-            <ToolStatus state={part.state?.status} />
-          </div>
-        </div>
-      </button>
-      {expanded && diff ? <DiffBlock value={diff} mode={diffMode} /> : null}
-      {expanded && !diff ? <ToolFallbackText part={part} body={toolTextBody(part)} /> : null}
-      {expanded && toolDiagnostics(part).length > 0 ? <DiagnosticsList items={toolDiagnostics(part)} /> : null}
-    </section>
-  )
+  return <BaseToolEditPanel DiagnosticsList={DiagnosticsList} DiffBlock={DiffBlock} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} diffMode={diffMode} part={part} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolEditDiff={toolEditDiff} toolLabel={toolLabel} toolTextBody={toolTextBody} />
 }
 
 function ToolApplyPatchPanel({ part, active = false, diffMode = "unified" }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean; diffMode?: "unified" | "split" }) {
-  const status = part.state?.status || "pending"
-  const files = patchFiles(part)
-  const details = toolDetails(part)
-
-  return (
-    <section className={`oc-patchPanel${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      {files.length === 0 ? (
-        <section className={`oc-part oc-part-tool oc-toolPanel${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-          <div className="oc-partHeader">
-            <div className="oc-toolHeaderMain">
-              <span className="oc-kicker">{toolLabel(part.tool)}</span>
-              <span className="oc-toolPanelTitle">{details.title}</span>
-            </div>
-            <div className="oc-toolHeaderMeta">
-              {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-              <ToolStatus state={part.state?.status} />
-            </div>
-          </div>
-          <ToolFallbackText part={part} body={toolTextBody(part)} />
-        </section>
-      ) : null}
-      {files.length > 0 ? (
-        <div className="oc-patchList">
-          {files.map((item) => (
-            <section key={`${item.path}:${item.type}:${item.summary}`} className="oc-patchItem">
-              <OutputWindow
-                action={item.type}
-                title={<FileRefText value={item.path} display={item.path} />}
-                running={status === "running"}
-                lineCount={item.diff ? diffOutputLineCount(item.diff, diffMode) : normalizedLineCount(item.summary)}
-                className="oc-outputWindow-patch"
-              >
-                {item.diff
-                  ? <DiffWindowBody value={item.diff} mode={diffMode} filePath={item.path} />
-                  : <pre className="oc-outputWindowContent oc-outputWindowContent-shell">{item.summary || " "}</pre>}
-              </OutputWindow>
-            </section>
-          ))}
-        </div>
-      ) : null}
-      {toolDiagnostics(part).length > 0 ? <DiagnosticsList items={toolDiagnostics(part)} /> : null}
-    </section>
-  )
+  return <BaseToolApplyPatchPanel DiagnosticsList={DiagnosticsList} DiffWindowBody={DiffWindowBody} FileRefText={FileRefText} OutputWindow={OutputWindow} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} diffMode={diffMode} diffOutputLineCount={diffOutputLineCount} normalizedLineCount={normalizedLineCount} part={part} patchFiles={patchFiles} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolLabel={toolLabel} toolTextBody={toolTextBody} />
 }
 
 function ToolFallbackText({ part, body }: { part: Extract<MessagePart, { type: "tool" }>; body: string }) {
@@ -735,66 +463,15 @@ function ToolFallbackText({ part, body }: { part: Extract<MessagePart, { type: "
 }
 
 function CodeBlock({ value, filePath }: { value: string; filePath?: string }) {
-  const html = React.useMemo(() => highlightCode(value, codeLanguage(filePath)), [filePath, value])
-  return <pre className="oc-codeBlock"><code dangerouslySetInnerHTML={{ __html: html }} /></pre>
+  return <BaseCodeBlock value={value} filePath={filePath} />
 }
 
 function DiffBlock({ value, mode = "unified" }: { value: string; mode?: "unified" | "split" }) {
-  return <DiffBlockImpl value={value} mode={mode} />
+  return <BaseDiffBlock value={value} mode={mode} />
 }
 
 function DiffWindowBody({ value, mode = "unified", filePath }: { value: string; mode?: "unified" | "split"; filePath?: string }) {
-  return <DiffBlockImpl value={value} mode={mode} windowed filePath={filePath} />
-}
-
-function DiffBlockImpl({ value, mode, windowed = false, filePath }: { value: string; mode: "unified" | "split"; windowed?: boolean; filePath?: string }) {
-  if (mode === "split") {
-    return <SplitDiffBlock value={value} windowed={windowed} filePath={filePath} />
-  }
-  const rows = React.useMemo(() => parseUnifiedDiffRows(value), [value])
-  const language = React.useMemo(() => codeLanguage(filePath), [filePath])
-  return (
-    <div className={`oc-diffBlock${windowed ? " is-window" : ""}`}>
-      {rows.map((row, index) => (
-        <div key={`${index}:${row.oldLine ?? ""}:${row.newLine ?? ""}:${row.marker}:${row.text}`} className={diffRowClass(row.type)}>
-          <span className="oc-diffLineNo">{formatDiffLineNumber(row.oldLine)}</span>
-          <span className="oc-diffLineNo">{formatDiffLineNumber(row.newLine)}</span>
-          <span className="oc-diffLineMarker">{row.marker}</span>
-          <DiffCodeText text={row.text} language={language} />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function SplitDiffBlock({ value, windowed = false, filePath }: { value: string; windowed?: boolean; filePath?: string }) {
-  const rows = React.useMemo(() => splitDiffRows(value), [value])
-  const language = React.useMemo(() => codeLanguage(filePath), [filePath])
-  return (
-    <div className={`oc-splitDiff${windowed ? " is-window" : ""}`}>
-      <div className="oc-splitDiffBody">
-        {rows.map((row, index) => (
-          <React.Fragment key={`${index}:${row.left}:${row.right}`}>
-            <div className={splitDiffClass(row.leftType)}>
-              <span className="oc-diffLineNo">{formatDiffLineNumber(row.leftLine)}</span>
-              <span className="oc-diffLineMarker">{row.leftMarker}</span>
-              <DiffCodeText text={row.left} language={language} />
-            </div>
-            <div className={splitDiffClass(row.rightType)}>
-              <span className="oc-diffLineNo">{formatDiffLineNumber(row.rightLine)}</span>
-              <span className="oc-diffLineMarker">{row.rightMarker}</span>
-              <DiffCodeText text={row.right} language={language} />
-            </div>
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function DiffCodeText({ text, language }: { text: string; language: string }) {
-  const html = React.useMemo(() => highlightCode(text || " ", language), [language, text])
-  return <span className="oc-diffLineText hljs" dangerouslySetInnerHTML={{ __html: html }} />
+  return <BaseDiffWindowBody value={value} mode={mode} filePath={filePath} />
 }
 
 function DiagnosticsList({ items, tone = "warning" }: { items: string[]; tone?: "warning" | "error" }) {
@@ -806,50 +483,11 @@ function DiagnosticsList({ items, tone = "warning" }: { items: string[]; tone?: 
 }
 
 function ToolTodosPanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  const details = toolDetails(part)
-  const todos = toolTodos(part)
-  const status = part.state?.status || "pending"
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel oc-toolPanel-todos${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <div className="oc-partHeader">
-        <div className="oc-toolHeaderMain">
-          <span className="oc-kicker">to-dos</span>
-          <span className="oc-toolPanelTitle">{details.title}</span>
-        </div>
-        <div className="oc-toolHeaderMeta">
-          {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-            <ToolStatus state={part.state?.status} />
-          </div>
-        </div>
-      {todos.length > 0 ? (
-        <div className="oc-toolTodoList">
-          {todos.map((item) => <div key={`${item.status}:${item.content}`} className={`oc-toolTodoItem is-${item.status}`}>{todoMarker(item.status)} {item.content}</div>)}
-        </div>
-      ) : status === "running" || status === "pending" ? <div className="oc-partEmpty">Updating todos...</div> : null}
-    </section>
-  )
+  return <BaseToolTodosPanel ToolStatus={ToolStatus} active={active} part={part} todoMarker={todoMarker} toolDetails={toolDetails} toolTodos={toolTodos} />
 }
 
 function ToolQuestionPanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  const details = toolDetails(part)
-  const answers = questionAnswerGroups(part.state?.metadata?.answers)
-  const questions = questionInfoList(part.state?.input)
-  const status = part.state?.status || "pending"
-  return (
-    <section className={`oc-part oc-part-tool oc-toolPanel${active ? " is-active" : ""}${status === "completed" ? " is-completed" : ""}`}>
-      <div className="oc-partHeader">
-        <div className="oc-toolHeaderMain">
-          <span className="oc-kicker">questions</span>
-          <span className="oc-toolPanelTitle">{details.title}</span>
-        </div>
-        <div className="oc-toolHeaderMeta">
-          {details.subtitle ? <span className="oc-partMeta">{details.subtitle}</span> : null}
-            <ToolStatus state={part.state?.status} />
-          </div>
-        </div>
-      {questions.length > 0 ? <QuestionBlock request={{ id: part.id, questions }} mode="answered" answers={answers} /> : answers.flat().length > 0 ? <div className="oc-toolAnswerList">{answers.flat().map((item) => <div key={item} className="oc-toolAnswerItem">{item}</div>)}</div> : null}
-    </section>
-  )
+  return <BaseToolQuestionPanel QuestionBlock={QuestionBlock} ToolStatus={ToolStatus} active={active} part={part} questionAnswerGroups={questionAnswerGroups} questionInfoList={questionInfoList} toolDetails={toolDetails} />
 }
 
 function DividerPartView({ part }: { part: MessagePart }) {
@@ -911,90 +549,7 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 }
 
 function MarkdownBlock({ content, className = "" }: { content: string; className?: string }) {
-  const html = React.useMemo(() => markdown.render(content || ""), [content])
-  const rootRef = React.useRef<HTMLDivElement | null>(null)
-
-  React.useEffect(() => {
-    const root = rootRef.current
-    if (!root) {
-      return
-    }
-
-    const sync = () => syncMarkdownFileRefs(root)
-    sync()
-    window.addEventListener("oc-file-refs-updated", sync)
-    return () => window.removeEventListener("oc-file-refs-updated", sync)
-  }, [html])
-
-  return (
-    <div
-      ref={rootRef}
-      className={`oc-markdown${className ? ` ${className}` : ""}`}
-      dangerouslySetInnerHTML={{ __html: html }}
-      onClick={(event) => {
-        const target = event.target
-        if (!(target instanceof Element)) {
-          return
-        }
-
-        const link = target.closest("a")
-        if (link instanceof HTMLAnchorElement) {
-          const fileRef = parseFileReference(link.getAttribute("href") || "")
-          if (fileRef && fileRefStatus.get(fileRef.key) !== false) {
-            event.preventDefault()
-            event.stopPropagation()
-            vscode.postMessage({
-              type: "openFile",
-              filePath: fileRef.filePath,
-              line: fileRef.line,
-            })
-          }
-          return
-        }
-
-        const inlineCode = target.closest(".oc-inlineCode")
-        if (inlineCode instanceof HTMLElement) {
-          if (!event.metaKey && !event.ctrlKey) {
-            return
-          }
-          const fileRef = parseFileReference(inlineCode.textContent || "")
-          if (!fileRef || !fileRefStatus.get(fileRef.key)) {
-            return
-          }
-          event.preventDefault()
-          event.stopPropagation()
-          vscode.postMessage({
-            type: "openFile",
-            filePath: fileRef.filePath,
-            line: fileRef.line,
-          })
-          return
-        }
-
-        const button = target.closest("[data-copy-code]")
-        if (!(button instanceof HTMLButtonElement)) {
-          return
-        }
-        const value = button.getAttribute("data-copy-code") || ""
-        if (!value) {
-          return
-        }
-        event.preventDefault()
-        event.stopPropagation()
-        button.blur()
-        const timer = copyTipTimers.get(button)
-        if (timer) {
-          window.clearTimeout(timer)
-        }
-        button.setAttribute("data-copied", "true")
-        copyTipTimers.set(button, window.setTimeout(() => {
-          button.removeAttribute("data-copied")
-          copyTipTimers.delete(button)
-        }, 1200))
-        void copyText(value)
-      }}
-    />
-  )
+  return <BaseMarkdownBlock fileRefStatus={fileRefStatus} onOpenFile={(filePath, line) => vscode.postMessage({ type: "openFile", filePath, line })} onResolveFileRefs={(refs) => vscode.postMessage({ type: "resolveFileRefs", refs })} content={content} className={className} />
 }
 
 function sessionTitle(bootstrap: SessionBootstrap) {
@@ -1446,299 +1001,10 @@ function childDuration(messages: SessionMessage[]) {
   return end - start
 }
 
-function OutputWindow({
-  action,
-  title,
-  running = false,
-  lineCount,
-  className = "",
-  children,
-}: {
-  action: string
-  title: React.ReactNode
-  running?: boolean
-  lineCount: number
-  className?: string
-  children: React.ReactNode
-}) {
-  const [expanded, setExpanded] = React.useState(false)
-  const [contentHeight, setContentHeight] = React.useState(0)
-  const toggleRef = React.useRef<HTMLButtonElement | null>(null)
-  const scrollAdjustRef = React.useRef<{ scrollNode: HTMLElement; top: number } | null>(null)
-  const contentRef = React.useRef<HTMLDivElement | null>(null)
-  const collapsedHeight = React.useMemo(() => outputWindowBodyHeight(OUTPUT_WINDOW_COLLAPSED_LINES), [])
-  const expandedHeight = React.useMemo(() => outputWindowBodyHeight(OUTPUT_WINDOW_EXPANDED_LINES), [])
-  const collapsible = contentHeight > collapsedHeight + 1
-  const scrollable = contentHeight > expandedHeight + 1
-
-  React.useLayoutEffect(() => {
-    const node = contentRef.current
-    if (!node) {
-      return
-    }
-
-    const measure = () => {
-      const next = Math.ceil(node.scrollHeight)
-      setContentHeight((current) => current === next ? current : next)
-    }
-
-    measure()
-
-    const Observer = window.ResizeObserver
-    if (!Observer) {
-      return
-    }
-
-    const observer = new Observer(() => measure())
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [children, expanded])
-
-  const bodyStyle = React.useMemo<React.CSSProperties>(() => {
-    if (!collapsible) {
-      return {}
-    }
-    if (!expanded) {
-      return { maxHeight: `${collapsedHeight}px` }
-    }
-    if (scrollable) {
-      return { maxHeight: `${expandedHeight}px` }
-    }
-    return {}
-  }, [collapsedHeight, collapsible, expanded, expandedHeight, scrollable])
-
-  React.useEffect(() => {
-    if (!collapsible && expanded) {
-      setExpanded(false)
-    }
-  }, [collapsible, expanded])
-
-  React.useLayoutEffect(() => {
-    const pending = scrollAdjustRef.current
-    const toggleNode = toggleRef.current
-    if (!pending || !toggleNode) {
-      return
-    }
-    const nextTop = toggleNode.getBoundingClientRect().top
-    pending.scrollNode.scrollTop += nextTop - pending.top
-    scrollAdjustRef.current = null
-  }, [expanded])
-
-  const bodyClassName = [
-    "oc-outputWindowBody",
-    collapsible ? "is-collapsible" : "",
-    collapsible && expanded ? "is-expanded" : "",
-    collapsible && !expanded ? "is-collapsed" : "",
-    collapsible && expanded && scrollable ? "is-scrollable" : "",
-  ].filter(Boolean).join(" ")
-
-  return (
-    <section className={["oc-outputWindow", className].filter(Boolean).join(" ")}>
-      <div className="oc-outputWindowHead">
-        <div className="oc-outputWindowTitleRow">
-          <span className="oc-outputWindowAction">{action}</span>
-          <span className="oc-outputWindowTitle">{title}</span>
-        </div>
-        <span className="oc-outputWindowSpinnerSlot">{running ? <ToolStatus state="running" /> : null}</span>
-      </div>
-      <div className={bodyClassName} style={bodyStyle}>
-        <div ref={contentRef} className="oc-outputWindowBodyInner">{children}</div>
-      </div>
-      {collapsible ? (
-        <button
-          ref={toggleRef}
-          type="button"
-          className="oc-outputWindowToggle"
-          aria-expanded={expanded}
-          aria-label={expanded ? "Collapse output" : "Expand output"}
-          onClick={(event) => {
-            const toggleNode = event.currentTarget
-            if (expanded) {
-              const scrollNode = toggleNode.closest(".oc-transcript")
-              if (scrollNode instanceof HTMLElement) {
-                scrollAdjustRef.current = {
-                  scrollNode,
-                  top: toggleNode.getBoundingClientRect().top,
-                }
-              } else {
-                scrollAdjustRef.current = null
-              }
-            } else {
-              scrollAdjustRef.current = null
-            }
-            setExpanded((current) => !current)
-          }}
-        >
-          <svg className="oc-outputWindowToggleIcon" viewBox="0 0 16 16" aria-hidden="true">
-            {expanded
-              ? <path d="M4 10l4-4 4 4" />
-              : <path d="M4 6l4 4 4-4" />}
-          </svg>
-          <span className="oc-outputWindowToggleMeta">{formatLineCount(lineCount)}</span>
-        </button>
-      ) : null}
-    </section>
-  )
+function OutputWindow({ action, title, running = false, lineCount, className = "", children }: { action: string; title: React.ReactNode; running?: boolean; lineCount: number; className?: string; children: React.ReactNode }) {
+  return <BaseOutputWindow ToolStatus={ToolStatus} action={action} title={title} running={running} lineCount={lineCount} className={className}>{children}</BaseOutputWindow>
 }
 
-function splitDiffRows(value: string) {
-  const rows: Array<{
-    left: string
-    right: string
-    leftType: string
-    rightType: string
-    leftLine?: number
-    rightLine?: number
-    leftMarker: string
-    rightMarker: string
-  }> = []
-  const hunks = parseDiffHunks(value)
-  for (const hunk of hunks) {
-    let oldLine = hunk.oldStart
-    let newLine = hunk.newStart
-    for (let index = 0; index < hunk.lines.length; index += 1) {
-      const line = hunk.lines[index] || ""
-      if (line.startsWith("-")) {
-        const next = hunk.lines[index + 1] || ""
-        if (next.startsWith("+")) {
-          rows.push({
-            left: line.slice(1),
-            right: next.slice(1),
-            leftType: "del",
-            rightType: "add",
-            leftLine: oldLine,
-            rightLine: newLine,
-            leftMarker: "-",
-            rightMarker: "+",
-          })
-          oldLine += 1
-          newLine += 1
-          index += 1
-          continue
-        }
-        rows.push({ left: line.slice(1), right: "", leftType: "del", rightType: "empty", leftLine: oldLine, leftMarker: "-", rightMarker: "" })
-        oldLine += 1
-        continue
-      }
-      if (line.startsWith("+")) {
-        rows.push({ left: "", right: line.slice(1), leftType: "empty", rightType: "add", rightLine: newLine, leftMarker: "", rightMarker: "+" })
-        newLine += 1
-        continue
-      }
-      const text = line.startsWith(" ") ? line.slice(1) : line
-      rows.push({
-        left: text,
-        right: text,
-        leftType: "ctx",
-        rightType: "ctx",
-        leftLine: oldLine,
-        rightLine: newLine,
-        leftMarker: " ",
-        rightMarker: " ",
-      })
-      oldLine += 1
-      newLine += 1
-    }
-  }
-  return rows
-}
-
-function normalizedLineCount(value: string) {
-  if (!value) {
-    return 0
-  }
-  return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").length
-}
-
-function diffOutputLineCount(value: string, mode: "unified" | "split") {
-  if (mode === "split") {
-    return splitDiffRows(value).length
-  }
-  return parseUnifiedDiffRows(value).length
-}
-
-function outputWindowBodyHeight(lines: number) {
-  const lineHeightPx = OUTPUT_WINDOW_FONT_SIZE_PX * OUTPUT_WINDOW_LINE_HEIGHT
-  return Math.round(lines * lineHeightPx + OUTPUT_WINDOW_VERTICAL_PADDING_PX)
-}
-
-function splitDiffClass(type: string) {
-  if (type === "add") return "oc-splitDiffLine is-add"
-  if (type === "del") return "oc-splitDiffLine is-del"
-  if (type === "empty") return "oc-splitDiffLine is-empty"
-  return "oc-splitDiffLine"
-}
-
-function diffRowClass(type: string) {
-  if (type === "add") return "oc-diffLine is-add"
-  if (type === "del") return "oc-diffLine is-del"
-  return "oc-diffLine"
-}
-
-function parseUnifiedDiffRows(value: string) {
-  const rows: Array<{ type: string; text: string; oldLine?: number; newLine?: number; marker: string }> = []
-  const hunks = parseDiffHunks(value)
-  for (const hunk of hunks) {
-    let oldLine = hunk.oldStart
-    let newLine = hunk.newStart
-    for (const line of hunk.lines) {
-      if (line.startsWith("-")) {
-        rows.push({ type: "del", text: line.slice(1), oldLine, marker: "-" })
-        oldLine += 1
-        continue
-      }
-      if (line.startsWith("+")) {
-        rows.push({ type: "add", text: line.slice(1), newLine, marker: "+" })
-        newLine += 1
-        continue
-      }
-      const text = line.startsWith(" ") ? line.slice(1) : line
-      rows.push({ type: "ctx", text, oldLine, newLine, marker: " " })
-      oldLine += 1
-      newLine += 1
-    }
-  }
-  return rows
-}
-
-function parseDiffHunks(value: string) {
-  const lines = value.split("\n")
-  const hunks: Array<{ oldStart: number; newStart: number; lines: string[] }> = []
-  let current: { oldStart: number; newStart: number; lines: string[] } | null = null
-  for (const rawLine of lines) {
-    const line = rawLine || ""
-    if (line.startsWith("@@")) {
-      const header = parseHunkHeader(line)
-      current = { oldStart: header.oldStart, newStart: header.newStart, lines: [] }
-      hunks.push(current)
-      continue
-    }
-    if (!current) {
-      continue
-    }
-    if (line.startsWith("\\ No newline at end of file")) {
-      continue
-    }
-    current.lines.push(line)
-  }
-  return hunks
-}
-
-function parseHunkHeader(line: string) {
-  const match = /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/.exec(line)
-  return {
-    oldStart: match ? Number.parseInt(match[1] || "0", 10) : 0,
-    newStart: match ? Number.parseInt(match[3] || "0", 10) : 0,
-  }
-}
-
-function formatDiffLineNumber(value?: number) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? String(value) : ""
-}
-
-function formatLineCount(value: number) {
-  return `${value} ${value === 1 ? "line" : "lines"}`
-}
 
 function AgentBadge({ name }: { name: string }) {
   return (
@@ -1988,273 +1254,8 @@ function formatDiagnostic(item: Record<string, unknown>) {
   return [head, message].filter(Boolean).join(" · ")
 }
 
-function codeLanguage(filePath?: string) {
-  const value = stringValue(filePath)
-  const normalized = value.toLowerCase()
-  if (normalized.endsWith(".ts")) return "typescript"
-  if (normalized.endsWith(".tsx")) return "tsx"
-  if (normalized.endsWith(".js")) return "javascript"
-  if (normalized.endsWith(".jsx")) return "jsx"
-  if (normalized.endsWith(".json")) return "json"
-  if (normalized.endsWith(".css")) return "css"
-  if (normalized.endsWith(".html")) return "html"
-  if (normalized.endsWith(".md")) return "markdown"
-  if (normalized.endsWith(".sh")) return "bash"
-  if (normalized.endsWith(".yml") || normalized.endsWith(".yaml")) return "yaml"
-  return ""
-}
-
-function highlightCode(value: string, language: string) {
-  if (language && hljs.getLanguage(language)) {
-    return hljs.highlight(value, { language }).value
-  }
-  return hljs.highlightAuto(value).value
-}
-
-function renderMarkdownCodeWindow(value: string, language: string) {
-  const lang = normalizeCodeLanguage(language)
-  const title = lang ? capitalize(lang) : "Code"
-  const lines = codeWindowRows(value, lang)
-  const gutter = codeWindowGutter(value)
-  return [
-    '<section class="oc-outputWindow oc-outputWindow-markdownCode">',
-    '<div class="oc-outputWindowHead">',
-    '<div class="oc-outputWindowTitleRow">',
-    '<span class="oc-outputWindowAction">Code</span>',
-    `<span class="oc-outputWindowTitle">${escapeHtml(title)}</span>`,
-    '</div>',
-    '<button type="button" class="oc-outputWindowCopyBtn" aria-label="Copy code"',
-    ` data-copy-code="${escapeAttribute(value)}">`,
-    '<svg class="oc-outputWindowCopyIcon" viewBox="0 0 16 16" aria-hidden="true">',
-    '<rect x="5" y="3" width="8" height="10" rx="1.5" />',
-    '<path d="M3.5 10.5V5.5c0-.828.672-1.5 1.5-1.5h5" />',
-    '</svg>',
-    '<span class="oc-outputWindowCopyTip">Copied!</span>',
-    '</button>',
-    '</div>',
-    '<div class="oc-outputWindowBody">',
-    '<div class="oc-outputWindowBodyInner">',
-    `<pre class="oc-codeWindowBody" style="--oc-codeWindow-gutter:${gutter}"><code class="oc-codeWindowText">`,
-    lines,
-    '</code></pre>',
-    '</div>',
-    '</div>',
-    '</section>',
-  ].join("")
-}
-
-function codeWindowRows(value: string, language: string) {
-  const rows = normalizedLines(value)
-  return rows.map((line, index) => {
-    const html = highlightCode(line, language)
-    return [
-      '<span class="oc-codeWindowLine">',
-      `<span class="oc-codeWindowLineNo">${index + 1}</span>`,
-      `<span class="oc-codeWindowLineText hljs${language ? ` language-${escapeAttribute(language)}` : ""}">${html || " "}</span>`,
-      '</span>',
-    ].join("")
-  }).join("")
-}
-
-function normalizeCodeLanguage(value: string) {
-  const lang = value.trim().toLowerCase().split(/\s+/)[0] || ""
-  if (!lang) {
-    return ""
-  }
-  if (hljs.getLanguage(lang)) {
-    return lang
-  }
-  if (lang === "ts") return "typescript"
-  if (lang === "js") return "javascript"
-  if (lang === "md") return "markdown"
-  if (lang === "sh" || lang === "shell") return "bash"
-  if (lang === "yml") return "yaml"
-  return ""
-}
-
-function copyText(value: string) {
-  const clipboard = window.navigator?.clipboard
-  if (clipboard?.writeText) {
-    return clipboard.writeText(value)
-  }
-  const input = document.createElement("textarea")
-  input.value = value
-  input.setAttribute("readonly", "true")
-  input.style.position = "absolute"
-  input.style.left = "-9999px"
-  document.body.appendChild(input)
-  input.select()
-  document.execCommand("copy")
-  document.body.removeChild(input)
-  return Promise.resolve()
-}
-
-function normalizedLines(value: string) {
-  return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
-}
-
-function codeWindowGutter(value: string) {
-  return `calc(${Math.max(String(normalizedLines(value).length).length, 2)}ch + 12px)`
-}
-
-function parseFileReference(value: string) {
-  const input = value.trim()
-  if (!input || isExternalTarget(input)) {
-    return undefined
-  }
-
-  const lineMatch = input.match(/:(\d+)$/)
-  const filePath = lineMatch ? input.slice(0, -lineMatch[0].length) : input
-  const normalized = normalizeFileReference(filePath)
-  if (!normalized || !looksLikeFilePath(normalized)) {
-    return undefined
-  }
-
-  return {
-    key: fileRefKey(normalized),
-    filePath: normalized,
-    line: lineMatch ? Number.parseInt(lineMatch[1] || "", 10) : undefined,
-  }
-}
-
-function FileRefText({
-  value,
-  display,
-  tone = "default",
-}: {
-  value: string
-  display?: string
-  tone?: "default" | "muted"
-}) {
-  const fileRef = React.useMemo(() => parseFileReference(value), [value])
-  const [exists, setExists] = React.useState(() => fileRef ? fileRefStatus.get(fileRef.key) === true : false)
-
-  React.useEffect(() => {
-    if (!fileRef) {
-      setExists(false)
-      return
-    }
-
-    setExists(fileRefStatus.get(fileRef.key) === true)
-    if (!fileRefStatus.has(fileRef.key)) {
-      vscode.postMessage({
-        type: "resolveFileRefs",
-        refs: [{ key: fileRef.key, filePath: fileRef.filePath }],
-      })
-    }
-
-    const sync = () => {
-      setExists(fileRefStatus.get(fileRef.key) === true)
-    }
-
-    window.addEventListener("oc-file-refs-updated", sync)
-    return () => window.removeEventListener("oc-file-refs-updated", sync)
-  }, [fileRef])
-
-  if (!fileRef) {
-    return <>{display || value}</>
-  }
-
-  return (
-    <span
-      className={[
-        "oc-fileRefText",
-        exists ? "is-openable" : "",
-        tone === "muted" ? "is-muted" : "",
-      ].filter(Boolean).join(" ")}
-      onClick={(event) => {
-        if (!exists || (!event.metaKey && !event.ctrlKey)) {
-          return
-        }
-        event.preventDefault()
-        event.stopPropagation()
-        vscode.postMessage({
-          type: "openFile",
-          filePath: fileRef.filePath,
-          line: fileRef.line,
-        })
-      }}
-    >
-      {display || value}
-    </span>
-  )
-}
-
-function fileRefKey(value: string) {
-  return value.startsWith("file://") ? value : value.replace(/\\/g, "/")
-}
-
-function normalizeFileReference(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return ""
-  }
-  if (trimmed.startsWith("file://")) {
-    return trimmed
-  }
-  return trimmed.replace(/^['"]+|['"]+$/g, "")
-}
-
-function looksLikeFilePath(value: string) {
-  return value.startsWith("file://")
-    || /^[A-Za-z]:[\\/]/.test(value)
-    || /^\.{1,2}[\\/]/.test(value)
-    || value.startsWith("/")
-    || value.includes("/")
-    || value.includes("\\")
-    || /^[^\s\\/]+\.[^\s\\/]+$/.test(value)
-}
-
-function isExternalTarget(value: string) {
-  return /^[a-z][a-z0-9+.-]*:/i.test(value) && !value.startsWith("file://")
-}
-
-function syncMarkdownFileRefs(root: HTMLElement) {
-  const refs = new Map<string, string>()
-
-  for (const link of Array.from(root.querySelectorAll("a"))) {
-    const fileRef = parseFileReference(link.getAttribute("href") || "")
-    if (!fileRef) {
-      link.removeAttribute("data-file-ref")
-      continue
-    }
-    link.setAttribute("data-file-ref", fileRef.key)
-    refs.set(fileRef.key, fileRef.filePath)
-  }
-
-  for (const inlineCode of Array.from(root.querySelectorAll(".oc-inlineCode"))) {
-    if (!(inlineCode instanceof HTMLElement)) {
-      continue
-    }
-    const fileRef = parseFileReference(inlineCode.textContent || "")
-    if (!fileRef) {
-      inlineCode.removeAttribute("data-file-ref")
-      inlineCode.classList.remove("oc-inlineCode-file")
-      continue
-    }
-    inlineCode.setAttribute("data-file-ref", fileRef.key)
-    inlineCode.classList.toggle("oc-inlineCode-file", !!fileRefStatus.get(fileRef.key))
-    refs.set(fileRef.key, fileRef.filePath)
-  }
-
-  const unresolved = [...refs.entries()]
-    .filter(([key]) => !fileRefStatus.has(key))
-    .map(([key, filePath]) => ({ key, filePath }))
-
-  if (unresolved.length > 0) {
-    vscode.postMessage({
-      type: "resolveFileRefs",
-      refs: unresolved,
-    })
-  }
-}
-
-function escapeAttribute(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
+function FileRefText({ value, display, tone = "default" }: { value: string; display?: string; tone?: "default" | "muted" }) {
+  return <BaseFileRefText fileRefStatus={fileRefStatus} onOpenFile={(filePath, line) => vscode.postMessage({ type: "openFile", filePath, line })} onResolveFileRefs={(refs) => vscode.postMessage({ type: "resolveFileRefs", refs })} value={value} display={display} tone={tone} />
 }
 
 function toolTodos(part: Extract<MessagePart, { type: "tool" }>) {
@@ -2692,13 +1693,4 @@ function retryText(value: unknown) {
   }
 
   return "Retry requested."
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;")
 }
