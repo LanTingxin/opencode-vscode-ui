@@ -77,6 +77,17 @@
   white-space: nowrap;
 }
 
+.oc-composerPill::selection {
+  background: transparent;
+  color: inherit;
+}
+
+.oc-composerPill.is-selected {
+  background: var(--vscode-editor-selectionBackground);
+  border-color: color-mix(in srgb, var(--vscode-editor-selectionBackground) 72%, var(--oc-border-strong) 28%);
+  color: var(--vscode-editor-selectionForeground, var(--oc-fg-primary));
+}
+
 .oc-composerPill.is-agent {
   border-color: color-mix(in srgb, var(--oc-accent) 42%, var(--oc-border-strong) 58%);
 }

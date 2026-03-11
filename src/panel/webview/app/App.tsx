@@ -15,7 +15,7 @@ import { formatComposerFileContent, parseComposerFileQuery } from "../lib/compos
 import { agentColor, composerIdentity, composerMetrics, composerSelection, formatUsd, isSessionRunning, overallLspStatus, overallMcpStatus, sessionTitle, type StatusItem, type StatusTone } from "../lib/session-meta"
 import { buildComposerSubmitParts, composerAgentOverride } from "./composer-mentions"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
-import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition } from "./composer-editor-dom"
+import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
 
 declare global {
@@ -212,7 +212,21 @@ export function App() {
     }
     resizeComposer(input)
     ensureComposerCursorVisible(input)
+    syncComposerPillSelection(input)
   }, [state.composerParts])
+
+  React.useEffect(() => {
+    const syncSelection = () => {
+      const input = composerRef.current
+      if (!input) {
+        return
+      }
+      syncComposerPillSelection(input)
+    }
+
+    document.addEventListener("selectionchange", syncSelection)
+    return () => document.removeEventListener("selectionchange", syncSelection)
+  }, [])
 
   const submit = React.useCallback(() => {
     if (!state.draft.trim() || blocked) {

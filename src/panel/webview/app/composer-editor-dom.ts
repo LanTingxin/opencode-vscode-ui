@@ -244,6 +244,25 @@ export function setCursorPosition(root: HTMLElement, position: number) {
   selection?.addRange(range)
 }
 
+export function syncComposerPillSelection(root: HTMLElement) {
+  const pills = Array.from(root.querySelectorAll<HTMLElement>(".oc-composerPill"))
+  if (pills.length === 0) {
+    return
+  }
+
+  const selection = window.getSelection()
+  const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  const active = !!range
+    && !!selection
+    && !selection.isCollapsed
+    && root.contains(range.startContainer)
+    && root.contains(range.endContainer)
+
+  for (const pill of pills) {
+    pill.classList.toggle("is-selected", !!active && range.intersectsNode(pill))
+  }
+}
+
 function createPill(part: Extract<ComposerEditorPart, { type: "agent" | "file" | "resource" }>) {
   const pill = document.createElement("span")
   pill.className = `oc-composerPill is-${part.type}`
