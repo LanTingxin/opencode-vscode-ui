@@ -17,6 +17,17 @@ export function useHostMessages({
   setState: React.Dispatch<React.SetStateAction<AppState>>
   vscode: VsCodeApi
 }) {
+  const fileSearchHandlerRef = React.useRef(onFileSearchResults)
+  const restoreComposerHandlerRef = React.useRef(onRestoreComposer)
+
+  React.useEffect(() => {
+    fileSearchHandlerRef.current = onFileSearchResults
+  }, [onFileSearchResults])
+
+  React.useEffect(() => {
+    restoreComposerHandlerRef.current = onRestoreComposer
+  }, [onRestoreComposer])
+
   React.useEffect(() => {
     const handler = (event: MessageEvent<HostMessage>) => {
       const message = event.data
@@ -49,12 +60,12 @@ export function useHostMessages({
       }
 
       if (message?.type === "fileSearchResults") {
-        onFileSearchResults(message)
+        fileSearchHandlerRef.current(message)
         return
       }
 
       if (message?.type === "restoreComposer") {
-        onRestoreComposer(message)
+        restoreComposerHandlerRef.current(message)
         return
       }
 
@@ -73,5 +84,5 @@ export function useHostMessages({
     window.addEventListener("message", handler)
     vscode.postMessage({ type: "ready" })
     return () => window.removeEventListener("message", handler)
-  }, [fileRefStatus, onFileSearchResults, onRestoreComposer, setPendingMcpActions, setState, vscode])
+  }, [fileRefStatus, setPendingMcpActions, setState, vscode])
 }
