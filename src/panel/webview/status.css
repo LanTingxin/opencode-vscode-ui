@@ -31,11 +31,40 @@
   min-height: 0;
 }
 
+.oc-composerLeaderOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--vscode-focusBorder, var(--oc-accent)) 18%, transparent 82%);
+  background: color-mix(in srgb, var(--vscode-editorWidget-background, var(--oc-surface-control)) 72%, transparent 28%);
+  backdrop-filter: blur(6px) saturate(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent 92%);
+  pointer-events: auto;
+  transition: opacity 140ms ease, backdrop-filter 140ms ease;
+}
+
+.oc-composerLeaderOverlayText {
+  color: color-mix(in srgb, var(--vscode-foreground, var(--oc-fg-primary)) 88%, var(--oc-accent) 12%);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .oc-composerBody {
   position: relative;
   border: 1px solid var(--oc-border-strong);
   background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
   padding-bottom: calc(10px + (1.65em * 2));
+}
+
+.oc-composer.is-leaderPending .oc-composerBody {
+  border-color: color-mix(in srgb, var(--vscode-focusBorder, var(--oc-accent)) 26%, var(--oc-border-strong) 74%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder, var(--oc-accent)) 8%, transparent 92%);
 }
 
 .oc-composerDropOverlay {
@@ -229,6 +258,8 @@
 }
 
 .oc-composerInfoSpacer {
+  display: flex;
+  align-items: center;
   min-height: 0;
 }
 

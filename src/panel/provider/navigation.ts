@@ -27,19 +27,26 @@ export function relatedSessionMap(sessions: SessionInfo[], rootSessionID: string
 }
 
 export function nav(session: SessionInfo, sessions: SessionInfo[]) {
+  const rootID = session.parentID || session.id
+  const children = sessions
+    .filter((item) => item.parentID === rootID)
+    .sort((a, b) => cmp(a.id, b.id))
+  const firstChild = children[0]
+
   if (!session.parentID) {
-    return {}
+    return {
+      firstChild: firstChild ? ref(firstChild) : undefined,
+    }
   }
 
   const parent = sessions.find((item) => item.id === session.parentID)
-  const siblings = sessions
-    .filter((item) => item.parentID === session.parentID)
-    .sort((a, b) => cmp(a.id, b.id))
+  const siblings = children
   const index = siblings.findIndex((item) => item.id === session.id)
   const prev = index >= 0 && siblings.length > 1 ? siblings[(index - 1 + siblings.length) % siblings.length] : undefined
   const next = index >= 0 && siblings.length > 1 ? siblings[(index + 1) % siblings.length] : undefined
 
   return {
+    firstChild: firstChild ? ref(firstChild) : undefined,
     parent: parent ? ref(parent) : undefined,
     prev: prev && prev.id !== session.id ? ref(prev) : undefined,
     next: next && next.id !== session.id ? ref(next) : undefined,

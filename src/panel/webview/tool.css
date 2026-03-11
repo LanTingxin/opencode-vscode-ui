@@ -59,6 +59,7 @@
   gap: 8px;
   padding: 0;
   min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .oc-toolRow-mcp {
@@ -67,6 +68,9 @@
 
 .oc-toolRowMain {
   min-width: 0;
+  flex-wrap: nowrap;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .oc-toolRowMain.is-error {
@@ -203,8 +207,24 @@
 }
 
 .oc-toolRowTitle {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--oc-font-size);
   color: var(--oc-fg-muted);
+}
+
+.oc-toolRowMeta {
+  flex: 0 0 14px;
+  width: 14px;
+  min-width: 14px;
+  display: inline-flex;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .oc-toolPanelTitle,
@@ -243,6 +263,50 @@
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.oc-toolPanel-lsp .oc-partHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.oc-toolPanel-lsp .oc-toolHeaderMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.oc-toolPanel-lsp .oc-toolHeaderMain .oc-kicker {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.oc-toolPanel-lsp .oc-toolPanelTitle {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oc-toolPanel-lsp .oc-toolHeaderMeta {
+  flex: 0 1 auto;
+  min-width: 14px;
+  max-width: 40%;
+  flex-wrap: nowrap;
+}
+
+.oc-toolPanel-lsp .oc-toolHeaderMeta .oc-partMeta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .oc-toolPanel-lsp.is-active {

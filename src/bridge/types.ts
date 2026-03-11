@@ -42,6 +42,7 @@ export type SessionSnapshot = SessionBootstrap & {
   relatedSessionIds: string[]
   agentMode: "build" | "plan"
   navigation: {
+    firstChild?: { id: string; title: string }
     parent?: { id: string; title: string }
     prev?: { id: string; title: string }
     next?: { id: string; title: string }

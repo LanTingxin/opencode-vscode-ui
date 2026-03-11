@@ -7,12 +7,8 @@ export function ToolRow({
   isMcpTool,
   part,
   renderToolRowExtra,
-  renderToolRowSubtitle,
   renderToolRowTitle,
-  summary,
   extras,
-  childSessionID,
-  onNavigate,
   toolLabel,
 }: {
   ToolStatus: ({ state }: { state?: string }) => React.JSX.Element | null
@@ -20,12 +16,8 @@ export function ToolRow({
   isMcpTool: (tool: string) => boolean
   part: Extract<MessagePart, { type: "tool" }>
   renderToolRowExtra: (part: Extract<MessagePart, { type: "tool" }>, item: string) => React.ReactNode
-  renderToolRowSubtitle: (part: Extract<MessagePart, { type: "tool" }>) => React.ReactNode
   renderToolRowTitle: (part: Extract<MessagePart, { type: "tool" }>) => React.ReactNode
-  summary: string
   extras: string[]
-  childSessionID: string
-  onNavigate: (sessionID: string) => void
   toolLabel: (tool: string) => string
 }) {
   const isMcp = isMcpTool(part.tool)
@@ -36,12 +28,8 @@ export function ToolRow({
         <div className={`oc-toolRowMain${isMcp ? " oc-toolRowMain-mcp" : ""}${failed ? " is-error" : ""}`}>
           <span className="oc-kicker">{toolLabel(part.tool)}</span>
           <span className={`oc-toolRowTitle${isMcp ? " oc-toolRowTitle-mcp" : ""}`}>{renderToolRowTitle(part)}</span>
-          {part.tool === "task" ? <span className="oc-pill oc-pill-file">Subagent</span> : null}
         </div>
         <div className={`oc-toolRowMeta${isMcp ? " oc-toolRowMeta-mcp" : ""}`}>
-          {renderToolRowSubtitle(part)}
-          {summary ? <span className="oc-toolRowSummary">{summary}</span> : null}
-          {childSessionID ? <button type="button" className="oc-inlineLinkBtn" onClick={() => onNavigate(childSessionID)}>Open child</button> : null}
           <ToolStatus state={part.state?.status} />
         </div>
       </div>

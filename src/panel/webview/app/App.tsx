@@ -17,6 +17,7 @@ import { buildComposerSubmitParts, composerAgentOverride } from "./composer-ment
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
+import { cycleAgentName, isShortcutTarget, leaderAction } from "./keyboard-shortcuts"
 
 declare global {
   interface Window {
@@ -39,6 +40,7 @@ export function App() {
   const [state, setState] = React.useState(() => createInitialState(initialRef))
   const [composing, setComposing] = React.useState(false)
   const [composerFocused, setComposerFocused] = React.useState(false)
+  const [leaderPending, setLeaderPending] = React.useState(false)
   const [pendingMcpActions, setPendingMcpActions] = React.useState<Record<string, boolean>>({})
   const [fileResults, setFileResults] = React.useState<ComposerPathResult[]>([])
   const [fileSearch, setFileSearch] = React.useState<{ status: "idle" | "searching" | "done"; query: string }>({ status: "idle", query: "" })
@@ -47,6 +49,8 @@ export function App() {
   const composerRef = React.useRef<HTMLDivElement | null>(null)
   const composerCursorRef = React.useRef<number | null>(null)
   const searchRef = React.useRef<{ requestID: string; query: string } | null>(null)
+  const leaderTimerRef = React.useRef<number | null>(null)
+  const leaderPendingRef = React.useRef(false)
   const onFileSearchResults = React.useCallback((payload: { requestID: string; query: string; results: ComposerPathResult[] }) => {
     if (!searchRef.current || payload.requestID !== searchRef.current.requestID) {
       return
@@ -296,39 +300,167 @@ export function App() {
     }))
   }, [])
 
+  const clearLeaderPending = React.useCallback(() => {
+    leaderPendingRef.current = false
+    setLeaderPending(false)
+    if (leaderTimerRef.current !== null) {
+      window.clearTimeout(leaderTimerRef.current)
+      leaderTimerRef.current = null
+    }
+  }, [])
+
+  const startLeaderPending = React.useCallback(() => {
+    clearLeaderPending()
+    leaderPendingRef.current = true
+    setLeaderPending(true)
+    leaderTimerRef.current = window.setTimeout(() => {
+      leaderPendingRef.current = false
+      setLeaderPending(false)
+      leaderTimerRef.current = null
+    }, 2000)
+  }, [clearLeaderPending])
+
+  const navigateSession = React.useCallback((sessionID: string) => {
+    vscode.postMessage({ type: "navigateSession", sessionID })
+  }, [])
+
+  const postComposerAction = React.useCallback((action: "refreshSession" | "compactSession" | "undoSession" | "redoSession", model?: { providerID: string; modelID: string }) => {
+    vscode.postMessage({ type: "composerAction", action, model })
+  }, [])
+
+  const cycleComposerAgent = React.useCallback(() => {
+    const current = composerSelection({ ...state.snapshot, composerAgentOverride: state.composerAgentOverride }).agent
+    const next = cycleAgentName(state.snapshot.agents, current)
+    if (!next) {
+      return false
+    }
+
+    setState((currentState) => ({
+      ...currentState,
+      composerAgentOverride: next,
+      error: "",
+    }))
+    return true
+  }, [state.composerAgentOverride, state.snapshot])
+
+  const runLeaderAction = React.useCallback((action: ReturnType<typeof leaderAction>) => {
+    if (!action) {
+      return false
+    }
+
+    if (action === "childFirst") {
+      const firstChildID = state.snapshot.navigation.firstChild?.id
+      if (!firstChildID) {
+        return false
+      }
+      navigateSession(firstChildID)
+      return true
+    }
+
+    if (action === "redoSession") {
+      if (!state.snapshot.session?.revert?.messageID) {
+        return false
+      }
+      clearComposerDraft()
+      postComposerAction("redoSession")
+      return true
+    }
+
+    clearComposerDraft()
+    postComposerAction("undoSession")
+    return true
+  }, [clearComposerDraft, navigateSession, postComposerAction, state.snapshot.navigation.firstChild, state.snapshot.session])
+
+  React.useEffect(() => () => clearLeaderPending(), [clearLeaderPending])
+
+  React.useEffect(() => {
+    if (composerAutocomplete.state) {
+      clearLeaderPending()
+    }
+  }, [clearLeaderPending, composerAutocomplete.state])
+
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (state.bootstrap.status !== "ready") {
+        clearLeaderPending()
+        return
+      }
+
+      const targetMatches = isShortcutTarget(event.target, composerRef.current)
+      if (leaderPendingRef.current) {
+        const action = leaderAction(event.key)
+        clearLeaderPending()
+        if (!targetMatches || composerAutocomplete.state) {
+          return
+        }
+        event.preventDefault()
+        if (!action) {
+          return
+        }
+        if (runLeaderAction(action)) {
+          return
+        }
+        return
+      }
+
+      if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "x") {
+        if (!targetMatches || composerAutocomplete.state) {
+          return
+        }
+        event.preventDefault()
+        startLeaderPending()
+        return
+      }
+
+      if (!isChildSession || !targetMatches || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return
+      }
+
+      if (event.key === "ArrowLeft" && state.snapshot.navigation.prev?.id) {
+        event.preventDefault()
+        navigateSession(state.snapshot.navigation.prev.id)
+        return
+      }
+
+      if (event.key === "ArrowUp" && state.snapshot.navigation.parent?.id) {
+        event.preventDefault()
+        navigateSession(state.snapshot.navigation.parent.id)
+        return
+      }
+
+      if (event.key === "ArrowRight" && state.snapshot.navigation.next?.id) {
+        event.preventDefault()
+        navigateSession(state.snapshot.navigation.next.id)
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [clearLeaderPending, composerAutocomplete.state, isChildSession, navigateSession, runLeaderAction, startLeaderPending, state.bootstrap.status, state.snapshot.navigation.next, state.snapshot.navigation.parent, state.snapshot.navigation.prev])
+
   const acceptComposerAutocomplete = React.useCallback((item: ComposerAutocompleteItem) => {
-    if (item.kind === "action") {
-      if (item.id === "slash-undo") {
-        clearComposerDraft()
-        vscode.postMessage({
-          type: "composerAction",
-          action: "undoSession",
-        })
-        composerAutocomplete.close()
-        return
-      }
+      if (item.kind === "action") {
+        if (item.id === "slash-undo") {
+          clearComposerDraft()
+          postComposerAction("undoSession")
+          composerAutocomplete.close()
+          return
+        }
 
-      if (item.id === "slash-redo") {
-        clearComposerDraft()
-        vscode.postMessage({
-          type: "composerAction",
-          action: "redoSession",
-        })
-        composerAutocomplete.close()
-        return
-      }
+        if (item.id === "slash-redo") {
+          clearComposerDraft()
+          postComposerAction("redoSession")
+          composerAutocomplete.close()
+          return
+        }
 
-      if (item.id === "slash-compact") {
-        const selection = composerSelection({ ...state.snapshot, composerAgentOverride: state.composerAgentOverride })
-        clearComposerDraft()
-        vscode.postMessage({
-          type: "composerAction",
-          action: "compactSession",
-          model: selection.model,
-        })
-        composerAutocomplete.close()
-        return
-      }
+        if (item.id === "slash-compact") {
+          const selection = composerSelection({ ...state.snapshot, composerAgentOverride: state.composerAgentOverride })
+          clearComposerDraft()
+          postComposerAction("compactSession", selection.model)
+          composerAutocomplete.close()
+          return
+        }
 
       if (item.id === "slash-reset-agent") {
         clearComposerDraft()
@@ -336,12 +468,12 @@ export function App() {
         return
       }
 
-      if (item.id === "slash-refresh") {
-        clearComposerDraft()
-        vscode.postMessage({ type: "composerAction", action: "refreshSession" })
-        composerAutocomplete.close()
-        return
-      }
+        if (item.id === "slash-refresh") {
+          clearComposerDraft()
+          postComposerAction("refreshSession")
+          composerAutocomplete.close()
+          return
+        }
     }
 
     if (item.kind === "command") {
@@ -368,7 +500,7 @@ export function App() {
       composerAutocomplete.close()
       restoreComposerCursor(result.draft, next.cursor)
     }
-  }, [clearComposerDraft, composerAutocomplete, restoreComposerCursor, setComposerState, state.composerAgentOverride, state.composerParts, state.snapshot])
+  }, [clearComposerDraft, composerAutocomplete, postComposerAction, restoreComposerCursor, setComposerState, state.composerAgentOverride, state.composerParts, state.snapshot])
 
   const sendQuestionReply = React.useCallback((request: QuestionRequest) => {
     const answers = request.questions.map((_item, index) => {
@@ -488,17 +620,18 @@ export function App() {
           {isChildSession ? <SessionNav navigation={state.snapshot.navigation} onNavigate={(sessionID) => vscode.postMessage({ type: "navigateSession", sessionID })} /> : null}
 
           {!blocked && !isChildSession ? (
-            <section className="oc-composer">
+            <section className={`oc-composer${leaderPending ? " is-leaderPending" : ""}`}>
               <div className="oc-composerBody">
                 {composerDrag ? <div className="oc-composerDropOverlay">Drop to @mention file</div> : null}
                 <div className="oc-composerInputWrap">
+                  {leaderPending ? <div className="oc-composerLeaderOverlay"><span className="oc-composerLeaderOverlayText">Ctrl + X Pressed</span></div> : null}
                   <div
                     ref={composerRef}
                     className="oc-composerInput"
                     role="textbox"
                     aria-multiline="true"
                     aria-label="Ask OpenCode to inspect explain or change this workspace"
-                    contentEditable={state.bootstrap.status === "ready" && !blocked}
+                    contentEditable={state.bootstrap.status === "ready" && !blocked && !leaderPending}
                     suppressContentEditableWarning
                     spellCheck
                     onInput={(event) => {
@@ -564,6 +697,7 @@ export function App() {
                     onBlur={() => {
                       setComposerFocused(false)
                       setComposing(false)
+                      clearLeaderPending()
                       window.setTimeout(() => composerAutocomplete.close(), 0)
                     }}
                     onCompositionStart={() => setComposing(true)}
@@ -632,6 +766,11 @@ export function App() {
                         }
                       }
 
+                      if (event.key === "Tab" && !event.metaKey && !event.ctrlKey && !event.altKey && cycleComposerAgent()) {
+                        event.preventDefault()
+                        return
+                      }
+
                       if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) {
                         return
                       }
@@ -641,7 +780,7 @@ export function App() {
                   />
                   {!state.draft.trim() && !composerFocused ? <div className="oc-composerPlaceholder" aria-hidden="true">Ask OpenCode to inspect, explain, or change this workspace.</div> : null}
                 </div>
-                <ComposerInfo state={state} />
+                <ComposerInfo state={state} leaderPending={leaderPending} />
                 {composerAutocomplete.state ? <ComposerAutocompletePopup state={composerAutocomplete.state} fileSearch={fileSearch} onSelect={acceptComposerAutocomplete} /> : null}
               </div>
             <div className="oc-composerActions">
@@ -762,7 +901,7 @@ function popupEmptyText(state: ComposerAutocompleteState, fileSearch: { status: 
   return `No agents or paths match \"${state.query}\"`
 }
 
-function ComposerInfo({ state }: { state: AppState }) {
+function ComposerInfo({ state, leaderPending: _leaderPending }: { state: AppState; leaderPending: boolean }) {
   const info = composerIdentity({ ...state.snapshot, composerAgentOverride: state.composerAgentOverride })
   const running = isSessionRunning(state.snapshot.sessionStatus)
   return (

@@ -2,7 +2,7 @@ import React from "react"
 import type { MessagePart } from "../../../core/sdk"
 import { PartView as BasePartView, ToolPartView as BaseToolPartView } from "./part-views"
 import { useChildMessages, useChildSessions, useWorkspaceDir } from "./contexts"
-import { renderToolRowExtra, renderToolRowSubtitle, renderToolRowTitle, taskAgentName, taskBody, taskSessionTitle, toolRowExtras, toolRowSummary } from "./tool-row-meta"
+import { renderToolRowExtra, renderToolRowTitle, taskAgentName, taskBody, taskSessionTitle, toolRowExtras } from "./tool-row-meta"
 import { TaskToolRow as BaseTaskToolRow, ToolRow as BaseToolRow, ToolStatus } from "./tool-rows"
 import { CodeBlock as BaseCodeBlock } from "../renderers/CodeBlock"
 import { DiffBlock as BaseDiffBlock, DiffWindowBody as BaseDiffWindowBody, diffOutputLineCount } from "../renderers/DiffBlock"
@@ -47,16 +47,13 @@ export function ToolPartView({ part, active = false, diffMode = "unified" }: { p
 }
 
 export function ToolRow({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  const { vscode } = useWebviewBindings()
   if (part.tool === "task") {
     return <TaskToolRow part={part} active={active} />
   }
 
-  const childSessionID = toolChildSessionId(part)
   const workspaceDir = useWorkspaceDir()
-  const summary = toolRowSummary(part)
   const extras = toolRowExtras(part)
-  return <BaseToolRow ToolStatus={ToolStatus} active={active} isMcpTool={isMcpTool} part={part} renderToolRowExtra={(current, item) => renderToolRowExtra(current, item, FileRefText)} renderToolRowSubtitle={(current) => renderToolRowSubtitle(current, toolDetails(current), { FileRefText, workspaceDir })} renderToolRowTitle={(current) => renderToolRowTitle(current, toolDetails(current), { FileRefText, renderLspToolTitle: renderInlineLspToolTitle, workspaceDir })} summary={summary} extras={extras} childSessionID={childSessionID} onNavigate={(sessionID) => vscode.postMessage({ type: "navigateSession", sessionID })} toolLabel={toolLabel} />
+  return <BaseToolRow ToolStatus={ToolStatus} active={active} isMcpTool={isMcpTool} part={part} renderToolRowExtra={(current, item) => renderToolRowExtra(current, item, FileRefText)} renderToolRowTitle={(current) => renderToolRowTitle(current, toolDetails(current), { FileRefText, renderLspToolTitle: renderInlineLspToolTitle, workspaceDir })} extras={extras} toolLabel={toolLabel} />
 }
 
 export function TaskToolRow({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
