@@ -1,5 +1,5 @@
 import type { ComposerPathResult, ComposerPromptPart } from "../../bridge/types"
-import type { AgentInfo, McpResource } from "../../core/sdk"
+import type { AgentInfo, CommandInfo, McpResource } from "../../core/sdk"
 import { collectDirectoryResults, matchesPath, sortPaths } from "../../panel/provider/file-search"
 import { buildComposerSubmitParts } from "../../panel/webview/app/composer-mentions"
 import { composerMentions, composerText, replaceRangeWithMention } from "../../panel/webview/app/composer-editor"
@@ -31,7 +31,11 @@ export type ComposerParityFixture = {
   draft: string
   cursor: number
   composerAgentOverride?: string
+  session?: {
+    revert?: { messageID: string }
+  }
   agents?: AgentInfo[]
+  commands?: CommandInfo[]
   mcpResources?: ResourceMap
   files?: {
     selected?: ComposerPathResult
@@ -58,8 +62,16 @@ export type ComposerParityFixture = {
 
 export function runComposerParity(fix: ComposerParityFixture): ComposerParityResult {
   const state = createInitialState({ dir: "/workspace", sessionId: "session" })
+  state.snapshot.session = {
+    id: "session",
+    directory: "/workspace",
+    title: "session",
+    revert: fix.session?.revert,
+    time: { created: 0, updated: 0 },
+  }
   state.snapshot.agents = fix.agents ?? []
   state.snapshot.mcpResources = fix.mcpResources ?? {}
+  state.snapshot.commands = fix.commands ?? []
   state.composerAgentOverride = fix.composerAgentOverride
   state.draft = fix.draft
   state.composerParts = [{ type: "text", content: fix.draft, start: 0, end: fix.draft.length }]
@@ -93,6 +105,14 @@ export function runComposerParity(fix: ComposerParityFixture): ComposerParityRes
   }
 
   if (!item.mention) {
+    if (item.kind === "command") {
+      return {
+        ...out,
+        accepted: {
+          draft: `/${item.label} `,
+        },
+      }
+    }
     return {
       ...out,
       accepted: {

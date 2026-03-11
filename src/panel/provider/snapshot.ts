@@ -1,6 +1,6 @@
 import * as path from "node:path"
 import type { SessionPanelRef, SessionSnapshot } from "../../bridge/types"
-import type { AgentInfo, Client, FileDiff, LspStatus, McpResource, McpStatus, ProviderInfo, SessionMessage } from "../../core/sdk"
+import type { AgentInfo, Client, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, ProviderInfo, SessionMessage } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { collectRelatedSessionIds, filterPermission, filterQuestion, nav, relatedSessionMap } from "./navigation"
 import { sortMessages } from "./mutations"
@@ -36,7 +36,7 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
   }
 
   try {
-    const [sessionRes, sessionsRes, rootMessageRes, statusRes, todoRes, diffRes, permissionRes, questionRes, configRes, configProvidersRes, agentRes, providerRes, mcpRes, resourceRes, lspRes] = await Promise.all([
+    const [sessionRes, sessionsRes, rootMessageRes, statusRes, todoRes, diffRes, permissionRes, questionRes, configRes, configProvidersRes, agentRes, providerRes, mcpRes, resourceRes, lspRes, commandRes] = await Promise.all([
       rt.sdk.session.get({
         sessionID: ref.sessionId,
         directory: rt.dir,
@@ -79,6 +79,7 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       rt.sdk.lsp.status({
         directory: rt.dir,
       }),
+      commandList(rt.sdk, rt.dir),
     ])
 
     const session = sessionRes.data
@@ -133,6 +134,7 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       mcp: mcpStatusMap(mcpRes.data),
       mcpResources: mcpResourceMap(resourceRes.data),
       lsp: lspStatuses(lspRes.data ?? [], rt.dir),
+      commands: commandArr(commandRes.data),
       relatedSessionIds,
       agentMode: agentMode(messages),
       navigation,
@@ -211,6 +213,7 @@ function fallbackSnapshot(
     mcp: {},
     mcpResources: {},
     lsp: [],
+    commands: [],
     relatedSessionIds: [ref.sessionId],
     agentMode: "build",
     navigation: {},
@@ -307,6 +310,20 @@ async function experimentalResources(sdk: Client, directory: string) {
   }
 
   return list({ directory }) as Promise<{ data?: Record<string, McpResource> }>
+}
+
+async function commandList(sdk: Client, directory: string) {
+  const command = readSdkMember(sdk, "command")
+  const list = readSdkMethod(command, "list")
+  if (!list) {
+    return { data: undefined as CommandInfo[] | undefined }
+  }
+
+  return list({ directory }) as Promise<{ data?: CommandInfo[] }>
+}
+
+function commandArr(data?: CommandInfo[]) {
+  return Array.isArray(data) ? data : []
 }
 
 function readSdkMember(target: object, key: string) {

@@ -6,6 +6,22 @@ import { describeComposerFileSelection, formatComposerFileContent, formatCompose
 export function buildComposerMenuItems(state: AppState, files: ComposerPathResult[]): ComposerAutocompleteItem[] {
   const slashItems: ComposerAutocompleteItem[] = [
     {
+      id: "slash-compact",
+      label: "compact",
+      detail: "Summarize this session immediately using the current model.",
+      keywords: ["summarize", "summary", "compress", "session"],
+      trigger: "slash",
+      kind: "action",
+    },
+    {
+      id: "slash-undo",
+      label: "undo",
+      detail: "Revert the previous user turn immediately.",
+      keywords: ["revert", "previous", "message", "back"],
+      trigger: "slash",
+      kind: "action",
+    },
+    {
       id: "slash-refresh",
       label: "refresh",
       detail: "Ask the host to reload the current session snapshot.",
@@ -13,15 +29,18 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
       trigger: "slash",
       kind: "action",
     },
-    {
-      id: "slash-clear",
-      label: "clear",
-      detail: "Clear the current composer draft locally.",
-      keywords: ["reset", "draft", "composer"],
+  ]
+
+  if (state.snapshot.session?.revert?.messageID) {
+    slashItems.push({
+      id: "slash-redo",
+      label: "redo",
+      detail: "Restore previously reverted messages immediately.",
+      keywords: ["unrevert", "restore", "forward"],
       trigger: "slash",
       kind: "action",
-    },
-  ]
+    })
+  }
 
   if (state.composerAgentOverride) {
     slashItems.push({
@@ -33,6 +52,20 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
       kind: "action",
     })
   }
+
+  const commandItems: ComposerAutocompleteItem[] = state.snapshot.commands
+    .filter((cmd) => cmd.source !== "skill")
+    .map((cmd) => {
+      const isMcp = cmd.source === "mcp"
+      return {
+        id: `command:${cmd.name}`,
+        label: cmd.name,
+        detail: cmd.description ? (isMcp ? `${cmd.description} :mcp` : cmd.description) : (isMcp ? ":mcp" : ""),
+        keywords: [cmd.source ?? "", cmd.agent ?? ""].filter(Boolean),
+        trigger: "slash" as const,
+        kind: "command" as const,
+      }
+    })
 
   const agentItems = state.snapshot.agents.map((agent) => ({
     id: `agent:${agent.name}`,
@@ -81,7 +114,7 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
     },
   }))
 
-  return [...slashItems, ...agentItems, ...resourceItems, ...fileItems]
+  return [...slashItems, ...commandItems, ...agentItems, ...resourceItems, ...fileItems]
 }
 
 export function mentionForQuery(mention: Extract<NonNullable<ComposerAutocompleteItem["mention"]>, { type: "file" }>, query: string): Extract<NonNullable<ComposerAutocompleteItem["mention"]>, { type: "file" }> {

@@ -3,6 +3,12 @@ export type SessionInfo = {
   directory: string
   parentID?: string
   title: string
+  revert?: {
+    messageID: string
+    partID?: string
+    snapshot?: string
+    diff?: string
+  }
   time: {
     created: number
     updated: number
@@ -131,6 +137,15 @@ export type LspStatus = {
   status: "connected" | "error"
 }
 
+export type CommandInfo = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  source?: "command" | "mcp" | "skill"
+  hints: string[]
+}
+
 export type MessageInfo = {
   id: string
   sessionID: string
@@ -219,6 +234,23 @@ export type FilePart = {
   mime: string
   filename?: string
   url: string
+  source?: {
+    type: "file"
+    path: string
+    text: PromptSource
+  } | {
+    type: "resource"
+    uri: string
+    clientName: string
+    text: PromptSource
+  } | {
+    type: "symbol"
+    path: string
+    name: string
+    kind: number
+    range: unknown
+    text: PromptSource
+  }
 }
 
 export type ToolPart = {
@@ -366,6 +398,12 @@ export type SessionEvent =
     }
 
 export type Client = {
+  command: {
+    list(input?: {
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: CommandInfo[] }>
+  }
   provider: {
     list(input?: {
       directory?: string
@@ -473,6 +511,41 @@ export type Client = {
       variant?: string
       parts: PromptPartInput[]
     }): Promise<{ data?: void }>
+    command(input: {
+      sessionID: string
+      command: string
+      arguments: string
+      directory?: string
+      workspace?: string
+      messageID?: string
+      agent?: string
+      model?: string
+      variant?: string
+    }): Promise<{ data?: void }>
+    summarize(input: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      providerID: string
+      modelID: string
+      auto?: boolean
+    }): Promise<{ data?: boolean }>
+    abort(input: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: boolean }>
+    revert(input: {
+      sessionID: string
+      messageID: string
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: SessionInfo }>
+    unrevert(input: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: SessionInfo }>
     todo(input: {
       sessionID: string
       directory?: string

@@ -10,7 +10,7 @@ export type ComposerAutocompleteItem = {
   detail: string
   keywords?: string[]
   trigger: ComposerAutocompleteTrigger
-  kind: "action" | "agent" | "resource" | "selection" | "recent" | "file" | "directory"
+  kind: "action" | "agent" | "resource" | "selection" | "recent" | "file" | "directory" | "command"
   match?: {
     label: number[]
     detail: number[]
@@ -62,6 +62,9 @@ export function useComposerAutocomplete(sources: ComposerAutocompleteItem[]) {
       }
       const items = filterItems(sources, current.trigger, current.query)
       const selectedIndex = items.length === 0 ? 0 : Math.min(current.selectedIndex, items.length - 1)
+      if (selectedIndex === current.selectedIndex && sameItems(items, current.items)) {
+        return current
+      }
       return { ...current, items, selectedIndex }
     })
   }, [sources])
@@ -200,6 +203,25 @@ function matchMention(value: string, cursor: number): ComposerAutocompleteMatch 
 export function filterItems(items: ComposerAutocompleteItem[], trigger: ComposerAutocompleteTrigger, query: string) {
   const source = items.filter((item) => item.trigger === trigger)
   const normalized = query.trim().toLowerCase()
+
+  if (trigger === "slash") {
+    if (!normalized) {
+      return source
+        .map((item) => ({ ...item, match: undefined }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    }
+
+    return source
+      .map((item, index) => ({
+        item: withMatch(item, normalized),
+        index,
+        rank: matchRankSlash(item, normalized),
+      }))
+      .filter((item): item is { item: ComposerAutocompleteItem; index: number; rank: number } => item.rank !== undefined)
+      .sort((a, b) => a.rank - b.rank || a.index - b.index)
+      .map((item) => item.item)
+  }
+
   if (!normalized) {
     return source.map((item) => ({ ...item, match: undefined }))
   }
@@ -213,6 +235,36 @@ export function filterItems(items: ComposerAutocompleteItem[], trigger: Composer
     .filter((item): item is { item: ComposerAutocompleteItem; index: number; rank: number } => item.rank !== undefined)
     .sort((a, b) => kindRank(a.item.kind) - kindRank(b.item.kind) || a.rank - b.rank || a.index - b.index)
     .map((item) => item.item)
+}
+
+function sameItems(next: ComposerAutocompleteItem[], current: ComposerAutocompleteItem[]) {
+  if (next.length !== current.length) {
+    return false
+  }
+
+  for (let i = 0; i < next.length; i += 1) {
+    const a = next[i]
+    const b = current[i]
+    if (!a || !b) {
+      return false
+    }
+    if (a.id !== b.id || a.label !== b.label || a.detail !== b.detail || a.kind !== b.kind || a.trigger !== b.trigger) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function matchRankSlash(item: ComposerAutocompleteItem, query: string) {
+  const base = fuzzyScore(item.label, query, 0)
+  const desc = fuzzyScore(item.detail, query, 40)
+  const scores = [base, desc, ...(item.keywords ?? []).map((k) => fuzzyScore(k, query, 70))]
+    .filter((v): v is number => typeof v === "number")
+  if (scores.length === 0) return undefined
+  const best = Math.min(...scores)
+  // Mirror upstream fuzzysort scoreFn: if label starts with the query, boost the rank (halve the score)
+  return item.label.startsWith(query) ? best / 2 : best
 }
 
 function matchRank(item: ComposerAutocompleteItem, query: string) {
@@ -249,17 +301,19 @@ function kindRank(kind: ComposerAutocompleteItem["kind"]) {
   switch (kind) {
     case "action":
       return 0
-    case "agent":
+    case "command":
       return 1
-    case "selection":
+    case "agent":
       return 2
-    case "resource":
+    case "selection":
       return 3
-    case "recent":
+    case "resource":
       return 4
+    case "recent":
+      return 5
     case "file":
     case "directory":
-      return 4
+      return 5
   }
 }
 

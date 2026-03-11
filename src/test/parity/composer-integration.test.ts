@@ -2,6 +2,13 @@ import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import { runComposerIntegration } from "./composer-integration"
 
+const serverCommands = [
+  { name: "review", description: "review changes [commit|branch|pr]", source: "command" as const, hints: [] },
+  { name: "init", description: "create/update AGENTS.md", source: "command" as const, hints: [] },
+  { name: "debug", description: "debug current issue", source: "mcp" as const, hints: [] },
+  { name: "summarize", description: "summarize session", source: "skill" as const, hints: [] },
+]
+
 describe("composer integration visibility", () => {
   test("@src shows only host-limited visible results", () => {
     const workspace = [
@@ -183,6 +190,7 @@ describe("composer integration visibility", () => {
     assert.equal(result.trigger, "slash")
     assert.equal(result.hostResults.length, 0, "host search not triggered for slash")
     assert.ok(result.items.every((item) => item.kind === "action"), "only actions returned for /")
+    assert.deepEqual(result.items.map((item) => item.label), ["compact", "refresh", "undo"], "built-in slash actions sort alphabetically")
   })
 
   test("recent files appear before workspace search results", () => {
@@ -222,5 +230,123 @@ describe("composer integration visibility", () => {
     assert.equal(result.hostResults[0].source, "recent")
     assert.equal(result.items[0].kind, "recent")
     assert.equal(result.items[0].id, "recent:directory:src/panel/webview/::")
+  })
+
+  test("/ with server commands sorts all items alphabetically by label", () => {
+    const result = runComposerIntegration({
+      name: "slash command ordering",
+      draft: "/",
+      cursor: 1,
+      commands: serverCommands,
+      host: { workspace: [] },
+    })
+
+    assert.equal(result.trigger, "slash")
+    const labels = result.items.map((item) => item.label)
+    const sorted = [...labels].sort((a, b) => a.localeCompare(b))
+    assert.deepEqual(labels, sorted, "items are in alphabetical label order (upstream behavior)")
+    assert.equal(labels[0], "compact")
+    assert.ok(labels.includes("undo"))
+  })
+
+  test("/redo appears only when session has revert state", () => {
+    const noRedo = runComposerIntegration({
+      name: "slash redo hidden",
+      draft: "/",
+      cursor: 1,
+      commands: serverCommands,
+      host: { workspace: [] },
+    })
+    assert.ok(!noRedo.items.some((item) => item.label === "redo"))
+
+    const withRedo = runComposerIntegration({
+      name: "slash redo shown",
+      draft: "/",
+      cursor: 1,
+      session: { revert: { messageID: "msg-1" } },
+      commands: serverCommands,
+      host: { workspace: [] },
+    })
+    assert.ok(withRedo.items.some((item) => item.label === "redo"))
+  })
+
+  test("/un query ranks undo first", () => {
+    const result = runComposerIntegration({
+      name: "slash undo query",
+      draft: "/un",
+      cursor: 3,
+      commands: serverCommands,
+      host: { workspace: [] },
+    })
+
+    assert.equal(result.trigger, "slash")
+    assert.equal(result.items[0]?.label, "undo")
+  })
+
+  test("/ with server commands excludes skill source", () => {
+    const result = runComposerIntegration({
+      name: "slash skill excluded",
+      draft: "/",
+      cursor: 1,
+      commands: serverCommands,
+      host: { workspace: [] },
+    })
+
+    const labels = result.items.map((item) => item.label)
+    assert.ok(!labels.includes("summarize"), "skill command must not appear in slash popup")
+    assert.ok(labels.includes("review"), "non-skill command is present")
+    assert.ok(labels.includes("init"), "non-skill command is present")
+    assert.ok(labels.includes("debug"), "mcp command is present")
+  })
+
+  test("/ with server commands shows mcp label in detail", () => {
+    const result = runComposerIntegration({
+      name: "slash mcp label",
+      draft: "/",
+      cursor: 1,
+      commands: serverCommands,
+      host: { workspace: [] },
+    })
+
+    const debugItem = result.items.find((item) => item.label === "debug")
+    assert.ok(debugItem, "mcp command is present")
+    assert.ok(debugItem.detail.includes(":mcp"), "mcp command detail includes :mcp label")
+
+    const reviewItem = result.items.find((item) => item.label === "review")
+    assert.ok(reviewItem, "non-mcp command is present")
+    assert.ok(!reviewItem.detail.includes(":mcp"), "non-mcp command detail does not include :mcp")
+  })
+
+  test("/ without server commands only shows built-in action items", () => {
+    const result = runComposerIntegration({
+      name: "slash no server commands",
+      draft: "/",
+      cursor: 1,
+      commands: [],
+      host: { workspace: ["src/core/sdk.ts"] },
+    })
+
+    assert.equal(result.trigger, "slash")
+    assert.ok(result.items.every((item) => item.kind === "action"), "only actions when no server commands")
+    assert.ok(result.hostResults.length === 0, "host search not triggered for slash")
+  })
+
+  test("/prefix query ranks label-prefix matches before fuzzy-only matches", () => {
+    const result = runComposerIntegration({
+      name: "slash prefix boost",
+      draft: "/sta",
+      cursor: 4,
+      commands: [
+        { name: "start", description: "start the server", source: "command" as const, hints: [] },
+        { name: "status", description: "show current status", source: "command" as const, hints: [] },
+        { name: "review", description: "review outstanding items", source: "command" as const, hints: [] },
+      ],
+      host: { workspace: [] },
+    })
+
+    assert.equal(result.trigger, "slash")
+    const labels = result.items.map((item) => item.label)
+    assert.ok(labels.indexOf("start") < labels.indexOf("review"), "label-prefix match 'start' ranks before fuzzy-only 'review'")
+    assert.ok(labels.indexOf("status") < labels.indexOf("review"), "label-prefix match 'status' ranks before fuzzy-only 'review'")
   })
 })

@@ -50,6 +50,7 @@
 
 .oc-turnUser,
 .oc-turnMeta,
+.oc-revertNotice,
 .oc-toolRowWrap,
 .oc-dividerPart,
 .oc-part,
@@ -189,4 +190,42 @@
 .oc-dividerLine {
   height: 1px;
   background: color-mix(in srgb, var(--oc-border-strong) 65%, transparent 35%);
+}
+
+.oc-revertNotice {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--oc-surface-block) 84%, var(--oc-surface-canvas) 16%);
+  border-left: 3px solid color-mix(in srgb, var(--oc-accent) 55%, var(--oc-border-strong) 45%);
+}
+
+.oc-revertNoticeTitle {
+  font-weight: 600;
+}
+
+.oc-revertNoticeText {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-revertFileList {
+  display: grid;
+  gap: 6px;
+}
+
+.oc-revertFileRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--oc-ui);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-revertFileAdd {
+  color: var(--oc-diff-add-fg);
+}
+
+.oc-revertFileDel {
+  color: var(--oc-diff-del-fg);
 }

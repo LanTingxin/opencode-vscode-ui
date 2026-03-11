@@ -3,10 +3,11 @@ import * as path from "node:path"
 import { URL } from "node:url"
 import { postToWebview } from "../../bridge/host"
 import type { ComposerPromptPart, SessionPanelRef } from "../../bridge/types"
-import type { MessageInfo, PermissionReply, PromptPartInput } from "../../core/sdk"
+import type { MessageInfo, MessagePart, PermissionReply, PromptPartInput } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { text, textError, wait } from "./utils"
 import { resolvePromptPath } from "./files"
+import { parseComposerFileQuery } from "../webview/lib/composer-file-selection"
 
 export type PanelActionState = {
   disposed: boolean
@@ -93,14 +94,195 @@ export async function toggleMcp(ctx: ActionContext, name: string, action: "conne
   }
 }
 
-export async function runComposerAction(ctx: ActionContext, action: "refreshSession") {
+export async function runSlashCommand(ctx: ActionContext, command: string, args: string) {
+  if (!command || ctx.state.disposed) {
+    return
+  }
+
+  const rt = ctx.mgr.get(ctx.ref.dir)
+  if (!rt || rt.state !== "ready" || !rt.sdk) {
+    await fail(ctx.panel.webview, "Workspace server is not ready.")
+    return
+  }
+
+  const run = ++ctx.state.run
+  ctx.state.pendingSubmitCount += 1
+  await ctx.push(true)
+
+  try {
+    await rt.sdk.session.command({
+      sessionID: ctx.ref.sessionId,
+      directory: rt.dir,
+      command,
+      arguments: args,
+    })
+    await wait(400)
+    if (!ctx.state.disposed && run === ctx.state.run) {
+      await ctx.push(true)
+    }
+  } catch (err) {
+    const message = textError(err)
+    ctx.log(`slash command failed: ${command} ${message}`)
+    await vscode.window.showErrorMessage(`OpenCode command /${command} failed for ${rt.name}: ${message}`)
+    await fail(ctx.panel.webview, message)
+  } finally {
+    ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
+    await ctx.push(true)
+  }
+}
+
+export async function runComposerAction(ctx: ActionContext, action: "refreshSession" | "compactSession" | "undoSession" | "redoSession", model?: MessageInfo["model"]) {
   if (ctx.state.disposed) {
     return
   }
 
+  const rt = ctx.mgr.get(ctx.ref.dir)
+
   try {
     if (action === "refreshSession") {
       await ctx.push(true)
+      return
+    }
+
+    if (action === "compactSession") {
+      if (!rt || rt.state !== "ready" || !rt.sdk) {
+        await fail(ctx.panel.webview, "Workspace server is not ready.")
+        return
+      }
+
+      if (!model?.providerID || !model.modelID) {
+        const message = "Connect or select a model before running /compact."
+        ctx.log(message)
+        await vscode.window.showErrorMessage(message)
+        await fail(ctx.panel.webview, message)
+        return
+      }
+
+      const run = ++ctx.state.run
+      ctx.state.pendingSubmitCount += 1
+      await ctx.push(true)
+
+      try {
+        await rt.sdk.session.summarize({
+          sessionID: ctx.ref.sessionId,
+          directory: rt.dir,
+          providerID: model.providerID,
+          modelID: model.modelID,
+          auto: false,
+        })
+        await wait(400)
+        if (!ctx.state.disposed && run === ctx.state.run) {
+          await ctx.push(true)
+        }
+      } finally {
+        ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
+        await ctx.push(true)
+      }
+      return
+    }
+
+    if (action === "undoSession") {
+      if (!rt || rt.state !== "ready" || !rt.sdk) {
+        await fail(ctx.panel.webview, "Workspace server is not ready.")
+        return
+      }
+
+      const run = ++ctx.state.run
+      ctx.state.pendingSubmitCount += 1
+      await ctx.push(true)
+
+      try {
+        const status = (await rt.sdk.session.status({
+          directory: rt.dir,
+        })).data?.[ctx.ref.sessionId]
+        if (status?.type && status.type !== "idle") {
+          await rt.sdk.session.abort({
+            sessionID: ctx.ref.sessionId,
+            directory: rt.dir,
+          }).catch(() => {})
+        }
+
+        const session = (await rt.sdk.session.get({
+          sessionID: ctx.ref.sessionId,
+          directory: rt.dir,
+        })).data
+        const revert = session?.revert?.messageID
+        const msgs = (await rt.sdk.session.messages({
+          sessionID: ctx.ref.sessionId,
+          directory: rt.dir,
+        })).data ?? []
+        const msg = [...msgs].reverse().find((item) => item.info.role === "user" && (!revert || item.info.id < revert))
+        if (!msg) {
+          return
+        }
+
+        await postToWebview(ctx.panel.webview, {
+          type: "restoreComposer",
+          parts: undoRestoreParts(msg),
+        })
+
+        await rt.sdk.session.revert({
+          sessionID: ctx.ref.sessionId,
+          directory: rt.dir,
+          messageID: msg.info.id,
+        })
+        await wait(400)
+        if (!ctx.state.disposed && run === ctx.state.run) {
+          await ctx.push(true)
+        }
+      } finally {
+        ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
+        await ctx.push(true)
+      }
+      return
+    }
+
+    if (action === "redoSession") {
+      if (!rt || rt.state !== "ready" || !rt.sdk) {
+        await fail(ctx.panel.webview, "Workspace server is not ready.")
+        return
+      }
+
+      const run = ++ctx.state.run
+      ctx.state.pendingSubmitCount += 1
+      await ctx.push(true)
+
+      try {
+        const session = (await rt.sdk.session.get({
+          sessionID: ctx.ref.sessionId,
+          directory: rt.dir,
+        })).data
+        const revert = session?.revert?.messageID
+        if (!revert) {
+          return
+        }
+
+        const msgs = (await rt.sdk.session.messages({
+          sessionID: ctx.ref.sessionId,
+          directory: rt.dir,
+        })).data ?? []
+        const msg = msgs.find((item) => item.info.role === "user" && item.info.id > revert)
+        if (!msg) {
+          await rt.sdk.session.unrevert({
+            sessionID: ctx.ref.sessionId,
+            directory: rt.dir,
+          })
+        } else {
+          await rt.sdk.session.revert({
+            sessionID: ctx.ref.sessionId,
+            directory: rt.dir,
+            messageID: msg.info.id,
+          })
+        }
+
+        await wait(400)
+        if (!ctx.state.disposed && run === ctx.state.run) {
+          await ctx.push(true)
+        }
+      } finally {
+        ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
+        await ctx.push(true)
+      }
       return
     }
   } catch (err) {
@@ -113,6 +295,61 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
   const message = `Unsupported composer action: ${action}`
   ctx.log(message)
   await fail(ctx.panel.webview, message)
+}
+
+function undoRestoreParts(message: { parts: MessagePart[] }): ComposerPromptPart[] {
+  const text = message.parts
+    .flatMap((part) => part.type === "text" && !part.synthetic ? [{ type: "text" as const, text: part.text }] : [])
+    .reduce((acc, part) => acc + part.text, "")
+
+  const files = message.parts.flatMap((part): ComposerPromptPart[] => {
+    if (part.type !== "file" || !part.source) {
+      return []
+    }
+
+    if (part.source.type === "file") {
+      const parsed = parseRestoredFileSource(part.source.path, part.source.text.value, part.mime)
+      return [{
+        type: "file",
+        path: parsed.path,
+        kind: parsed.kind,
+        selection: parsed.selection,
+        source: part.source.text,
+      }]
+    }
+
+    if (part.source.type === "resource") {
+      return [{
+        type: "resource",
+        uri: part.source.uri,
+        name: part.filename || part.source.uri,
+        clientName: part.source.clientName,
+        mimeType: part.mime,
+        source: part.source.text,
+      }]
+    }
+
+    const parsed = parseRestoredFileSource(part.source.path, part.source.text.value, part.mime)
+    return [{
+      type: "file",
+      path: parsed.path,
+      kind: parsed.kind,
+      selection: parsed.selection,
+      source: part.source.text,
+    }]
+  })
+
+  return text ? [{ type: "text", text }, ...files] : files
+}
+
+function parseRestoredFileSource(path: string, value: string, mime?: string) {
+  const raw = value.startsWith("@") ? value.slice(1) : value
+  const parsed = parseComposerFileQuery(raw)
+  return {
+    path: parsed.baseQuery || path,
+    selection: parsed.selection,
+    kind: mime === "application/x-directory" || (parsed.baseQuery || path).endsWith("/") ? "directory" as const : "file" as const,
+  }
 }
 
 export async function replyPermission(ctx: ActionContext, requestID: string, reply: PermissionReply, message?: string) {

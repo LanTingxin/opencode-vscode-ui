@@ -1,4 +1,5 @@
 import type { ComposerPathResult } from "../../bridge/types"
+import type { CommandInfo } from "../../core/sdk"
 import { collectDirectoryResults, matchesPath, sortPaths } from "../../panel/provider/file-search"
 import { autocompleteItemView, buildComposerMenuItems } from "../../panel/webview/app/composer-menu"
 import { createInitialState } from "../../panel/webview/app/state"
@@ -11,7 +12,11 @@ export type ComposerIntegrationFixture = {
   name: string
   draft: string
   cursor: number
+  session?: {
+    revert?: { messageID: string }
+  }
   agents?: Array<{ name: string; mode: "subagent" | "primary" | "all"; hidden?: boolean }>
+  commands?: CommandInfo[]
   resources?: Record<string, { name: string; uri: string; client: string; description?: string; mimeType?: string }>
   host?: {
     selected?: ComposerPathResult
@@ -23,8 +28,16 @@ export type ComposerIntegrationFixture = {
 export function runComposerIntegration(fix: ComposerIntegrationFixture) {
   const match = matchAutocomplete(fix.draft, fix.cursor, fix.cursor)
   const state = createInitialState({ dir: "/workspace", sessionId: "session" })
+  state.snapshot.session = {
+    id: "session",
+    directory: "/workspace",
+    title: "session",
+    revert: fix.session?.revert,
+    time: { created: 0, updated: 0 },
+  }
   state.snapshot.agents = fix.agents ?? []
   state.snapshot.mcpResources = fix.resources ?? {}
+  state.snapshot.commands = fix.commands ?? []
 
   const results = match?.trigger === "mention"
     ? hostResults(parseComposerFileQuery(match.query).baseQuery.trim(), fix.host)

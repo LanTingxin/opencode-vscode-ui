@@ -5,12 +5,14 @@ import { bootstrapFromSnapshot, normalizeSnapshotPayload, type AppState, type Vs
 export function useHostMessages({
   fileRefStatus,
   onFileSearchResults,
+  onRestoreComposer,
   setPendingMcpActions,
   setState,
   vscode,
 }: {
   fileRefStatus: Map<string, boolean>
   onFileSearchResults: (payload: { requestID: string; query: string; results: ComposerPathResult[] }) => void
+  onRestoreComposer: (payload: { parts: import("../../../bridge/types").ComposerPromptPart[] }) => void
   setPendingMcpActions: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
   setState: React.Dispatch<React.SetStateAction<AppState>>
   vscode: VsCodeApi
@@ -51,6 +53,11 @@ export function useHostMessages({
         return
       }
 
+      if (message?.type === "restoreComposer") {
+        onRestoreComposer(message)
+        return
+      }
+
       if (message?.type === "mcpActionFinished") {
         setPendingMcpActions((current) => {
           if (!current[message.name]) {
@@ -66,5 +73,5 @@ export function useHostMessages({
     window.addEventListener("message", handler)
     vscode.postMessage({ type: "ready" })
     return () => window.removeEventListener("message", handler)
-  }, [fileRefStatus, onFileSearchResults, setPendingMcpActions, setState, vscode])
+  }, [fileRefStatus, onFileSearchResults, onRestoreComposer, setPendingMcpActions, setState, vscode])
 }

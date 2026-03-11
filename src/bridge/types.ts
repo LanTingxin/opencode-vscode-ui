@@ -1,4 +1,4 @@
-import type { AgentInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, PromptSource, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
+import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, PromptSource, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
 
 export const SESSION_PANEL_VIEW_TYPE = "opencode-ui.session"
 
@@ -38,6 +38,7 @@ export type SessionSnapshot = SessionBootstrap & {
   mcp: Record<string, McpStatus>
   mcpResources: Record<string, McpResource>
   lsp: LspStatus[]
+  commands: CommandInfo[]
   relatedSessionIds: string[]
   agentMode: "build" | "plan"
   navigation: {
@@ -92,6 +93,10 @@ export type HostMessage =
       requestID: string
       query: string
       results: ComposerPathResult[]
+    }
+  | {
+      type: "restoreComposer"
+      parts: ComposerPromptPart[]
     }
 
 export type ComposerPromptPart =
@@ -175,7 +180,16 @@ export type WebviewMessage =
     }
   | {
       type: "composerAction"
-      action: "refreshSession"
+      action: "refreshSession" | "compactSession" | "undoSession" | "redoSession"
+      model?: {
+        providerID: string
+        modelID: string
+      }
+    }
+  | {
+      type: "runSlashCommand"
+      command: string
+      arguments: string
     }
   | {
       type: "searchFiles"

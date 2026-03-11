@@ -1,4 +1,5 @@
 import React from "react"
+import { parsePatch } from "diff"
 import type { FilePart, MessageInfo, MessagePart, SessionMessage, TextPart } from "../../../core/sdk"
 import { TranscriptVisibilityContext } from "./contexts"
 import type { AppState } from "./state"
@@ -7,6 +8,7 @@ type TimelineBlock =
   | { kind: "user-message"; key: string; message: SessionMessage; queued: boolean }
   | { kind: "assistant-part"; key: string; part: MessagePart }
   | { kind: "assistant-meta"; key: string; messages: SessionMessage[] }
+  | { kind: "revert"; key: string; count: number; files: Array<{ filename: string; additions: number; deletions: number }> }
 
 export function Timeline({
   state,
@@ -23,6 +25,7 @@ export function Timeline({
   MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
   PartView: ({ part, active, diffMode }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
 }) {
+  const revertID = state.snapshot.session?.revert?.messageID
   const messages = state.snapshot.messages
   const [showThinking, setShowThinking] = React.useState(true)
   const [showInternals, setShowInternals] = React.useState(false)
@@ -40,7 +43,12 @@ export function Timeline({
     return <EmptyState title="Start this session" text="Send a message below. Pending permission and question requests will appear in the lower dock." />
   }
 
-  const blocks = buildTimelineBlocks(messages, { showThinking, showInternals })
+  const blocks = buildTimelineBlocks(messages, {
+    showThinking,
+    showInternals,
+    revertID,
+    revertDiff: state.snapshot.session?.revert?.diff,
+  })
   const activeToolID = latestActiveToolId(blocks.flatMap((block) => block.kind === "assistant-part" ? [block.part] : []))
   const hasPatchDiff = blocks.some((block) => block.kind === "assistant-part" && block.part.type === "tool" && block.part.tool === "apply_patch")
 
@@ -134,6 +142,26 @@ function TimelineBlockView({
     return <AssistantTurnMeta AgentBadge={AgentBadge} messages={block.messages} />
   }
 
+  if (block.kind === "revert") {
+    return (
+      <section className="oc-revertNotice">
+        <div className="oc-revertNoticeTitle">{block.count} message reverted</div>
+        <div className="oc-revertNoticeText">Use `/redo` to restore this part of the session.</div>
+        {block.files.length > 0 ? (
+          <div className="oc-revertFileList">
+            {block.files.map((file, index) => (
+              <div key={`${file.filename}:${index}`} className="oc-revertFileRow">
+                <span>{file.filename}</span>
+                {file.additions > 0 ? <span className="oc-revertFileAdd">+{file.additions}</span> : null}
+                {file.deletions > 0 ? <span className="oc-revertFileDel">-{file.deletions}</span> : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    )
+  }
+
   const part = block.part
   return <PartView part={part} active={part.type === "tool" && part.id === activeToolID} diffMode={diffMode} />
 }
@@ -172,7 +200,7 @@ function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { 
   )
 }
 
-function buildTimelineBlocks(messages: SessionMessage[], options: { showThinking: boolean; showInternals: boolean }) {
+function buildTimelineBlocks(messages: SessionMessage[], options: { showThinking: boolean; showInternals: boolean; revertID?: string; revertDiff?: string }) {
   const blocks: TimelineBlock[] = []
   let assistants: SessionMessage[] = []
   const pendingAssistantIndex = lastPendingAssistantIndex(messages)
@@ -189,6 +217,17 @@ function buildTimelineBlocks(messages: SessionMessage[], options: { showThinking
   }
 
   for (const [index, message] of messages.entries()) {
+    if (options.revertID && message.info.id === options.revertID) {
+      flush()
+      blocks.push({
+        kind: "revert",
+        key: `revert:${message.info.id}`,
+        count: revertedUserCount(messages, options.revertID),
+        files: revertFiles(options.revertDiff),
+      })
+      break
+    }
+
     if (message.info.role === "user") {
       flush()
       blocks.push({
@@ -209,6 +248,26 @@ function buildTimelineBlocks(messages: SessionMessage[], options: { showThinking
 
   flush()
   return blocks
+}
+
+function revertedUserCount(messages: SessionMessage[], revertID: string) {
+  return messages.filter((message) => message.info.role === "user" && message.info.id >= revertID).length
+}
+
+function revertFiles(diff?: string) {
+  if (!diff?.trim()) {
+    return []
+  }
+
+  try {
+    return parsePatch(diff).map((patch) => ({
+      filename: (patch.newFileName || patch.oldFileName || "unknown").replace(/^[ab]\//, ""),
+      additions: patch.hunks.reduce((sum, hunk) => sum + hunk.lines.filter((line) => line.startsWith("+")).length, 0),
+      deletions: patch.hunks.reduce((sum, hunk) => sum + hunk.lines.filter((line) => line.startsWith("-")).length, 0),
+    }))
+  } catch {
+    return []
+  }
 }
 
 function messagesFromAssistants(messages: SessionMessage[]) {

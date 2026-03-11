@@ -1,5 +1,5 @@
 import React from "react"
-import type { ComposerPathResult, SessionBootstrap } from "../../../bridge/types"
+import type { ComposerPathResult, ComposerPromptPart, SessionBootstrap } from "../../../bridge/types"
 import type { QuestionRequest } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, WorkspaceDirContext } from "./contexts"
 import { answerKey, PermissionDock, QuestionDock, RetryStatus, SessionNav, SubagentNotice } from "./docks"
@@ -47,6 +47,16 @@ export function App() {
   const composerRef = React.useRef<HTMLDivElement | null>(null)
   const composerCursorRef = React.useRef<number | null>(null)
   const searchRef = React.useRef<{ requestID: string; query: string } | null>(null)
+  const onFileSearchResults = React.useCallback((payload: { requestID: string; query: string; results: ComposerPathResult[] }) => {
+    if (!searchRef.current || payload.requestID !== searchRef.current.requestID) {
+      return
+    }
+    if (payload.query !== searchRef.current.query) {
+      return
+    }
+    setFileResults(payload.results)
+    setFileSearch({ status: "done", query: payload.query })
+  }, [])
   const composerMenuItems = React.useMemo(() => buildComposerMenuItems(state, fileResults), [fileResults, state])
   const composerAutocomplete = useComposerAutocomplete(composerMenuItems)
 
@@ -55,22 +65,6 @@ export function App() {
   const firstPermission = state.snapshot.permissions[0]
   const firstQuestion = state.snapshot.questions[0]
 
-  useHostMessages({
-    fileRefStatus,
-    onFileSearchResults: (payload) => {
-      if (!searchRef.current || payload.requestID !== searchRef.current.requestID) {
-        return
-      }
-      if (payload.query !== searchRef.current.query) {
-        return
-      }
-      setFileResults(payload.results)
-      setFileSearch({ status: "done", query: payload.query })
-    },
-    setPendingMcpActions,
-    setState,
-    vscode,
-  })
   useComposerResize(composerRef, state.draft)
   useTimelineScroll(timelineRef, [state.snapshot.messages, state.snapshot.submitting, state.snapshot.permissions, state.snapshot.questions])
   useModifierState()
@@ -139,6 +133,21 @@ export function App() {
       syncComposerInput(value, cursor, cursor)
     }, 0)
   }, [syncComposerInput])
+
+  const onRestoreComposer = React.useCallback((payload: { parts: ComposerPromptPart[] }) => {
+    const parts = composerPartsFromPromptParts(payload.parts)
+    const result = setComposerState(parts, "")
+    restoreComposerCursor(result.draft, result.draft.length)
+  }, [restoreComposerCursor, setComposerState])
+
+  useHostMessages({
+    fileRefStatus,
+    onFileSearchResults,
+    onRestoreComposer,
+    setPendingMcpActions,
+    setState,
+    vscode,
+  })
 
   React.useEffect(() => {
     const onDragOver = (event: DragEvent) => {
@@ -235,6 +244,27 @@ export function App() {
 
     const finalized = ensureTextPart(absorbFileSelectionSuffix(state.composerParts, true).parts)
     const draft = composerText(finalized)
+
+    // Check if draft is a slash command invocation: starts with "/" and first token matches a known server command
+    const slashMatch = draft.match(/^\/(\S+)(?:\s+([\s\S]*))?$/)
+    if (slashMatch) {
+      const cmdName = slashMatch[1]
+      const cmdArgs = (slashMatch[2] ?? "").trim()
+      const knownCmd = state.snapshot.commands.find((c) => c.name === cmdName && c.source !== "skill")
+      if (knownCmd) {
+        vscode.postMessage({ type: "runSlashCommand", command: cmdName, arguments: cmdArgs })
+        setState((current) => ({
+          ...current,
+          draft: "",
+          composerParts: emptyComposerParts(),
+          composerMentions: [],
+          composerAgentOverride: undefined,
+          error: "",
+        }))
+        return
+      }
+    }
+
     const mentions = mentionsFromParts(finalized)
     const selection = composerSelection({ ...state.snapshot, composerAgentOverride: state.composerAgentOverride })
     const parts = buildComposerSubmitParts(draft, mentions)
@@ -255,32 +285,72 @@ export function App() {
     }))
   }, [blocked, state.composerAgentOverride, state.composerParts, state.snapshot])
 
+  const clearComposerDraft = React.useCallback(() => {
+    setState((current) => ({
+      ...current,
+      draft: "",
+      composerParts: emptyComposerParts(),
+      composerMentions: [],
+      composerAgentOverride: undefined,
+      error: "",
+    }))
+  }, [])
+
   const acceptComposerAutocomplete = React.useCallback((item: ComposerAutocompleteItem) => {
     if (item.kind === "action") {
-      if (item.id === "slash-clear") {
-        setState((current) => ({ ...current, draft: "", composerParts: emptyComposerParts(), composerMentions: [], composerAgentOverride: undefined, error: "" }))
+      if (item.id === "slash-undo") {
+        clearComposerDraft()
+        vscode.postMessage({
+          type: "composerAction",
+          action: "undoSession",
+        })
+        composerAutocomplete.close()
+        return
+      }
+
+      if (item.id === "slash-redo") {
+        clearComposerDraft()
+        vscode.postMessage({
+          type: "composerAction",
+          action: "redoSession",
+        })
+        composerAutocomplete.close()
+        return
+      }
+
+      if (item.id === "slash-compact") {
+        const selection = composerSelection({ ...state.snapshot, composerAgentOverride: state.composerAgentOverride })
+        clearComposerDraft()
+        vscode.postMessage({
+          type: "composerAction",
+          action: "compactSession",
+          model: selection.model,
+        })
         composerAutocomplete.close()
         return
       }
 
       if (item.id === "slash-reset-agent") {
-        setState((current) => ({
-          ...current,
-          draft: "",
-          composerParts: emptyComposerParts(),
-          composerMentions: [],
-          composerAgentOverride: undefined,
-          error: "",
-        }))
+        clearComposerDraft()
         composerAutocomplete.close()
         return
       }
 
       if (item.id === "slash-refresh") {
+        clearComposerDraft()
         vscode.postMessage({ type: "composerAction", action: "refreshSession" })
         composerAutocomplete.close()
         return
       }
+    }
+
+    if (item.kind === "command") {
+      const cmdDraft = `/${item.label} `
+      const next = replaceRangeWithText(emptyComposerParts(), 0, 0, cmdDraft)
+      const result = setComposerState(next.parts, "")
+      composerAutocomplete.close()
+      restoreComposerCursor(result.draft, cmdDraft.length)
+      return
     }
 
     if (item.mention) {
@@ -298,7 +368,7 @@ export function App() {
       composerAutocomplete.close()
       restoreComposerCursor(result.draft, next.cursor)
     }
-  }, [composerAutocomplete, restoreComposerCursor, setComposerState, state.composerParts])
+  }, [clearComposerDraft, composerAutocomplete, restoreComposerCursor, setComposerState, state.composerAgentOverride, state.composerParts, state.snapshot])
 
   const sendQuestionReply = React.useCallback((request: QuestionRequest) => {
     const answers = request.questions.map((_item, index) => {
@@ -712,6 +782,68 @@ function ComposerInfo({ state }: { state: AppState }) {
 
 function supportsComposerDrop(data: DataTransfer | null) {
   return droppedFileMentions(data, "").length > 0
+}
+
+function composerPartsFromPromptParts(parts: ComposerPromptPart[]): ComposerEditorPart[] {
+  const next: ComposerEditorPart[] = []
+
+  for (const part of parts) {
+    if (part.type === "text") {
+      next.push({ type: "text", content: part.text, start: 0, end: 0 })
+      continue
+    }
+
+    if (part.type === "file") {
+      const parsed = parseRestoredComposerFile(part)
+      next.push({
+        type: "file",
+        path: parsed.path,
+        kind: parsed.kind,
+        selection: parsed.selection,
+        content: part.source.value,
+        start: 0,
+        end: 0,
+      })
+      next.push({ type: "text", content: " ", start: 0, end: 0 })
+      continue
+    }
+
+    if (part.type === "resource") {
+      next.push({
+        type: "resource",
+        uri: part.uri,
+        name: part.name,
+        clientName: part.clientName,
+        mimeType: part.mimeType,
+        content: part.source.value,
+        start: 0,
+        end: 0,
+      })
+      next.push({ type: "text", content: " ", start: 0, end: 0 })
+      continue
+    }
+
+    next.push({
+      type: "agent",
+      name: part.name,
+      content: part.source?.value ?? `@${part.name}`,
+      start: 0,
+      end: 0,
+    })
+    next.push({ type: "text", content: " ", start: 0, end: 0 })
+  }
+
+  return ensureTextPart(next)
+}
+
+function parseRestoredComposerFile(part: Extract<ComposerPromptPart, { type: "file" }>) {
+  const raw = part.source.value.startsWith("@") ? part.source.value.slice(1) : part.source.value
+  const parsed = parseComposerFileQuery(raw)
+  return {
+    path: parsed.baseQuery || part.path,
+    selection: parsed.selection ?? part.selection,
+    kind: part.kind ?? ((parsed.baseQuery || part.path).endsWith("/") ? "directory" as const : "file" as const),
+  }
 }
 
 function droppedFileMentions(data: DataTransfer | null, workspaceDir: string) {

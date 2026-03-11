@@ -1,5 +1,5 @@
 import type { ComposerFileSelection, ComposerPathKind, SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
-import type { AgentInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
+import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 
 export type VsCodeApi = {
   postMessage(message: unknown): void
@@ -59,6 +59,7 @@ export type ComposerEditorPart = ({
 export type AppState = {
   bootstrap: SessionBootstrap
   snapshot: {
+    session?: SessionInfo
     messages: SessionMessage[]
     childMessages: Record<string, SessionMessage[]>
     childSessions: Record<string, SessionInfo>
@@ -79,6 +80,7 @@ export type AppState = {
     mcp: Record<string, McpStatus>
     mcpResources: Record<string, McpResource>
     lsp: LspStatus[]
+    commands: CommandInfo[]
     agentMode: "build" | "plan"
     navigation: {
       parent?: { id: string; title: string }
@@ -104,6 +106,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
     },
     snapshot: {
       messages: [],
+      session: undefined,
       childMessages: {},
       childSessions: {},
       sessionStatus: undefined,
@@ -120,6 +123,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
       mcp: {},
       mcpResources: {},
       lsp: [],
+      commands: [],
       agentMode: "build",
       navigation: {},
     },
@@ -148,6 +152,7 @@ export function bootstrapFromSnapshot(payload: SessionSnapshot): SessionBootstra
 
 export function normalizeSnapshotPayload(payload: SessionSnapshot): AppState["snapshot"] {
   return {
+    session: payload.session,
     messages: Array.isArray(payload.messages) ? payload.messages : [],
     childMessages: recordOfMessageLists(payload.childMessages),
     childSessions: recordOfSessions(payload.childSessions),
@@ -165,6 +170,7 @@ export function normalizeSnapshotPayload(payload: SessionSnapshot): AppState["sn
     mcp: recordValue(payload.mcp) as Record<string, McpStatus>,
     mcpResources: recordValue(payload.mcpResources) as Record<string, McpResource>,
     lsp: Array.isArray(payload.lsp) ? payload.lsp : [],
+    commands: Array.isArray(payload.commands) ? payload.commands : [],
     agentMode: payload.agentMode === "plan" ? "plan" : "build",
     navigation: payload.navigation || {},
   }

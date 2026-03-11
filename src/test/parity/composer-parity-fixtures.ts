@@ -1,4 +1,4 @@
-import type { AgentInfo, McpResource } from "../../core/sdk"
+import type { AgentInfo, CommandInfo, McpResource } from "../../core/sdk"
 import type { ComposerParityFixture } from "./composer-parity"
 
 const agents: AgentInfo[] = [
@@ -41,7 +41,47 @@ const searchOnlyFiles = {
   workspace: files.workspace,
 }
 
+const commands: CommandInfo[] = [
+  { name: "review", description: "review changes [commit|branch|pr]", source: "command", hints: [] },
+  { name: "init", description: "create/update AGENTS.md", source: "command", hints: [] },
+  { name: "debug", description: "debug current issue", source: "mcp", hints: [] },
+  { name: "summarize", description: "summarize session", source: "skill", hints: [] },
+]
+
 export const composerParityFixtures: ComposerParityFixture[] = [
+  {
+    name: "slash actions include compact and sort alphabetically",
+    draft: "/",
+    cursor: 1,
+    expected: {
+      trigger: "slash",
+      query: "",
+      items: [
+        {
+          id: "slash-compact",
+          kind: "action",
+          label: "compact",
+          detail: "Summarize this session immediately using the current model.",
+        },
+        {
+          id: "slash-refresh",
+          kind: "action",
+          label: "refresh",
+          detail: "Ask the host to reload the current session snapshot.",
+        },
+        {
+          id: "slash-undo",
+          kind: "action",
+          label: "undo",
+          detail: "Revert the previous user turn immediately.",
+        },
+      ],
+      accepted: {
+        action: "slash-compact",
+      },
+    },
+    acceptIndex: 0,
+  },
   {
     name: "slash actions filter and order",
     draft: "/re",
@@ -64,14 +104,62 @@ export const composerParityFixtures: ComposerParityFixture[] = [
           detail: "Return the composer to the default agent selection.",
         },
         {
-          id: "slash-clear",
+          id: "slash-undo",
           kind: "action",
-          label: "clear",
-          detail: "Clear the current composer draft locally.",
+          label: "undo",
+          detail: "Revert the previous user turn immediately.",
+        },
+        {
+          id: "slash-compact",
+          kind: "action",
+          label: "compact",
+          detail: "Summarize this session immediately using the current model.",
         },
       ],
       accepted: {
         action: "slash-refresh",
+      },
+    },
+    acceptIndex: 0,
+  },
+  {
+    name: "slash redo appears when session has revert state",
+    draft: "/red",
+    cursor: 4,
+    session: {
+      revert: { messageID: "msg-1" },
+    },
+    expected: {
+      trigger: "slash",
+      query: "red",
+      items: [
+        {
+          id: "slash-redo",
+          kind: "action",
+          label: "redo",
+          detail: "Restore previously reverted messages immediately.",
+        },
+        {
+          id: "slash-refresh",
+          kind: "action",
+          label: "refresh",
+          detail: "Ask the host to reload the current session snapshot.",
+        },
+        {
+          id: "slash-compact",
+          kind: "action",
+          label: "compact",
+          detail: "Summarize this session immediately using the current model.",
+        },
+        {
+          id: "slash-undo",
+          kind: "action",
+          label: "undo",
+          detail: "Revert the previous user turn immediately.",
+        },
+      ],
+      accepted: {
+        action: "slash-redo",
       },
     },
     acceptIndex: 0,
@@ -219,5 +307,75 @@ export const composerParityFixtures: ComposerParityFixture[] = [
       },
     },
     acceptIndex: 0,
+  },
+  {
+    name: "slash server commands appear in alphabetical order when no query",
+    draft: "/",
+    cursor: 1,
+    commands,
+    expected: {
+      trigger: "slash",
+      query: "",
+      items: [
+        { id: "slash-compact", kind: "action", label: "compact", detail: "Summarize this session immediately using the current model." },
+        { id: "command:debug", kind: "command", label: "debug", detail: "debug current issue :mcp" },
+        { id: "command:init", kind: "command", label: "init", detail: "create/update AGENTS.md" },
+        { id: "slash-refresh", kind: "action", label: "refresh", detail: "Ask the host to reload the current session snapshot." },
+        { id: "command:review", kind: "command", label: "review", detail: "review changes [commit|branch|pr]" },
+        { id: "slash-undo", kind: "action", label: "undo", detail: "Revert the previous user turn immediately." },
+        // summarize (skill) must be absent
+      ],
+    },
+  },
+  {
+    name: "slash server commands prefix match ranks before fuzzy detail match",
+    draft: "/re",
+    cursor: 3,
+    commands,
+    expected: {
+      trigger: "slash",
+      query: "re",
+      items: [
+        // review and refresh both start with "re" → prefix boost, sorted by label alpha
+        { id: "command:review", kind: "command", label: "review", detail: "review changes [commit|branch|pr]" },
+        { id: "slash-refresh", kind: "action", label: "refresh", detail: "Ask the host to reload the current session snapshot." },
+        // undo, init, compact and debug matched via secondary fields, ranked after
+        { id: "slash-undo", kind: "action", label: "undo", detail: "Revert the previous user turn immediately." },
+        { id: "command:init", kind: "command", label: "init", detail: "create/update AGENTS.md" },
+        { id: "slash-compact", kind: "action", label: "compact", detail: "Summarize this session immediately using the current model." },
+        { id: "command:debug", kind: "command", label: "debug", detail: "debug current issue :mcp" },
+      ],
+    },
+  },
+  {
+    name: "slash server command accept replaces draft with slash name and space",
+    draft: "/debug",
+    cursor: 6,
+    commands,
+    acceptIndex: 0,
+    expected: {
+      trigger: "slash",
+      query: "debug",
+      items: [
+        { id: "command:debug", kind: "command", label: "debug", detail: "debug current issue :mcp" },
+      ],
+      accepted: {
+        draft: "/debug ",
+      },
+    },
+  },
+  {
+    name: "slash skill commands are excluded from autocomplete",
+    draft: "/summarize",
+    cursor: 10,
+    commands,
+    expected: {
+      trigger: "slash",
+      query: "summarize",
+      items: [
+        { id: "slash-compact", kind: "action", label: "compact", detail: "Summarize this session immediately using the current model." },
+      ],
+      // summarize has source=skill so it must never appear as a command item; /compact still matches via its summarize keyword
+    },
   },
 ]
