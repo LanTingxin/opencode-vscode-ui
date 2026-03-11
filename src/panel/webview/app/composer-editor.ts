@@ -1,4 +1,5 @@
 import type { ComposerAutocompleteItem } from "../hooks/useComposerAutocomplete"
+import { formatComposerFileContent } from "../lib/composer-file-selection"
 import type { ComposerEditorPart, ComposerMention } from "./state"
 
 export function emptyComposerParts(): ComposerEditorPart[] {
@@ -44,7 +45,7 @@ export function composerMentions(parts: ComposerEditorPart[]): ComposerMention[]
     .flatMap((part): ComposerMention[] => part.type === "agent"
       ? [{ type: "agent", name: part.name, content: part.content, start: part.start, end: part.end }]
       : part.type === "file"
-        ? [{ type: "file", path: part.path, kind: part.kind, content: part.content, start: part.start, end: part.end }]
+        ? [{ type: "file", path: part.path, kind: part.kind, selection: part.selection, content: part.content, start: part.start, end: part.end }]
         : [])
 }
 
@@ -64,7 +65,7 @@ export function composerPartsEqual(a: ComposerEditorPart[], b: ComposerEditorPar
       return part.name === other.name
     }
     if (part.type === "file" && other.type === "file") {
-      return part.path === other.path && part.kind === other.kind
+      return part.path === other.path && part.kind === other.kind && part.selection?.startLine === other.selection?.startLine && part.selection?.endLine === other.selection?.endLine
     }
     return part.type === "text" && other.type === "text"
   })
@@ -73,7 +74,7 @@ export function composerPartsEqual(a: ComposerEditorPart[], b: ComposerEditorPar
 export function replaceRangeWithMention(parts: ComposerEditorPart[], start: number, end: number, mention: NonNullable<ComposerAutocompleteItem["mention"]>) {
   const next = replaceRange(parts, start, end, mention.type === "agent"
     ? [{ type: "agent", name: mention.name, content: mention.content, start: 0, end: 0 }, { type: "text", content: " ", start: 0, end: 0 }]
-    : [{ type: "file", path: mention.path, kind: mention.kind, content: mention.content, start: 0, end: 0 }, { type: "text", content: " ", start: 0, end: 0 }])
+    : [{ type: "file", path: mention.path, kind: mention.kind, selection: mention.selection, content: mention.content, start: 0, end: 0 }, { type: "text", content: " ", start: 0, end: 0 }])
 
   return {
     parts: next,
@@ -146,6 +147,65 @@ export function ensureTextPart(parts: ComposerEditorPart[]) {
   return next.length === 0 ? emptyComposerParts() : next
 }
 
+export function absorbFileSelectionSuffix(parts: ComposerEditorPart[], allowTerminal = false) {
+  const next: ComposerEditorPart[] = []
+  const full = normalizeComposerParts(parts)
+  let changed = false
+
+  for (let i = 0; i < full.length; i += 1) {
+    const part = full[i]
+    const text = full[i + 1]
+    if (part?.type === "file" && part.kind !== "directory" && text?.type === "text") {
+      const suffix = selectionSuffix(text.content, allowTerminal)
+      if (suffix) {
+        next.push({
+          ...part,
+          selection: suffix.selection,
+          content: formatComposerFileContent(part.path, suffix.selection),
+          start: 0,
+          end: 0,
+        })
+        if (suffix.rest) {
+          next.push({ type: "text", content: suffix.rest, start: 0, end: 0 })
+        }
+        i += 1
+        changed = true
+        continue
+      }
+
+      const extension = selectionExtension(text.content, part.selection?.startLine, allowTerminal)
+      if (extension) {
+        next.push({
+          ...part,
+          selection: {
+            startLine: part.selection?.startLine ?? extension.endLine,
+            endLine: extension.endLine,
+          },
+          content: formatComposerFileContent(part.path, {
+            startLine: part.selection?.startLine ?? extension.endLine,
+            endLine: extension.endLine,
+          }),
+          start: 0,
+          end: 0,
+        })
+        if (extension.rest) {
+          next.push({ type: "text", content: extension.rest, start: 0, end: 0 })
+        }
+        i += 1
+        changed = true
+        continue
+      }
+    }
+
+    next.push(part)
+  }
+
+  return {
+    parts: normalizeComposerParts(next),
+    changed,
+  }
+}
+
 function replaceRange(parts: ComposerEditorPart[], start: number, end: number, insert: ComposerEditorPart[]) {
   const next: ComposerEditorPart[] = []
 
@@ -192,4 +252,66 @@ function replaceRange(parts: ComposerEditorPart[], start: number, end: number, i
 
 function trimTrailingSpace(text: string, end: number) {
   return text[end] === " " ? end + 1 : end
+}
+
+function selectionSuffix(text: string, allowTerminal: boolean) {
+  const match = text.match(/^#(\d+)(?:-(\d+))?/) 
+  if (!match) {
+    return null
+  }
+
+  const consumed = match[0].length
+  const next = text[consumed]
+  if (next) {
+    if (!/\s/.test(next)) {
+      return null
+    }
+  } else if (!allowTerminal) {
+    return null
+  }
+
+  const startLine = Number(match[1])
+  const endLine = match[2] ? Number(match[2]) : undefined
+  if (!Number.isFinite(startLine) || startLine < 1) {
+    return null
+  }
+  if (endLine !== undefined && (!Number.isFinite(endLine) || endLine <= startLine)) {
+    return null
+  }
+
+  return {
+    selection: { startLine, endLine },
+    rest: text.slice(consumed),
+  }
+}
+
+function selectionExtension(text: string, startLine: number | undefined, allowTerminal: boolean) {
+  if (!startLine) {
+    return null
+  }
+
+  const match = text.match(/^-(\d+)/)
+  if (!match) {
+    return null
+  }
+
+  const consumed = match[0].length
+  const next = text[consumed]
+  if (next) {
+    if (!/\s/.test(next)) {
+      return null
+    }
+  } else if (!allowTerminal) {
+    return null
+  }
+
+  const endLine = Number(match[1])
+  if (!Number.isFinite(endLine) || endLine <= startLine) {
+    return null
+  }
+
+  return {
+    endLine,
+    rest: text.slice(consumed),
+  }
 }

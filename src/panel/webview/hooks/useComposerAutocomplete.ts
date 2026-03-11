@@ -1,5 +1,6 @@
 import type { ComposerPathKind } from "../../../bridge/types"
 import React from "react"
+import { parseComposerFileQuery } from "../lib/composer-file-selection"
 
 export type ComposerAutocompleteTrigger = "slash" | "mention"
 
@@ -9,7 +10,7 @@ export type ComposerAutocompleteItem = {
   detail: string
   keywords?: string[]
   trigger: ComposerAutocompleteTrigger
-  kind: "action" | "agent" | "recent" | "file" | "directory"
+  kind: "action" | "agent" | "selection" | "recent" | "file" | "directory"
   match?: {
     label: number[]
     detail: number[]
@@ -21,6 +22,7 @@ export type ComposerAutocompleteItem = {
     type: "file"
     path: string
     kind?: ComposerPathKind
+    selection?: import("../../../bridge/types").ComposerFileSelection
   }) & {
     content: string
   }
@@ -195,21 +197,31 @@ function filterItems(items: ComposerAutocompleteItem[], trigger: ComposerAutocom
 }
 
 function matchRank(item: ComposerAutocompleteItem, query: string) {
+  const normalized = item.mention?.type === "file"
+    ? parseComposerFileQuery(query).baseQuery.trim().toLowerCase()
+    : query
+  if (!normalized) {
+    return 0
+  }
+
   const fields = [
-    fuzzyScore(item.label, query, 0),
-    fuzzyScore(item.detail, query, 40),
-    ...(item.keywords ?? []).map((value) => fuzzyScore(value, query, 70)),
+    fuzzyScore(item.label, normalized, 0),
+    fuzzyScore(item.detail, normalized, 40),
+    ...(item.keywords ?? []).map((value) => fuzzyScore(value, normalized, 70)),
   ].filter((value): value is number => typeof value === "number")
 
   return fields.length > 0 ? Math.min(...fields) : undefined
 }
 
 function withMatch(item: ComposerAutocompleteItem, query: string): ComposerAutocompleteItem {
+  const normalized = item.mention?.type === "file"
+    ? parseComposerFileQuery(query).baseQuery.trim().toLowerCase()
+    : query
   return {
     ...item,
     match: {
-      label: fuzzyIndexes(item.label, query),
-      detail: fuzzyIndexes(item.detail, query),
+      label: fuzzyIndexes(item.label, normalized),
+      detail: fuzzyIndexes(item.detail, normalized),
     },
   }
 }
@@ -220,11 +232,13 @@ function kindRank(kind: ComposerAutocompleteItem["kind"]) {
       return 0
     case "agent":
       return 1
-    case "recent":
+    case "selection":
       return 2
+    case "recent":
+      return 3
     case "file":
     case "directory":
-      return 3
+      return 4
   }
 }
 

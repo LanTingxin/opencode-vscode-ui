@@ -265,6 +265,8 @@ If the remaining issues are still dominated by caret, deletion, selection, and e
 
 ## Phase F - Add Missing TUI-Style Entry Paths
 
+Status: completed
+
 ### Objective
 
 Close surrounding `@file` affordance gaps beyond plain keyboard search.
@@ -288,6 +290,14 @@ Close surrounding `@file` affordance gaps beyond plain keyboard search.
 - dropped files can become valid file mentions when that action is unambiguous
 - selected file references can carry richer metadata if the host can submit it correctly
 - mention entry paths feel coherent rather than bolted on
+
+### Progress
+
+- completed with upstream-style file URI dropping into the structured composer as atomic file mentions
+- the mention model now carries optional line-range metadata, so selecting a `@file` result with `#12` or `#12-20` preserves that range through editor state and submit conversion
+- host search now surfaces the active editor selection as a distinct `selection` source ahead of recent files when the selection maps cleanly into the current workspace
+- host submit now serializes selected-line file mentions to file URLs with `start` and optional `end` query params, matching the upstream web and TUI request shape more closely
+- helper copy now points users toward path-plus-range entry (`path#12-20`) and drop-to-mention behavior
 
 ---
 

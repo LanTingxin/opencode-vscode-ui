@@ -1,4 +1,4 @@
-import type { ComposerPathKind, SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
+import type { ComposerFileSelection, ComposerPathKind, SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
 import type { AgentInfo, FileDiff, LspStatus, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 
 export type VsCodeApi = {
@@ -25,6 +25,7 @@ export type ComposerMention = ({
   type: "file"
   path: string
   kind?: ComposerPathKind
+  selection?: ComposerFileSelection
 }) & ComposerMentionBase
 
 export type ComposerEditorPart = ({
@@ -38,6 +39,7 @@ export type ComposerEditorPart = ({
   type: "file"
   path: string
   kind?: ComposerPathKind
+  selection?: ComposerFileSelection
   content: string
 }) & ComposerMentionBase
 

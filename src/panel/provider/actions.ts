@@ -1,5 +1,6 @@
 import * as vscode from "vscode"
 import * as path from "node:path"
+import { URL } from "node:url"
 import { postToWebview } from "../../bridge/host"
 import type { ComposerPromptPart, SessionPanelRef } from "../../bridge/types"
 import type { MessageInfo, PermissionReply, PromptPartInput } from "../../core/sdk"
@@ -212,7 +213,7 @@ async function toPromptParts(workspaceDir: string, textValue: string, parts?: Co
       type: "file",
       mime: resolved.kind === "directory" ? "application/x-directory" : "text/plain",
       filename: path.basename(part.path),
-      url: resolved.uri.toString(),
+      url: fileUrl(resolved.uri, resolved.kind === "file" ? part.selection : undefined),
       source: {
         type: "file",
         path: resolved.uri.fsPath,
@@ -222,4 +223,17 @@ async function toPromptParts(workspaceDir: string, textValue: string, parts?: Co
   }
 
   return out.length > 0 ? out : [{ type: "text", text: textValue }]
+}
+
+function fileUrl(uri: vscode.Uri, selection?: { startLine: number; endLine?: number }) {
+  if (!selection) {
+    return uri.toString()
+  }
+
+  const url = new URL(uri.toString())
+  url.searchParams.set("start", String(selection.startLine))
+  if (selection.endLine) {
+    url.searchParams.set("end", String(selection.endLine))
+  }
+  return url.toString()
 }

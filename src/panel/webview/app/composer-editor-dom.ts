@@ -90,6 +90,10 @@ export function parseComposerEditor(root: HTMLElement): ComposerEditorPart[] {
         type: "file",
         path: el.dataset.path || content.slice(1),
         kind: el.dataset.kind === "directory" ? "directory" : "file",
+        selection: el.dataset.startLine ? {
+          startLine: Number(el.dataset.startLine),
+          endLine: el.dataset.endLine ? Number(el.dataset.endLine) : undefined,
+        } : undefined,
         content,
         start: position,
         end: position + content.length,
@@ -236,6 +240,12 @@ function createPill(part: Extract<ComposerEditorPart, { type: "agent" | "file" }
     pill.dataset.path = part.path
     if (part.kind) {
       pill.dataset.kind = part.kind
+    }
+    if (part.selection) {
+      pill.dataset.startLine = String(part.selection.startLine)
+      if (part.selection.endLine) {
+        pill.dataset.endLine = String(part.selection.endLine)
+      }
     }
   }
   pill.textContent = part.content

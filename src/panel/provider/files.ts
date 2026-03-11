@@ -78,9 +78,10 @@ export async function resolveFileRefs(webview: vscode.Webview, workspaceDir: str
 
 export async function searchFiles(webview: vscode.Webview, workspaceDir: string, requestID: string, query: string) {
   const value = query.trim()
+  const selection = selectedFileResults(workspaceDir, value)
   const recent = recentFileResults(workspaceDir, value)
   const search = value ? await searchWorkspacePaths(workspaceDir, value) : []
-  const results = dedupeResults([...recent, ...search]).slice(0, FILE_SEARCH_LIMIT)
+  const results = dedupeResults([...selection, ...recent, ...search]).slice(0, FILE_SEARCH_LIMIT)
 
   await postToWebview(webview, {
     type: "fileSearchResults",
@@ -88,6 +89,27 @@ export async function searchFiles(webview: vscode.Webview, workspaceDir: string,
     query,
     results,
   })
+}
+
+function selectedFileResults(workspaceDir: string, query: string): ComposerPathResult[] {
+  const editor = vscode.window.activeTextEditor
+  const filePath = toWorkspacePath(workspaceDir, editor?.document.uri)
+  if (!editor || !filePath || editor.selection.isEmpty) {
+    return []
+  }
+
+  if (query && !matchesPath(filePath, query)) {
+    return []
+  }
+
+  const startLine = Math.min(editor.selection.start.line, editor.selection.end.line) + 1
+  const endLine = Math.max(editor.selection.start.line, editor.selection.end.line) + 1
+  return [{
+    path: filePath,
+    kind: "file",
+    source: "selection",
+    selection: startLine === endLine ? { startLine } : { startLine, endLine },
+  }]
 }
 
 async function searchWorkspacePaths(workspaceDir: string, value: string): Promise<ComposerPathResult[]> {

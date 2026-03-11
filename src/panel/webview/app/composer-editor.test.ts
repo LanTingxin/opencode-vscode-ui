@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import { composerMentions, composerText, deleteStructuredRange, emptyComposerParts, normalizeComposerParts, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
+import { absorbFileSelectionSuffix, composerMentions, composerText, deleteStructuredRange, emptyComposerParts, normalizeComposerParts, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import type { ComposerEditorPart } from "./state"
 
 describe("composer editor parts", () => {
@@ -42,6 +42,66 @@ describe("composer editor parts", () => {
     assert.equal(composerText(next?.parts ?? emptyComposerParts()), "open now")
     assert.deepEqual(composerMentions(next?.parts ?? emptyComposerParts()), [])
     assert.equal(next?.cursor, 5)
+  })
+
+  test("preserves file selection metadata on insertion", () => {
+    const next = replaceRangeWithMention([{ type: "text", content: "open @app", start: 0, end: 9 }], 5, 9, {
+      type: "file",
+      path: "src/app.ts",
+      kind: "file",
+      selection: { startLine: 12, endLine: 20 },
+      content: "@src/app.ts#12-20",
+    })
+
+    assert.deepEqual(composerMentions(next.parts), [{
+      type: "file",
+      path: "src/app.ts",
+      kind: "file",
+      selection: { startLine: 12, endLine: 20 },
+      content: "@src/app.ts#12-20",
+      start: 5,
+      end: 22,
+    }])
+  })
+
+  test("absorbs a typed line range after an existing file token once delimited", () => {
+    const next = absorbFileSelectionSuffix([
+      { type: "file", path: "src/app.ts", kind: "file", content: "@src/app.ts", start: 0, end: 11 },
+      { type: "text", content: "#12-20 ", start: 11, end: 18 },
+    ])
+
+    assert.equal(next.changed, true)
+    assert.deepEqual(next.parts, [
+      { type: "file", path: "src/app.ts", kind: "file", selection: { startLine: 12, endLine: 20 }, content: "@src/app.ts#12-20", start: 0, end: 17 },
+      { type: "text", content: " ", start: 17, end: 18 },
+    ])
+  })
+
+  test("extends a single-line file token into a line range", () => {
+    const next = absorbFileSelectionSuffix([
+      { type: "file", path: "src/app.ts", kind: "file", selection: { startLine: 12 }, content: "@src/app.ts#12", start: 0, end: 14 },
+      { type: "text", content: "-20 ", start: 14, end: 18 },
+    ])
+
+    assert.equal(next.changed, true)
+    assert.deepEqual(next.parts, [
+      { type: "file", path: "src/app.ts", kind: "file", selection: { startLine: 12, endLine: 20 }, content: "@src/app.ts#12-20", start: 0, end: 17 },
+      { type: "text", content: " ", start: 17, end: 18 },
+    ])
+  })
+
+  test("keeps an in-progress range suffix editable until submit or delimiter", () => {
+    const next = absorbFileSelectionSuffix([
+      { type: "file", path: "src/app.ts", kind: "file", content: "@src/app.ts", start: 0, end: 11 },
+      { type: "text", content: "#12-20", start: 11, end: 17 },
+    ])
+
+    assert.equal(next.changed, false)
+    assert.equal(composerText(next.parts), "@src/app.ts#12-20")
+    assert.equal(composerText(absorbFileSelectionSuffix(next.parts, true).parts), "@src/app.ts#12-20")
+    assert.deepEqual(composerMentions(absorbFileSelectionSuffix(next.parts, true).parts), [
+      { type: "file", path: "src/app.ts", kind: "file", selection: { startLine: 12, endLine: 20 }, content: "@src/app.ts#12-20", start: 0, end: 17 },
+    ])
   })
 
   test("inserts plain text with normalized ranges", () => {

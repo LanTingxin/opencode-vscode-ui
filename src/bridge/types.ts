@@ -48,12 +48,18 @@ export type SessionSnapshot = SessionBootstrap & {
 
 export type ComposerPathKind = "file" | "directory"
 
-export type ComposerPathSource = "recent" | "search"
+export type ComposerPathSource = "selection" | "recent" | "search"
+
+export type ComposerFileSelection = {
+  startLine: number
+  endLine?: number
+}
 
 export type ComposerPathResult = {
   path: string
   kind: ComposerPathKind
   source: ComposerPathSource
+  selection?: ComposerFileSelection
 }
 
 export type HostMessage =
@@ -101,6 +107,7 @@ export type ComposerPromptPart =
       type: "file"
       path: string
       kind?: ComposerPathKind
+      selection?: ComposerFileSelection
       source: PromptSource
     }
 

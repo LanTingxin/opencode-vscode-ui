@@ -34,6 +34,7 @@ export function buildComposerSubmitParts(value: string, mentions: ComposerMentio
           type: "file",
           path: item.path,
           kind: item.kind,
+          selection: item.selection,
           source: {
             value: item.content,
             start: item.start,
@@ -70,6 +71,7 @@ export function insertComposerMention(value: string, mentions: ComposerMention[]
           type: "file" as const,
           path: mention.path,
           kind: mention.kind,
+          selection: mention.selection,
           content: mention.content,
           start,
           end: start + mention.content.length,

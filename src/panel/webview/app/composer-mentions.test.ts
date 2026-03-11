@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import { deleteMentionBoundary, insertComposerMention, selectionTouchesMention, syncComposerMentions } from "./composer-mentions"
+import { buildComposerSubmitParts, deleteMentionBoundary, insertComposerMention, selectionTouchesMention, syncComposerMentions } from "./composer-mentions"
 import type { ComposerMention } from "./state"
 
 const FILE: ComposerMention = {
@@ -52,6 +52,33 @@ describe("composer mention syncing", () => {
     assert.equal(inserted.draft, "open @helper ")
     assert.deepEqual(inserted.composerMentions, [{ type: "agent", name: "helper", content: "@helper", start: 5, end: 12 }])
     assert.equal(inserted.cursor, 13)
+  })
+
+  test("submit parts preserve file line-range metadata", () => {
+    const parts = buildComposerSubmitParts("open @src/app.ts#12-20", [{
+      type: "file",
+      path: "src/app.ts",
+      kind: "file",
+      selection: { startLine: 12, endLine: 20 },
+      content: "@src/app.ts#12-20",
+      start: 5,
+      end: 21,
+    }])
+
+    assert.deepEqual(parts, [
+      { type: "text", text: "open @src/app.ts#12-20" },
+      {
+        type: "file",
+        path: "src/app.ts",
+        kind: "file",
+        selection: { startLine: 12, endLine: 20 },
+        source: {
+          value: "@src/app.ts#12-20",
+          start: 5,
+          end: 21,
+        },
+      },
+    ])
   })
 })
 

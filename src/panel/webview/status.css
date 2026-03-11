@@ -38,6 +38,22 @@
   padding-bottom: calc(10px + (1.65em * 2));
 }
 
+.oc-composerDropOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed color-mix(in srgb, var(--oc-info) 50%, var(--oc-border-strong) 50%);
+  background: color-mix(in srgb, var(--oc-info) 12%, var(--oc-surface-control) 88%);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-font-size-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 .oc-composerPlaceholder {
   position: absolute;
   inset: 10px 12px auto 12px;
