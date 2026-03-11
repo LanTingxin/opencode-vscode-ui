@@ -1,352 +1,318 @@
 # OpenCode UI Plan
 
-## Composer Slash and Mention Menu
+## Composer Mention Parity Roadmap
 
 ### Goal
 
-Bring the OpenCode TUI composer autocomplete experience into the VS Code session panel in a way that fits the current extension architecture, minimizes churn, and avoids shipping UI that implies unsupported backend behavior.
+Bring the VS Code session composer closer to the OpenCode TUI `@` mention experience without pretending to have parity where the extension still lacks the same editor model, search surface, or prompt-part semantics.
 
-This work targets two user-visible triggers:
+This roadmap replaces the earlier bootstrap plan. The initial autocomplete system is already shipped. The remaining work is now about closing the concrete parity gaps between the current VS Code implementation and the upstream TUI, especially for `@file`.
 
-- `/` at the start of the composer input opens a slash-command menu
-- `@` in the composer input opens an inline mention menu
+### What Exists Today
 
-### Current State
-
-The current panel composer is a textarea-based input rendered in `src/panel/webview/app/App.tsx`. It now supports:
+The current composer in `src/panel/webview/app/App.tsx` already supports:
 
 - shared `/` and `@` autocomplete popup state in the webview
-- keyboard navigation and acceptance for popup items
-- local slash actions for draft-only behavior
-- a typed host-backed slash action path for session refresh
-- temporary composer agent override through `@agent`
+- keyboard navigation, active-item auto-scroll, and match highlighting
+- compact single-line menu rows with bounded internal scrolling
+- `@agent` and `@file` insertion into the textarea
+- full-text-first submit payloads with typed `agent` and `file` parts using `source` offsets
+- host-backed recent file, file, and directory lookup for `@` suggestions
+- distinct autocomplete source kinds for agents, recent files, files, and directories
+- fuzzy ranking and fuzzy-match highlighting for mention suggestions
+- host-side conversion of file and directory mentions into honest SDK prompt parts
+- focused regression coverage for path search behavior in `src/panel/provider/file-search.test.ts`
 
-The current submit path still only sends plain text plus top-level `agent` and `model` through the bridge and into `rt.sdk.session.promptAsync(...)`, so the following are still not implemented:
+### Current Mismatches Versus The TUI
 
-- structured prompt parts for file, agent, or resource mentions
-- host-driven search for files or MCP resources
-- TUI-style slash command execution against a richer command backend
+The main remaining differences are:
+
+- the TUI edits a structured prompt with atomic pills; the extension still edits plain textarea text plus sidecar mention ranges
+- the TUI has stronger caret, deletion, and IME behavior around mention boundaries than a textarea can provide today
+- the upstream runtime owns file indexing and `find.files` behavior centrally; the extension now approximates that behavior locally and still needs ongoing parity verification for edge-case query shapes
+- the TUI has extra mention affordances such as directory drill-in on `Tab` and line-range-aware file search that the extension does not yet implement
 
 ### Design Principles
 
-- Keep the first implementation low-risk and low-churn
-- Build one shared autocomplete system for both `/` and `@`
-- Reuse existing snapshot and bridge patterns before adding new fetch paths
-- Do not fake TUI parity where the extension cannot yet execute the same behavior
-- Add backend and protocol capabilities only when the UI can use them meaningfully
+- Optimize for behavioral truth, not visual imitation alone
+- Close semantic gaps before spending more time on cosmetic polish
+- Keep bridge and SDK type changes explicit and typed
+- Prefer incremental upgrades that can ship independently
+- Avoid rewriting the entire composer editor model unless the remaining parity gaps justify it
+- Preserve current working behavior while replacing weaker internals step by step
 
-### Upstream Behavior To Match
+### Important Decision
 
-The OpenCode TUI uses one shared autocomplete component for slash commands and mentions. The important behavior to preserve is:
+The highest-value parity gap is no longer the popup itself. It is the submit model.
 
-- `/` opens only when the cursor is at the start of the prompt token
-- `@` opens inside the prompt when preceded by whitespace or the beginning of the input
-- the menu filters live as the user types
-- the menu supports keyboard navigation, selection, and escape-to-close
-- full parity requires structured prompt parts, not just text insertion
+The TUI sends:
 
-### Constraints In This Repository
+- one full text part containing the complete prompt text
+- separate typed file or agent parts with `source` ranges pointing into that text
 
-- `src/panel/webview/app/App.tsx` currently owns all composer input logic
-- `src/bridge/types.ts` is the single source of truth for host and webview messages
-- `src/panel/provider/controller.ts` is the single host-side router for panel messages
-- `src/panel/provider/actions.ts` currently submits only text-based prompt parts
-- `src/panel/provider/snapshot.ts` already provides `agents`, `providers`, `mcp`, and `lsp`, but not full file-search or MCP resource candidate data
-- `src/core/sdk.ts` does not yet expose the TUI-style file search or command execution surface needed for full slash and mention parity
-
-### Delivery Strategy
-
-Implement the feature in phases so each step is shippable, testable, and honest about what the extension can actually do.
-
-### Progress Snapshot
-
-- Phase 0: completed
-- Phase 1: completed
-- Phase 2: completed
-- Phase 3: completed
-- Phase 4: completed
-- Phase 5: completed
-- Phase 6: completed
-
-### Latest Progress
-
-- the composer popup is now live for both `/` and `@`
-- menu rows were tightened into a compact single-line layout
-- subtitle text remains visible inline and truncates with ellipsis when space runs out
-- `@agent` updates the visible composer identity and the next submit target
-- slash refresh now runs through a typed host action path instead of a webview-only shortcut
-- composer state now tracks structured `@agent` mentions with stable ranges in the webview
-- submit now carries structured prompt parts across the bridge and into the host SDK path
-- agent mentions survive submit as typed data while plain-text submit remains backward compatible
-- `@file` now issues lazy host-backed workspace search requests and shows ranked file suggestions in the same mention popup
-- selected file suggestions are inserted as tracked composer mentions and submit as typed file parts after host-side path resolution
-- MCP resource suggestions remain hidden because the current runtime surface only exposes MCP status and connect or disconnect actions, not searchable resources
-- popup matching now prefers exact and prefix hits before weaker substring matches, reducing noisy agent and file ordering
-- popup rendering now groups mention results into Agents and Files, shows searching and empty-state copy, and stays readable in narrow panel widths
-- autocomplete now closes more predictably when the cursor moves into the middle of a token or when a text range is selected
+That mismatch is now closed. The next highest-value gap is mention editing robustness inside the textarea model.
 
 ---
 
-## Phase 0 - Composer Autocomplete Foundation
+## Phase A - Align Prompt-Part Semantics
+
+Status: completed
 
 ### Objective
 
-Extract the minimum reusable infrastructure needed to support both slash and mention menus without changing submit semantics yet.
+Make the extension submit the same high-level prompt structure as the TUI: full prompt text first, typed mentions second.
+
+### Why First
+
+This is the most important behavior gap. Even if the popup looks similar, the model receives different prompt data today.
 
 ### Scope
 
-- move composer-specific menu state out of the inline textarea event handlers in `src/panel/webview/app/App.tsx`
-- introduce a dedicated composer autocomplete hook or component in `src/panel/webview/`
-- add shared state for:
-  - active trigger type
-  - active query text
-  - selected option index
-  - popup visibility
-  - anchor and close conditions
-- render a popup attached to the composer wrapper
-- support keyboard handling for:
-  - `ArrowUp`
-  - `ArrowDown`
-  - `Enter`
-  - `Tab`
-  - `Escape`
-
-### Reuse Plan
-
-- use `src/panel/webview/status.css` as the styling reference for popup structure and layering
-- keep autoresize behavior in `src/panel/webview/hooks/useComposer.ts`
-- keep final submit behavior unchanged until later phases
-
-### Acceptance Criteria
-
-- composer popup opens and closes reliably
-- popup does not break textarea autoresize or existing submit shortcuts
-- popup keyboard navigation works with no host changes required
-
-### Progress
-
-Completed. The current implementation adds a shared webview autocomplete hook, moves popup state and keyboard navigation out of the inline textarea handlers, and renders a composer-attached popup for `/` and `@` trigger states without changing submit semantics or introducing host-side query dependencies.
-
----
-
-## Phase 1 - Local Menu Sources And UI MVP
-
-### Objective
-
-Ship the first useful autocomplete experience using data the webview already has or can derive safely.
-
-### Scope
-
-- implement `/` and `@` trigger detection in the webview
-- create a shared option model that can represent:
-  - local slash actions
-  - agent selections
-  - placeholder or disabled future sources
-- add filtering logic for visible menu items
-- display labels, descriptions, and small type hints in the popup
-
-### Initial Data Sources
-
-- slash menu entries defined locally by the panel UI for actions the plugin can really execute
-- agent entries from `snapshot.agents`
-- current composer identity derived from existing helpers in `src/panel/webview/lib/session-meta.ts`
-
-### Important Limitation
-
-At this phase, `@` should not pretend to create rich prompt parts. It should only support behaviors that map cleanly to the existing submit path.
-
-### Acceptance Criteria
-
-- typing `/` at the start shows a filtered slash menu
-- typing `@` in a valid position shows a filtered agent menu
-- selecting an item updates composer UI state predictably
-- unsupported future sources are not presented as fully working features
-
-### Progress
-
-Completed. The popup now uses real local menu sources instead of Phase 0 placeholders. `/` exposes local slash actions that the panel can already execute, including refresh, draft clear, and resetting a temporary agent override. `@` now renders the live agent list from `snapshot.agents`, filters by query, and shows typed source labels in the popup.
-
----
-
-## Phase 2 - Agent Selection Through Autocomplete
-
-### Objective
-
-Use the new menu to change the composer target agent without introducing structured prompt parts yet.
-
-### Scope
-
-- add explicit webview state for a temporary or sticky composer agent override
-- keep the displayed composer identity aligned with that override
-- send the selected agent through the existing `submit` bridge message
-- preserve current fallback behavior when no explicit override is selected
+- change webview serialization so submit always preserves the full draft as one `text` part
+- append typed `agent` and `file` parts separately using `source` offsets into that full text
+- keep backward compatibility for plain-text prompts
+- update host submit conversion so it no longer depends on interleaved text fragments
+- verify source offsets remain correct after mention insertion and editing
 
 ### Files Most Likely To Change
 
 - `src/panel/webview/app/App.tsx`
-- `src/panel/webview/app/state.ts`
-- `src/panel/webview/lib/session-meta.ts`
+- `src/bridge/types.ts`
+- `src/panel/provider/actions.ts`
+- `src/core/sdk.ts`
+
+### Acceptance Criteria
+
+- submit always includes the complete draft text unchanged as the first text part
+- typed file and agent parts still submit with valid `source.start` and `source.end`
+- plain prompts with no mentions still behave exactly as they do now
+- unresolved file mentions degrade clearly and predictably
+
+### Progress
+
+- completed in the webview and host submit pipeline
+- submit now preserves the full draft as the first text part and appends typed mentions after it
+- unresolved file mentions no longer duplicate plain text during host conversion
+
+---
+
+## Phase B - Expand Search Sources To Match TUI Intent
+
+Status: completed
+
+### Objective
+
+Make `@` feel like a context picker rather than only a token filter.
+
+### Scope
+
+- add a recent-file source for the mention popup
+- decide how to source recent files in the extension, such as open editors, visible tabs, or session-related files
+- extend host search to optionally include directories, not only files
+- keep the search lazy and query-driven; do not bloat snapshot payloads
+- hide sources the extension cannot actually submit or open cleanly
+
+### Notes
+
+The TUI exposes agents, recent files, and backend file or directory search. The extension should move toward the same shape even if the exact provider differs.
+
+### Files Most Likely To Change
+
+- `src/panel/provider/files.ts`
+- `src/panel/provider/controller.ts`
+- `src/bridge/types.ts`
+- `src/panel/webview/app/App.tsx`
+
+### Acceptance Criteria
+
+- empty or near-empty `@` can surface useful recent file suggestions
+- file search can return directories when the extension can represent them honestly
+- agents, recents, and searched paths remain distinguishable in the UI and data model
+
+### Progress
+
+- completed with host-provided recent files plus searchable file and directory results
+- composer items now distinguish `agent`, `recent`, `file`, and `directory` sources in the UI and data model
+- directory mentions now submit honestly as `application/x-directory`
+
+---
+
+## Phase C - Replace Local Ranking With TUI-Like Filtering
+
+Status: completed
+
+### Objective
+
+Improve result quality so file and agent hits behave more like the TUI under partial, fuzzy, and path-oriented queries.
+
+### Scope
+
+- replace the current exact and prefix and substring ranking with a proper fuzzy ranking strategy
+- preserve stable ordering within result groups when scores tie
+- compare whether ranking should happen entirely in the webview, entirely in the host, or in a split model by source
+- revisit highlight rendering so it reflects the actual fuzzy match spans instead of plain substring matches
+
+### Notes
+
+The TUI uses `fuzzysort` in grouped lists. The extension should not copy blindly, but it should stop relying on the current narrow rule set once the source set expands.
+
+### Files Most Likely To Change
+
+- `src/panel/webview/hooks/useComposerAutocomplete.ts`
+- `src/panel/webview/app/App.tsx`
+- `src/panel/provider/files.ts`
+
+### Acceptance Criteria
+
+- path searches behave well for basename, subpath, and fuzzy partial matches
+- result ordering feels consistent across agents, recents, and searched files
+- highlighted text reflects what actually matched
+
+### Progress
+
+- completed with fuzzy subsequence ranking in the webview and broader host-side path candidate collection
+- match highlighting now follows actual fuzzy match indexes instead of plain substring matches
+- host path search was refactored away from narrow query-shaped globs toward ranked full-path matching
+- regression tests now cover basename, nested path-prefix, directory-without-trailing-slash, root-file, hidden-path, and fuzzy partial queries
+
+---
+
+## Phase D - Harden Mention Editing In The Textarea Model
+
+Status: completed
+
+### Objective
+
+Reduce the editing fragility caused by representing mentions as plain textarea text.
+
+### Scope
+
+- audit mention invalidation behavior when the user edits inside a mention token
+- add stricter rules for when a mention should be preserved, shifted, or dropped
+- improve deletion behavior around mention edges, especially Backspace and Delete near token boundaries
+- review IME and composition interactions before commit acceptance
+- tighten cursor heuristics so reopening and closing the popup does not fight normal editing
+
+### Notes
+
+This phase does not attempt to fully recreate TUI pills in a textarea. It hardens the current model so it fails less often.
+
+### Progress
+
+- completed with extracted composer mention helpers in `src/panel/webview/app/composer-mentions.ts`
+- textarea Backspace and Delete now remove an entire touched mention token instead of leaving partial tracked-state corruption at the edges
+- autocomplete reopening is now suppressed while the caret or selection remains inside a tracked mention range
+- IME composition state now prevents Enter from accidentally accepting a mention while composing
+- regression tests now cover mention insertion, range shifting, inside-edit degradation, boundary deletion, and autocomplete suppression in `src/panel/webview/app/composer-mentions.test.ts`
+
+### Files Most Likely To Change
+
+- `src/panel/webview/app/App.tsx`
+- `src/panel/webview/app/composer-mentions.ts`
+- `src/panel/webview/app/composer-mentions.test.ts`
+
+### Acceptance Criteria
+
+- editing adjacent to a mention is stable under insert, delete, and paste operations
+- partial edits inside a mention produce predictable degradation into plain text
+- IME and normal Enter handling do not accidentally select or submit mentions
+
+---
+
+## Phase E - Decide Whether To Introduce Atomic Mention Chips
+
+Status: completed
+
+### Objective
+
+Make an explicit architectural decision about whether textarea-based mentions are sufficient, or whether parity now requires moving to an atomic inline representation.
+
+### Decision Gate
+
+At the start of this phase, review the remaining gaps after Phase D.
+
+If the remaining issues are mostly ranking and source quality, keep the textarea.
+
+If the remaining issues are still dominated by caret, deletion, selection, and edit-boundary bugs, plan a separate editor-model upgrade.
+
+### Option 1 - Stay With Textarea
+
+- keep sidecar mention ranges
+- continue incremental heuristics
+- document known non-parity behaviors clearly
+
+### Option 2 - Move Toward Atomic Inline Mentions
+
+- prototype a richer editor surface for atomic file and agent tokens
+- evaluate whether a contenteditable or segmented input model is maintainable inside the panel webview
+- preserve the bridge and submit model from Phase A so the editor swap is mostly local to the webview
+
+### Acceptance Criteria
+
+- a documented decision exists with tradeoffs, risks, and recommended path
+- if a prototype is built, it proves whether atomic mentions materially reduce bug surface
+
+### Progress
+
+- completed with a reversed architecture decision: strict parity goals require replacing the current textarea plus sidecar mention-range model
+- documented the new direction, tradeoffs, and migration path in `COMPOSER_EDITOR_DECISION.md`
+- implemented the first editor-model upgrade by replacing the composer textarea with a structured inline editor that renders atomic file and agent tokens in the panel webview
+- preserved the Phase A submit contract by continuing to derive full draft text plus typed file and agent prompt parts from structured editor state
+- aligned insertion and editing behavior more closely with upstream web prompt behavior: `@query` replacement now inserts an atomic token plus trailing space, Enter inserts normalized newlines through the structured model, and Backspace and Delete remove adjacent tokens atomically
+- added focused structured-editor regression coverage in `src/panel/webview/app/composer-editor.test.ts`
+
+---
+
+## Phase F - Add Missing TUI-Style Entry Paths
+
+### Objective
+
+Close surrounding `@file` affordance gaps beyond plain keyboard search.
+
+### Scope
+
+- support converting dropped files into composer file mentions where appropriate
+- review whether file selections or line ranges should be representable in the extension prompt model
+- evaluate whether session-context files should be distinguishable from inline `@file` mentions
+- bring empty-state and helper copy closer to the real behavior of each source
+
+### Files Most Likely To Change
+
+- `src/panel/webview/app/App.tsx`
+- `src/panel/provider/files.ts`
+- `src/core/sdk.ts`
 - `src/bridge/types.ts`
 
 ### Acceptance Criteria
 
-- selecting an agent from `@` visibly changes the composer identity
-- the next submit uses that selected agent
-- existing default-agent logic continues to work when no override is selected
-
-### Progress
-
-Completed. The composer now stores a local agent override in webview state, feeds it through the existing composer identity and selection helpers, clears it with a slash action when needed, and uses it on the next submit without changing the bridge or host submit protocol.
+- dropped files can become valid file mentions when that action is unambiguous
+- selected file references can carry richer metadata if the host can submit it correctly
+- mention entry paths feel coherent rather than bolted on
 
 ---
 
-## Phase 3 - Host Bridge For Slash Actions
+## Phase G - Revisit MCP Resource Mentions Separately
 
 ### Objective
 
-Turn the slash menu from a UI-only picker into a command-capable flow.
+Only add `@resource` behavior when the runtime exposes a real list or search surface.
 
 ### Scope
 
-- define slash action message shapes in `src/bridge/types.ts`
-- route them through `src/panel/provider/controller.ts`
-- implement host-side action handlers in `src/panel/provider/actions.ts` or adjacent modules
-- separate actions that:
-  - update local composer state
-  - invoke SDK-backed operations
-  - navigate panel state or open VS Code UI affordances
-
-### Notes
-
-This phase should only ship commands that have a clear extension-side implementation. TUI commands that depend on session command execution or other unsupported APIs should remain deferred until the backend surface exists locally.
+- inspect local SDK and runtime capabilities for MCP resource listing or querying
+- define a resource mention source only if the extension can search, insert, and submit it honestly
+- avoid mixing speculative MCP UI into the file-parity work before the backend exists
 
 ### Acceptance Criteria
 
-- slash actions invoke the right host behavior through typed messages
-- failed actions report clear user-facing errors
-- adding new slash actions follows one clear registration pattern
-
-### Progress
-
-Completed. Slash actions are now explicitly split between local webview behavior and host-backed behavior. The bridge defines a typed `composerAction` message, the panel controller routes it through a dedicated host action handler, host failures flow back through the existing webview error path, and the slash menu now uses that path for session refresh while leaving draft-only actions in the webview.
+- MCP resource suggestions do not appear until the runtime can truly serve them
+- if implemented, MCP resources follow the same submit semantics as files and agents
 
 ---
 
-## Phase 4 - Structured Prompt Parts For Mentions
+## Cross-Cutting Work
 
-### Objective
-
-Introduce a proper prompt-part model so mentions are first-class data rather than fragile text substitutions.
-
-### Scope
-
-- extend local SDK typings in `src/core/sdk.ts` to support richer prompt parts if available
-- extend bridge message types to carry structured composer content
-- refactor submit handling so the webview can send both raw text and mention parts
-- define a local representation for composer mentions, including insertion, deletion, and serialization behavior
-
-### Candidate Mention Types
-
-- agent mentions
-- file mentions
-- MCP resource mentions
-
-### Notes
-
-This is the phase where the extension starts to converge with the TUI mental model. Before this phase, parity is intentionally partial.
-
-### Acceptance Criteria
-
-- mentions survive submit as typed data, not only as display text
-- composer editing remains stable when text around mentions changes
-- the submit path remains backward compatible for plain-text prompts
-
-### Progress
-
-Completed. Phase 4 was implemented by introducing a minimal structured composer mention model in the webview, starting with `@agent` mentions only. The composer now tracks agent mention ranges locally, removes or shifts them as the textarea content changes, and serializes the draft into mixed text and agent prompt parts on submit. The `submit` bridge message now carries structured `parts` alongside the flattened text view, `src/panel/provider/actions.ts` prefers those structured parts when calling `rt.sdk.session.promptAsync(...)`, and `src/core/sdk.ts` now exposes a local prompt-part input union that includes both text and agent parts. Existing plain-text prompts continue to submit through the same path with a text-part fallback.
-
----
-
-## Phase 5 - File Search And Resource Search Providers
-
-### Objective
-
-Add the host-backed search sources needed for useful `@file` and `@resource` autocomplete.
-
-### Scope
-
-- add host-side search messages for file lookup
-- decide whether file lookup comes from:
-  - OpenCode SDK support, if available
-  - VS Code workspace search as a compatibility path
-- add MCP resource list or search support if the runtime exposes it
-- keep search lazy and query-driven instead of bloating the session snapshot
-
-### Ranking Requirements
-
-- prefer exact and prefix matches over weak fuzzy matches
-- keep file ranking stable and workspace-aware
-- cap result count to keep the popup responsive
-
-### Acceptance Criteria
-
-- `@file` can search and insert valid file references
-- resource suggestions only appear when the runtime can actually provide them
-- search requests do not block normal typing or panel updates
-
-### Progress
-
-Completed. Phase 5 adds a typed query and response path for lazy file lookup between the webview and host, using VS Code workspace search as the compatibility path instead of bloating the session snapshot. The composer now requests ranked file candidates on demand while the mention popup is active, merges those results into the existing `@` menu, and inserts selected files as tracked composer mentions. On submit, the host resolves those relative file paths against the workspace and converts them into SDK file prompt parts with `file://` URLs and source ranges. MCP resource suggestions remain intentionally hidden because the current local runtime surface still only exposes MCP status and connect or disconnect actions, not resource listing or search.
-
----
-
-## Phase 6 - TUI Parity Polish
-
-### Objective
-
-Close the remaining UX gap with the upstream TUI once the core behavior is correct.
-
-### Scope
-
-- refine reopen and close heuristics around cursor movement
-- improve filtering and ranking quality
-- consider directory expansion and richer file suffix parsing if the host data model supports it
-- add visual treatments for active items, empty states, and source grouping
-- ensure mobile-like narrow panel widths still behave cleanly in the webview
-
-### Acceptance Criteria
-
-- menu behavior feels consistent under repeated typing, deletion, and cursor movement
-- grouped results remain readable and keyboard accessible
-- no regression in composer stability or panel responsiveness
-
-### Progress
-
-Completed. Phase 6 refines the popup behavior and presentation without changing the bridge or provider contracts. The autocomplete matcher now closes when the caret sits in the middle of a slash or mention token instead of at its trailing edge, and it also stays closed while a text range is selected, which makes repeated cursor movement and editing more predictable. Filtering now ranks exact and prefix matches ahead of weaker substring hits. In the popup, mention results are grouped into lightweight Agents and Files sections, empty and searching states use more specific copy, and the item layout now uses a compact two-line structure with scrolling and narrow-width adjustments so grouped results remain readable in the session panel.
-
----
-
-## Cross-Cutting Work Items
-
-### State And Ownership
-
-- keep ephemeral popup state in the webview
-- keep authoritative runtime data and executable actions in the host
-- avoid adding snapshot payload fields for data that is better queried on demand
-
-### UI And Styling
-
-- place the popup near `oc-composerInputWrap`
-- reuse current panel color tokens and popover styling patterns
-- keep the menu visually aligned with the existing extension UI, not the terminal UI
-
-### Error Handling
-
-- unsupported actions should fail clearly instead of silently
-- query failures should degrade to empty states, not composer crashes
-- host-side execution failures should reuse existing panel error reporting patterns
-
-### Verification
+### Validation
 
 For each implementation phase, validate with:
 
@@ -354,19 +320,45 @@ For each implementation phase, validate with:
 - `bun run lint`
 - `bun run compile`
 
-### Non-Goals For The First Implementation
+### Suggested Manual Verification Matrix
 
-- full upstream slash-command parity on day one
-- extmark-like editor behavior inside the textarea
-- eager loading of large file or resource indexes into the session snapshot
-- broad refactors outside the composer, bridge, provider, and SDK boundary files
+- empty `@` behavior
+- `@` with agent-name query
+- `@` with basename file query
+- `@` with nested path query
+- `@` with directory query without trailing slash
+- `@` with root-level file query such as `@README` or `@index`
+- `@` with fuzzy partial query such as `@bttn`
+- keyboard navigation in long result lists
+- selecting a file mention in the middle of existing text
+- editing before, after, and inside an inserted mention
+- submitting one prompt with mixed text, `@agent`, and `@file`
+- unresolved file mention fallback behavior
+- narrow panel width popup readability
 
-### Recommended Implementation Order
+### Non-Goals Until A Later Decision
 
-1. Phase 0
-2. Phase 1
-3. Phase 2
-4. Phase 3
-5. Phase 4
-6. Phase 5
-7. Phase 6
+- full TUI slash-command parity
+- copying the TUI editor DOM model wholesale into the extension
+- snapshotting large file indexes into panel bootstrap payloads
+- exposing MCP resource UI without a real runtime data source
+
+### Success Criteria For This Roadmap
+
+At the end of the roadmap, the extension should either:
+
+- behave close enough to the TUI that remaining differences are small and documented
+
+or:
+
+- have a clear architectural decision showing that true parity requires replacing the textarea editor model
+
+### Recommended Execution Order
+
+1. Phase A
+2. Phase B
+3. Phase C
+4. Phase D
+5. Phase E
+6. Phase F
+7. Phase G

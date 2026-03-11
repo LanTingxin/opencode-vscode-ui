@@ -1,3 +1,4 @@
+import type { ComposerPathKind } from "../../../bridge/types"
 import React from "react"
 
 export type ComposerAutocompleteTrigger = "slash" | "mention"
@@ -8,13 +9,18 @@ export type ComposerAutocompleteItem = {
   detail: string
   keywords?: string[]
   trigger: ComposerAutocompleteTrigger
-  kind: "action" | "agent" | "file"
+  kind: "action" | "agent" | "recent" | "file" | "directory"
+  match?: {
+    label: number[]
+    detail: number[]
+  }
   mention?: ({
     type: "agent"
     name: string
   } | {
     type: "file"
     path: string
+    kind?: ComposerPathKind
   }) & {
     content: string
   }
@@ -174,45 +180,110 @@ function filterItems(items: ComposerAutocompleteItem[], trigger: ComposerAutocom
   const source = items.filter((item) => item.trigger === trigger)
   const normalized = query.trim().toLowerCase()
   if (!normalized) {
-    return source
+    return source.map((item) => ({ ...item, match: undefined }))
   }
 
   return source
     .map((item, index) => ({
-      item,
+      item: withMatch(item, normalized),
       index,
       rank: matchRank(item, normalized),
     }))
     .filter((item): item is { item: ComposerAutocompleteItem; index: number; rank: number } => item.rank !== undefined)
-    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .sort((a, b) => kindRank(a.item.kind) - kindRank(b.item.kind) || a.rank - b.rank || a.index - b.index)
     .map((item) => item.item)
 }
 
 function matchRank(item: ComposerAutocompleteItem, query: string) {
-  const label = item.label.toLowerCase()
-  const detail = item.detail.toLowerCase()
-  const keywords = (item.keywords ?? []).map((value) => value.toLowerCase())
-  const haystack = [label, detail, ...keywords]
+  const fields = [
+    fuzzyScore(item.label, query, 0),
+    fuzzyScore(item.detail, query, 40),
+    ...(item.keywords ?? []).map((value) => fuzzyScore(value, query, 70)),
+  ].filter((value): value is number => typeof value === "number")
 
-  if (label === query) {
-    return 0
+  return fields.length > 0 ? Math.min(...fields) : undefined
+}
+
+function withMatch(item: ComposerAutocompleteItem, query: string): ComposerAutocompleteItem {
+  return {
+    ...item,
+    match: {
+      label: fuzzyIndexes(item.label, query),
+      detail: fuzzyIndexes(item.detail, query),
+    },
   }
-  if (label.startsWith(query)) {
-    return 1
+}
+
+function kindRank(kind: ComposerAutocompleteItem["kind"]) {
+  switch (kind) {
+    case "action":
+      return 0
+    case "agent":
+      return 1
+    case "recent":
+      return 2
+    case "file":
+    case "directory":
+      return 3
   }
-  if (keywords.some((value) => value === query)) {
-    return 2
+}
+
+function fuzzyIndexes(value: string, query: string) {
+  const source = value.toLowerCase()
+  const needle = query.trim().toLowerCase()
+  if (!needle) {
+    return []
   }
-  if (detail === query) {
-    return 3
+
+  const indexes: number[] = []
+  let cursor = 0
+  for (const char of needle) {
+    const next = source.indexOf(char, cursor)
+    if (next === -1) {
+      return []
+    }
+    indexes.push(next)
+    cursor = next + 1
   }
-  if (detail.startsWith(query)) {
-    return 4
+
+  return indexes
+}
+
+function fuzzyScore(value: string, query: string, offset: number) {
+  const indexes = fuzzyIndexes(value, query)
+  if (indexes.length === 0) {
+    return undefined
   }
-  if (haystack.some((value) => value.includes(`/${query}`))) {
-    return 5
+
+  const normalized = value.toLowerCase()
+  const needle = query.trim().toLowerCase()
+  let score = offset + Math.max(0, normalized.length - needle.length)
+
+  for (let i = 0; i < indexes.length; i += 1) {
+    const index = indexes[i]
+    if (i === 0) {
+      score += index * 3
+    } else {
+      const gap = index - indexes[i - 1] - 1
+      score += gap * 5
+      if (gap === 0) {
+        score -= 8
+      }
+    }
+
+    const prev = index === 0 ? "" : normalized[index - 1]
+    if (!prev || prev === "/" || prev === "-" || prev === "_" || prev === ".") {
+      score -= 3
+    }
   }
-  if (haystack.some((value) => value.includes(query))) {
-    return 6
+
+  if (normalized === needle) {
+    score -= 40
+  } else if (normalized.startsWith(needle)) {
+    score -= 24
+  } else if (normalized.includes(`/${needle}`)) {
+    score -= 10
   }
+
+  return score
 }

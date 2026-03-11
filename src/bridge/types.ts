@@ -46,6 +46,16 @@ export type SessionSnapshot = SessionBootstrap & {
   }
 }
 
+export type ComposerPathKind = "file" | "directory"
+
+export type ComposerPathSource = "recent" | "search"
+
+export type ComposerPathResult = {
+  path: string
+  kind: ComposerPathKind
+  source: ComposerPathSource
+}
+
 export type HostMessage =
   | {
       type: "bootstrap"
@@ -74,9 +84,7 @@ export type HostMessage =
       type: "fileSearchResults"
       requestID: string
       query: string
-      results: Array<{
-        path: string
-      }>
+      results: ComposerPathResult[]
     }
 
 export type ComposerPromptPart =
@@ -92,6 +100,7 @@ export type ComposerPromptPart =
   | {
       type: "file"
       path: string
+      kind?: ComposerPathKind
       source: PromptSource
     }
 

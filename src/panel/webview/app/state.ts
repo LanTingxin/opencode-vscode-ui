@@ -1,4 +1,4 @@
-import type { SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
+import type { ComposerPathKind, SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
 import type { AgentInfo, FileDiff, LspStatus, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 
 export type VsCodeApi = {
@@ -24,6 +24,21 @@ export type ComposerMention = ({
 } | {
   type: "file"
   path: string
+  kind?: ComposerPathKind
+}) & ComposerMentionBase
+
+export type ComposerEditorPart = ({
+  type: "text"
+  content: string
+} | {
+  type: "agent"
+  name: string
+  content: string
+} | {
+  type: "file"
+  path: string
+  kind?: ComposerPathKind
+  content: string
 }) & ComposerMentionBase
 
 export type AppState = {
@@ -56,6 +71,7 @@ export type AppState = {
     }
   }
   draft: string
+  composerParts: ComposerEditorPart[]
   composerMentions: ComposerMention[]
   composerAgentOverride?: string
   error: string
@@ -91,6 +107,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
       navigation: {},
     },
     draft: "",
+    composerParts: [{ type: "text", content: "", start: 0, end: 0 }],
     composerMentions: [],
     composerAgentOverride: undefined,
     error: "",

@@ -1,5 +1,5 @@
 import React from "react"
-import type { HostMessage } from "../../../bridge/types"
+import type { ComposerPathResult, HostMessage } from "../../../bridge/types"
 import { bootstrapFromSnapshot, normalizeSnapshotPayload, type AppState, type VsCodeApi } from "../app/state"
 
 export function useHostMessages({
@@ -10,7 +10,7 @@ export function useHostMessages({
   vscode,
 }: {
   fileRefStatus: Map<string, boolean>
-  onFileSearchResults: (payload: { requestID: string; query: string; results: Array<{ path: string }> }) => void
+  onFileSearchResults: (payload: { requestID: string; query: string; results: ComposerPathResult[] }) => void
   setPendingMcpActions: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
   setState: React.Dispatch<React.SetStateAction<AppState>>
   vscode: VsCodeApi

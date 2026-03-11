@@ -8,15 +8,65 @@
 }
 
 .oc-composerInput {
-  min-height: 0;
-  max-height: 50vh;
-  overflow-y: hidden;
-  resize: none;
-  padding-bottom: calc(10px + (1.65em * 2));
+  display: block;
+  width: 100%;
+  min-height: calc(1.65em + 20px);
+  max-height: calc(50vh - (1.65em * 2) - 10px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 0;
+  background: transparent;
+  outline: none;
+  cursor: text;
+  box-sizing: border-box;
+}
+
+.oc-composerInput[contenteditable="false"] {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .oc-composerInputWrap {
   position: relative;
+  min-height: 0;
+}
+
+.oc-composerBody {
+  position: relative;
+  border: 1px solid var(--oc-border-strong);
+  background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
+  padding-bottom: calc(10px + (1.65em * 2));
+}
+
+.oc-composerPlaceholder {
+  position: absolute;
+  inset: 10px 12px auto 12px;
+  color: var(--oc-fg-muted);
+  pointer-events: none;
+  white-space: pre-wrap;
+  font-size: var(--oc-font-size);
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.oc-composerPill {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 1px;
+  padding: 0 6px;
+  border: 1px solid var(--oc-border-strong);
+  background: color-mix(in srgb, var(--oc-accent) 14%, var(--oc-surface-control) 86%);
+  color: var(--oc-fg-primary);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.oc-composerPill.is-agent {
+  border-color: color-mix(in srgb, var(--oc-accent) 42%, var(--oc-border-strong) 58%);
+}
+
+.oc-composerPill.is-file {
+  border-color: color-mix(in srgb, var(--oc-info) 40%, var(--oc-border-strong) 60%);
 }
 
 .oc-composerAutocomplete {
@@ -142,6 +192,7 @@
   position: absolute;
   inset: auto 1px 1px 1px;
   padding: 0 12px 10px;
+  background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
   display: grid;
   grid-template-rows: 1.65em 1.65em;
 }

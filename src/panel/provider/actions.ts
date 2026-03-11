@@ -5,7 +5,7 @@ import type { ComposerPromptPart, SessionPanelRef } from "../../bridge/types"
 import type { MessageInfo, PermissionReply, PromptPartInput } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { text, textError, wait } from "./utils"
-import { resolveFileUri } from "./files"
+import { resolvePromptPath } from "./files"
 
 export type PanelActionState = {
   disposed: boolean
@@ -23,9 +23,7 @@ type ActionContext = {
 }
 
 export async function submit(ctx: ActionContext, textValue: string, parts?: ComposerPromptPart[], agent?: string, model?: MessageInfo["model"]) {
-  const value = textValue.trim()
-
-  if (!value || ctx.state.disposed) {
+  if (!textValue.trim() || ctx.state.disposed) {
     return
   }
 
@@ -41,7 +39,7 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
   await ctx.push(true)
 
   try {
-    const prompt = await toPromptParts(ctx.ref.dir, value, parts)
+    const prompt = await toPromptParts(ctx.ref.dir, textValue, parts)
     await rt.sdk.session.promptAsync({
       sessionID: ctx.ref.sessionId,
       directory: rt.dir,
@@ -205,20 +203,19 @@ async function toPromptParts(workspaceDir: string, textValue: string, parts?: Co
       continue
     }
 
-    const uri = await resolveFileUri(workspaceDir, part.path)
-    if (!uri) {
-      out.push({ type: "text", text: part.source.value })
+    const resolved = await resolvePromptPath(workspaceDir, part.path)
+    if (!resolved) {
       continue
     }
 
     out.push({
       type: "file",
-      mime: "text/plain",
+      mime: resolved.kind === "directory" ? "application/x-directory" : "text/plain",
       filename: path.basename(part.path),
-      url: uri.toString(),
+      url: resolved.uri.toString(),
       source: {
         type: "file",
-        path: uri.fsPath,
+        path: resolved.uri.fsPath,
         text: part.source,
       },
     })
