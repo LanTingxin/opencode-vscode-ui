@@ -498,6 +498,11 @@ export type Client = {
       directory?: string
       workspace?: string
     }): Promise<{ data?: SessionInfo }>
+    children(input: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    }): Promise<{ data?: SessionInfo[] }>
     status(input?: {
       directory?: string
       workspace?: string

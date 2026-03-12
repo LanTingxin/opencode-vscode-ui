@@ -33,7 +33,6 @@ const vscode = acquireVsCodeApi()
 const initialRef = window.__OPENCODE_INITIAL_STATE__ ?? null
 const persistedState = vscode.getState<PersistedAppState>()
 const fileRefStatus = new Map<string, boolean>()
-const FILE_SEARCH_DEBOUNCE_MS = 180
 const ESC_INTERRUPT_WINDOW_MS = 5000
 
 function sameAutocompleteMatch(
@@ -126,15 +125,11 @@ export function App() {
     const requestID = `file-search:${Date.now()}:${query}`
     searchRef.current = { requestID, query }
     setFileSearch({ status: "searching", query })
-    const timer = window.setTimeout(() => {
-      vscode.postMessage({
-        type: "searchFiles",
-        requestID,
-        query,
-      })
-    }, FILE_SEARCH_DEBOUNCE_MS)
-
-    return () => window.clearTimeout(timer)
+    vscode.postMessage({
+      type: "searchFiles",
+      requestID,
+      query,
+    })
   }, [autocompleteTrigger, autocompleteQuery])
 
   const setComposerState = React.useCallback((parts: ComposerEditorPart[], error = "", allowTerminal = false) => {

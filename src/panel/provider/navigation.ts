@@ -4,26 +4,39 @@ import { cmp } from "./utils"
 
 type SessionInfo = NonNullable<SessionSnapshot["session"]>
 
-export function collectRelatedSessionIds(session: SessionInfo, sessions: SessionInfo[]) {
-  if (session.parentID) {
-    return [session.id]
-  }
-
-  return sessions
-    .filter((item) => item.id === session.id || isVisibleChildSession(item, session.id))
-    .map((item) => item.id)
-    .sort(cmp)
-}
-
-export function relatedSessionMap(sessions: SessionInfo[], rootSessionID: string, relatedSessionIds: string[]) {
+export function relatedSessionMap(sessions: SessionInfo[], rootSessionID: string, sessionIDs: string[]) {
+  const ids = new Set(sessionIDs)
   const map: Record<string, SessionInfo> = {}
   for (const session of sessions) {
-    if (session.id === rootSessionID || session.time.archived || !relatedSessionIds.includes(session.id)) {
+    if (session.id === rootSessionID || session.time.archived || !ids.has(session.id)) {
       continue
     }
     map[session.id] = session
   }
   return map
+}
+
+export function subtreeSessionIds(rootID: string, sessions: SessionInfo[]) {
+  const ids = [rootID]
+  const queue = [rootID]
+
+  while (queue.length > 0) {
+    const parentID = queue.shift()
+    if (!parentID) {
+      continue
+    }
+
+    const children = sessions
+      .filter((item) => isVisibleChildSession(item, parentID))
+      .sort((a, b) => cmp(a.id, b.id))
+
+    for (const child of children) {
+      ids.push(child.id)
+      queue.push(child.id)
+    }
+  }
+
+  return ids
 }
 
 export function nav(session: SessionInfo, sessions: SessionInfo[]) {

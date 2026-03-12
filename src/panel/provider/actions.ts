@@ -6,7 +6,6 @@ import type { ComposerPromptPart, SessionPanelRef } from "../../bridge/types"
 import type { MessageInfo, MessagePart, PermissionReply, PromptPartInput } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { text, textError, wait } from "./utils"
-import { resolvePromptPath } from "./files"
 import { parseComposerFileQuery } from "../webview/lib/composer-file-selection"
 
 export type PanelActionState = {
@@ -41,7 +40,7 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
   await ctx.push(true)
 
   try {
-    const prompt = await toPromptParts(ctx.ref.dir, textValue, parts)
+    const prompt = toPromptParts(ctx.ref.dir, textValue, parts)
     await rt.sdk.session.promptAsync({
       sessionID: ctx.ref.sessionId,
       directory: rt.dir,
@@ -452,7 +451,7 @@ export async function fail(webview: vscode.Webview, message: string) {
   })
 }
 
-async function toPromptParts(workspaceDir: string, textValue: string, parts?: ComposerPromptPart[]): Promise<PromptPartInput[]> {
+function toPromptParts(workspaceDir: string, textValue: string, parts?: ComposerPromptPart[]): PromptPartInput[] {
   if (!parts || parts.length === 0) {
     return [{ type: "text", text: textValue }]
   }
@@ -484,19 +483,16 @@ async function toPromptParts(workspaceDir: string, textValue: string, parts?: Co
       continue
     }
 
-    const resolved = await resolvePromptPath(workspaceDir, part.path)
-    if (!resolved) {
-      continue
-    }
+    const filePath = absolutePath(workspaceDir, part.path)
 
     out.push({
       type: "file",
-      mime: resolved.kind === "directory" ? "application/x-directory" : "text/plain",
+      mime: "text/plain",
       filename: path.basename(part.path),
-      url: fileUrl(resolved.uri, resolved.kind === "file" ? part.selection : undefined),
+      url: fileUrl(filePath, part.selection),
       source: {
         type: "file",
-        path: resolved.uri.fsPath,
+        path: filePath,
         text: part.source,
       },
     })
@@ -505,15 +501,39 @@ async function toPromptParts(workspaceDir: string, textValue: string, parts?: Co
   return out.length > 0 ? out : [{ type: "text", text: textValue }]
 }
 
-function fileUrl(uri: vscode.Uri, selection?: { startLine: number; endLine?: number }) {
+function absolutePath(dir: string, file: string) {
+  if (file.startsWith("/")) {
+    return file
+  }
+  if (/^[A-Za-z]:[\\/]/.test(file) || /^[A-Za-z]:$/.test(file)) {
+    return file
+  }
+  if (file.startsWith("\\\\") || file.startsWith("//")) {
+    return file
+  }
+  return `${dir.replace(/[\\/]+$/, "")}/${file}`
+}
+
+function fileUrl(file: string, selection?: { startLine: number; endLine?: number }) {
+  const url = new URL(`file://${encodeFilePath(file)}`)
   if (!selection) {
-    return uri.toString()
+    return url.toString()
   }
 
-  const url = new URL(uri.toString())
   url.searchParams.set("start", String(selection.startLine))
   if (selection.endLine) {
     url.searchParams.set("end", String(selection.endLine))
   }
   return url.toString()
+}
+
+function encodeFilePath(file: string) {
+  const normalized = /^[A-Za-z]:/.test(file.replace(/\\/g, "/"))
+    ? `/${file.replace(/\\/g, "/")}`
+    : file.replace(/\\/g, "/")
+
+  return normalized
+    .split("/")
+    .map((segment, index) => (index === 1 && /^[A-Za-z]:$/.test(segment) ? segment : encodeURIComponent(segment)))
+    .join("/")
 }

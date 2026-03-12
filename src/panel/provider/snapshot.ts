@@ -1,8 +1,8 @@
 import * as path from "node:path"
 import type { SessionPanelRef, SessionSnapshot } from "../../bridge/types"
-import type { AgentInfo, Client, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, ProviderInfo, SessionMessage } from "../../core/sdk"
+import type { AgentInfo, Client, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, ProviderInfo, SessionInfo, SessionMessage } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
-import { collectRelatedSessionIds, filterPermission, filterQuestion, nav, relatedSessionMap } from "./navigation"
+import { filterPermission, filterQuestion, nav, relatedSessionMap, subtreeSessionIds } from "./navigation"
 import { sortMessages } from "./mutations"
 import { idle, text } from "./utils"
 
@@ -36,12 +36,9 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
   }
 
   try {
-    const [sessionRes, sessionsRes, rootMessageRes, statusRes, todoRes, diffRes, permissionRes, questionRes, configRes, configProvidersRes, agentRes, providerRes, mcpRes, resourceRes, lspRes, commandRes] = await Promise.all([
+    const [sessionRes, rootMessageRes, statusRes, todoRes, diffRes, permissionRes, questionRes, configRes, configProvidersRes, agentRes, providerRes, mcpRes, resourceRes, lspRes, commandRes] = await Promise.all([
       rt.sdk.session.get({
         sessionID: ref.sessionId,
-        directory: rt.dir,
-      }),
-      rt.sdk.session.list({
         directory: rt.dir,
       }),
       rt.sdk.session.messages({
@@ -89,10 +86,10 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
     }
 
     rt.sessions.set(session.id, session)
-    const relatedSessionIds = collectRelatedSessionIds(session, sessionsRes.data ?? [])
-    const [messages, childMessages] = await relatedMessages(rt.sdk, rt.dir, ref.sessionId, relatedSessionIds, rootMessageRes.data ?? [])
-    const childSessions = relatedSessionMap(sessionsRes.data ?? [], ref.sessionId, relatedSessionIds)
-    const navigation = nav(session, sessionsRes.data ?? [])
+    const tree = await sessionTree(rt.sdk, rt.dir, session)
+    const [messages, childMessages] = await relatedMessages(rt.sdk, rt.dir, session.id, tree.relatedSessionIds, rootMessageRes.data ?? [])
+    const childSessions = relatedSessionMap(tree.sessions, session.id, tree.relatedSessionIds)
+    const navigation = nav(session, tree.navSessions)
     const agents = agentList(agentRes.data)
     const defaultAgent = defaultAgentName(agentRes.data)
     const providers = providerSnapshot(configProvidersRes.data, providerRes.data)
@@ -124,8 +121,8 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       submitting: isSubmitting(),
       todos: todoRes.data ?? [],
       diff: sortDiff(diffRes.data ?? []),
-      permissions: filterPermission(permissionRes.data ?? [], relatedSessionIds),
-      questions: filterQuestion(questionRes.data ?? [], relatedSessionIds),
+      permissions: filterPermission(permissionRes.data ?? [], tree.requestSessionIds),
+      questions: filterQuestion(questionRes.data ?? [], tree.requestSessionIds),
       agents,
       defaultAgent,
       providers,
@@ -135,7 +132,7 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       mcpResources: mcpResourceMap(resourceRes.data),
       lsp: lspStatuses(lspRes.data ?? [], rt.dir),
       commands: commandArr(commandRes.data),
-      relatedSessionIds,
+      relatedSessionIds: tree.relatedSessionIds,
       agentMode: agentMode(messages),
       navigation,
     })
@@ -143,6 +140,75 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
     log(`snapshot failed: ${text(err)}`)
     return fallbackSnapshot(ref, workspaceName, "error", text(err), isSubmitting())
   }
+}
+
+type SessionTree = {
+  sessions: SessionInfo[]
+  navSessions: SessionInfo[]
+  relatedSessionIds: string[]
+  requestSessionIds: string[]
+}
+
+async function sessionTree(sdk: Client, dir: string, session: SessionInfo): Promise<SessionTree> {
+  if (session.parentID) {
+    const [parent, siblings] = await Promise.all([
+      sdk.session.get({
+        sessionID: session.parentID,
+        directory: dir,
+      }),
+      loadChildren(sdk, dir, session.parentID),
+    ])
+
+    const parentSession = parent.data
+    const navSessions = parentSession ? [parentSession, ...siblings] : [session, ...siblings]
+
+    return {
+      sessions: navSessions,
+      navSessions,
+      relatedSessionIds: [session.id],
+      requestSessionIds: [session.id],
+    }
+  }
+
+  const sessions = [session, ...await loadTree(sdk, dir, session.id)]
+  return {
+    navSessions: sessions.filter((item) => item.id === session.id || item.parentID === session.id),
+    sessions,
+    relatedSessionIds: subtreeSessionIds(session.id, sessions),
+    requestSessionIds: subtreeSessionIds(session.id, sessions),
+  }
+}
+
+async function loadTree(sdk: Client, dir: string, rootID: string) {
+  const out: SessionInfo[] = []
+  const queue = [rootID]
+
+  while (queue.length > 0) {
+    const parentID = queue.shift()
+    if (!parentID) {
+      continue
+    }
+
+    const children = await loadChildren(sdk, dir, parentID)
+    for (const child of children) {
+      if (child.time.archived || out.some((item) => item.id === child.id)) {
+        continue
+      }
+      out.push(child)
+      queue.push(child.id)
+    }
+  }
+
+  return out
+}
+
+async function loadChildren(sdk: Client, dir: string, sessionID: string) {
+  const res = await sdk.session.children({
+    sessionID,
+    directory: dir,
+  })
+
+  return (res.data ?? []).filter((item) => !item.time.archived)
 }
 
 export function patch(payload: Omit<SessionSnapshot, "message">): SessionSnapshot {
