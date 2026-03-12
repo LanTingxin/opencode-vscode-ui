@@ -14,6 +14,14 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
       kind: "action",
     },
     {
+      id: "slash-model",
+      label: "model",
+      detail: "Open the model picker for the current agent.",
+      keywords: ["switch", "provider", "variant", "llm"],
+      trigger: "slash",
+      kind: "action",
+    },
+    {
       id: "slash-undo",
       label: "undo",
       detail: "Revert the previous user turn immediately.",

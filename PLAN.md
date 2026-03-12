@@ -1,339 +1,249 @@
 # OpenCode UI Plan
 
-## Composer Mention Parity Roadmap
+## Switch Model TUI Parity Roadmap
 
 ### Goal
 
-Bring the VS Code session composer closer to the OpenCode TUI `@` mention experience without pretending to have parity where the extension still lacks the same editor model, search surface, or prompt-part semantics.
+Bring session model switching in the VS Code extension close to the upstream TUI behavior, especially around state ownership, picker structure, submission semantics, and session rehydration.
 
-This roadmap replaces the earlier bootstrap plan. The initial autocomplete system is already shipped. The remaining work is now about closing the concrete parity gaps between the current VS Code implementation and the upstream TUI, especially for `@file`.
+### Upstream Implementation Summary
 
-### What Exists Today
+The upstream TUI does not treat switch model as a standalone server-side session toggle. It is primarily local prompt state that affects later actions.
 
-The current composer in `src/panel/webview/app/App.tsx` already supports:
+- entry action is registered in `opencode/packages/opencode/src/cli/cmd/tui/app.tsx`
+- model picker UI lives in `opencode/packages/opencode/src/cli/cmd/tui/component/dialog-model.tsx`
+- local persisted model state lives in `opencode/packages/opencode/src/cli/cmd/tui/context/local.tsx`
+- prompt submission reads the active model and variant in `opencode/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx`
+- session re-entry restores model state from the latest user message in `opencode/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx`
 
-- shared `/` and `@` autocomplete popup state in the webview
-- keyboard navigation, active-item auto-scroll, and match highlighting
-- compact single-line menu rows with bounded internal scrolling
-- `@agent` and `@file` insertion into the textarea
-- full-text-first submit payloads with typed `agent` and `file` parts using `source` offsets
-- host-backed recent file, file, and directory lookup for `@` suggestions
-- distinct autocomplete source kinds for agents, recent files, files, and directories
-- fuzzy ranking and fuzzy-match highlighting for mention suggestions
-- host-side conversion of file and directory mentions into honest SDK prompt parts
-- focused regression coverage for path search behavior in `src/panel/provider/file-search.test.ts`
+### Upstream Behavior To Mirror
 
-### Current Mismatches Versus The TUI
+#### State Model
 
-The main remaining differences are:
+The TUI keeps these concerns separate:
 
-- the TUI edits a structured prompt with atomic pills; the extension still edits plain textarea text plus sidecar mention ranges
-- the TUI has stronger caret, deletion, and IME behavior around mention boundaries than a textarea can provide today
-- the upstream runtime owns file indexing and `find.files` behavior centrally; the extension now approximates that behavior locally and still needs ongoing parity verification for edge-case query shapes
-- the TUI has extra mention affordances such as directory drill-in on `Tab` and line-range-aware file search that the extension does not yet implement
+- per-agent manual model override
+- recent model MRU list capped at 10
+- favorite model list
+- per-model variant selection
 
-### Design Principles
+Effective model precedence in the TUI:
 
-- Optimize for behavioral truth, not visual imitation alone
-- Close semantic gaps before spending more time on cosmetic polish
-- Keep bridge and SDK type changes explicit and typed
-- Prefer incremental upgrades that can ship independently
-- Avoid rewriting the entire composer editor model unless the remaining parity gaps justify it
-- Preserve current working behavior while replacing weaker internals step by step
+1. per-agent manual override
+2. agent-configured model
+3. fallback model
 
-### Important Decision
+Fallback resolution in the TUI prefers:
 
-The highest-value parity gap is no longer the popup itself. It is the submit model.
+1. CLI `--model`
+2. config `model`
+3. first valid recent model
+4. first provider default model
+5. first model from the first provider
 
-The TUI sends:
+#### Picker Behavior
 
-- one full text part containing the complete prompt text
-- separate typed file or agent parts with `source` ranges pointing into that text
+- opening the picker preselects the current effective model
+- sections are ordered as `Favorites`, `Recent`, then provider groups
+- models already shown in favorites or recents are removed from later provider sections
+- deprecated or disabled models are not offered for selection
+- selecting a model updates local selection state and recent models
+- variants are managed independently from the base model choice
+- when no providers are connected, submit is blocked and the provider-connect flow is surfaced
 
-That mismatch is now closed. The next highest-value gap is mention editing robustness inside the textarea model.
+#### Submission Behavior
+
+- normal prompt submit sends `providerID`, `modelID`, and current `variant`
+- slash-command submission also carries model and variant
+- shell execution carries model but not variant
+- summarize uses the currently selected model
+- the new choice only affects future actions; old messages do not change retroactively
+
+#### Rehydration Behavior
+
+- reopening a session restores model and variant from the latest user message metadata
+- if the user changes model locally but has not submitted yet, the local unsent selection remains the visible current choice
+
+### Existing Extension Integration Points
+
+The current extension already has most of the transport and display hooks needed for this feature.
+
+- provider and configured-model snapshot assembly: `src/panel/provider/snapshot.ts`
+- bridge snapshot types with model-related fields: `src/bridge/types.ts`
+- composer identity and current effective model helpers: `src/panel/webview/app/App.tsx`, `src/panel/webview/lib/session-meta.ts`
+- submit and composer-action routing: `src/panel/provider/controller.ts`, `src/panel/provider/actions.ts`
+- SDK calls that already accept per-request model input: `src/core/sdk.ts`
+
+### Design Direction
+
+To stay aligned with the TUI, the extension should implement switch model as session-local panel state that is rehydrated from message history.
+
+Do not introduce a new host-side long-lived session model setting unless later parity work proves it is necessary.
+
+That means:
+
+- choose a model locally in the panel
+- use that selection for subsequent submit, command, compact, and summarize flows
+- restore the visible current model from latest session history when reopening or refreshing
+- keep override, recents, favorites, and variants as distinct state buckets
 
 ---
 
-## Phase A - Align Prompt-Part Semantics
+## Phase H - Introduce Session-Local Model State
 
-Status: completed
+Status: planned
 
 ### Objective
 
-Make the extension submit the same high-level prompt structure as the TUI: full prompt text first, typed mentions second.
-
-### Why First
-
-This is the most important behavior gap. Even if the popup looks similar, the model receives different prompt data today.
+Add the same core model-state primitives the TUI relies on.
 
 ### Scope
 
-- change webview serialization so submit always preserves the full draft as one `text` part
-- append typed `agent` and `file` parts separately using `source` offsets into that full text
-- keep backward compatibility for plain-text prompts
-- update host submit conversion so it no longer depends on interleaved text fragments
-- verify source offsets remain correct after mention insertion and editing
+- add session-local model override state in the webview
+- make override state agent-aware rather than one flat current-model value
+- add state buckets for recent models, favorite models, and per-model variants
+- update effective model resolution to follow TUI precedence as closely as local extension data allows
+
+### Files Most Likely To Change
+
+- `src/panel/webview/app/state.ts`
+- `src/panel/webview/lib/session-meta.ts`
+- `src/panel/webview/lib/session-meta.test.ts`
+
+### Acceptance Criteria
+
+- composer model resolution prefers manual override over agent default and fallback
+- the state layer can represent recents, favorites, and variants independently
+- existing submit behavior does not change when no override exists
+
+---
+
+## Phase I - Build A TUI-Shaped Model Picker
+
+Status: planned
+
+### Objective
+
+Add a panel-local model picker that follows the TUI information architecture closely.
+
+### Scope
+
+- open the picker from the composer model chip
+- add a `/model` command entry in the composer flow
+- preselect the current effective model when the picker opens
+- render sections in TUI order: favorites, recents, then provider groups
+- deduplicate models across sections
+- hide disabled or deprecated models when current provider metadata can identify them
 
 ### Files Most Likely To Change
 
 - `src/panel/webview/app/App.tsx`
+- `src/panel/webview/app/composer-menu.ts`
+- `src/panel/webview/status.css`
+- `src/panel/webview/app/model-picker.tsx`
+
+### Acceptance Criteria
+
+- users can open and close the picker entirely inside the panel webview
+- the current model is visibly preselected on open
+- selecting a model updates local composer state immediately
+- section ordering and deduplication stay stable across refreshes
+
+---
+
+## Phase J - Route The Current Model Through All Relevant Actions
+
+Status: planned
+
+### Objective
+
+Make every relevant composer-driven action use the active model selection.
+
+### Scope
+
+- keep normal prompt submit wired to the active selected model
+- ensure model-aware composer actions use the same current value
+- make compact and summarize follow the active selection
+- carry variant where upstream behavior expects it
+- avoid adding a separate set-session-model RPC unless later parity work truly needs it
+
+### Files Most Likely To Change
+
 - `src/bridge/types.ts`
+- `src/panel/provider/controller.ts`
 - `src/panel/provider/actions.ts`
 - `src/core/sdk.ts`
 
 ### Acceptance Criteria
 
-- submit always includes the complete draft text unchanged as the first text part
-- typed file and agent parts still submit with valid `source.start` and `source.end`
-- plain prompts with no mentions still behave exactly as they do now
-- unresolved file mentions degrade clearly and predictably
-
-### Progress
-
-- completed in the webview and host submit pipeline
-- submit now preserves the full draft as the first text part and appends typed mentions after it
-- unresolved file mentions no longer duplicate plain text during host conversion
+- submit uses the currently selected provider and model every time
+- compact and summarize use the same model source of truth
+- variant is included where the current SDK path supports it
 
 ---
 
-## Phase B - Expand Search Sources To Match TUI Intent
+## Phase K - Rehydrate From Session History
 
-Status: completed
+Status: planned
 
 ### Objective
 
-Make `@` feel like a context picker rather than only a token filter.
+Restore the active session model from what the user last actually sent, matching TUI behavior.
 
 ### Scope
 
-- add a recent-file source for the mention popup
-- decide how to source recent files in the extension, such as open editors, visible tabs, or session-related files
-- extend host search to optionally include directories, not only files
-- keep the search lazy and query-driven; do not bloat snapshot payloads
-- hide sources the extension cannot actually submit or open cleanly
-
-### Notes
-
-The TUI exposes agents, recent files, and backend file or directory search. The extension should move toward the same shape even if the exact provider differs.
+- inspect the latest user-message metadata for `providerID`, `modelID`, and `variant`
+- restore visible composer model state when the panel reopens or session data refreshes
+- preserve unsent local selection until a real message supersedes it
+- keep restoration logic centralized instead of scattering it through render paths
 
 ### Files Most Likely To Change
 
-- `src/panel/provider/files.ts`
-- `src/panel/provider/controller.ts`
-- `src/bridge/types.ts`
+- `src/panel/webview/lib/session-meta.ts`
 - `src/panel/webview/app/App.tsx`
+- `src/panel/webview/app/state.ts`
 
 ### Acceptance Criteria
 
-- empty or near-empty `@` can surface useful recent file suggestions
-- file search can return directories when the extension can represent them honestly
-- agents, recents, and searched paths remain distinguishable in the UI and data model
-
-### Progress
-
-- completed with host-provided recent files plus searchable file and directory results
-- composer items now distinguish `agent`, `recent`, `file`, and `directory` sources in the UI and data model
-- directory mentions now submit honestly as `application/x-directory`
+- reopening an existing session restores the last actually used model
+- unsent local changes remain visible until a newer sent message replaces them
+- composer identity and submission logic remain synchronized after refreshes
 
 ---
 
-## Phase C - Replace Local Ranking With TUI-Like Filtering
+## Phase L - Close Remaining TUI Parity Gaps
 
-Status: completed
+Status: planned
 
 ### Objective
 
-Improve result quality so file and agent hits behave more like the TUI under partial, fuzzy, and path-oriented queries.
+Finish the remaining model-specific parity work after the base flow is stable.
 
 ### Scope
 
-- replace the current exact and prefix and substring ranking with a proper fuzzy ranking strategy
-- preserve stable ordering within result groups when scores tie
-- compare whether ranking should happen entirely in the webview, entirely in the host, or in a split model by source
-- revisit highlight rendering so it reflects the actual fuzzy match spans instead of plain substring matches
-
-### Notes
-
-The TUI uses `fuzzysort` in grouped lists. The extension should not copy blindly, but it should stop relying on the current narrow rule set once the source set expands.
+- add variant selection or cycling UI backed by per-model variant state
+- persist and cap recent models at 10 like the TUI
+- add favorites toggling and favorites-first picker rendering
+- evaluate whether the panel should surface provider-connect flow directly from the picker when no providers are available
 
 ### Files Most Likely To Change
 
-- `src/panel/webview/hooks/useComposerAutocomplete.ts`
+- `src/panel/webview/app/model-picker.tsx`
 - `src/panel/webview/app/App.tsx`
-- `src/panel/provider/files.ts`
+- `src/panel/webview/app/state.ts`
+- `src/core/commands.ts`
 
 ### Acceptance Criteria
 
-- path searches behave well for basename, subpath, and fuzzy partial matches
-- result ordering feels consistent across agents, recents, and searched files
-- highlighted text reflects what actually matched
-
-### Progress
-
-- completed with fuzzy subsequence ranking in the webview and broader host-side path candidate collection
-- match highlighting now follows actual fuzzy match indexes instead of plain substring matches
-- host path search was refactored away from narrow query-shaped globs toward ranked full-path matching
-- regression tests now cover basename, nested path-prefix, directory-without-trailing-slash, root-file, hidden-path, and fuzzy partial queries
+- recent models behave as a stable deduped MRU list capped at 10
+- favorites and variants no longer require state-model redesign later
+- the no-provider path degrades clearly and guides the user toward connecting a provider
 
 ---
 
-## Phase D - Harden Mention Editing In The Textarea Model
+## Validation
 
-Status: completed
-
-### Objective
-
-Reduce the editing fragility caused by representing mentions as plain textarea text.
-
-### Scope
-
-- audit mention invalidation behavior when the user edits inside a mention token
-- add stricter rules for when a mention should be preserved, shifted, or dropped
-- improve deletion behavior around mention edges, especially Backspace and Delete near token boundaries
-- review IME and composition interactions before commit acceptance
-- tighten cursor heuristics so reopening and closing the popup does not fight normal editing
-
-### Notes
-
-This phase does not attempt to fully recreate TUI pills in a textarea. It hardens the current model so it fails less often.
-
-### Progress
-
-- completed with extracted composer mention helpers in `src/panel/webview/app/composer-mentions.ts`
-- textarea Backspace and Delete now remove an entire touched mention token instead of leaving partial tracked-state corruption at the edges
-- autocomplete reopening is now suppressed while the caret or selection remains inside a tracked mention range
-- IME composition state now prevents Enter from accidentally accepting a mention while composing
-- regression tests now cover mention insertion, range shifting, inside-edit degradation, boundary deletion, and autocomplete suppression in `src/panel/webview/app/composer-mentions.test.ts`
-
-### Files Most Likely To Change
-
-- `src/panel/webview/app/App.tsx`
-- `src/panel/webview/app/composer-mentions.ts`
-- `src/panel/webview/app/composer-mentions.test.ts`
-
-### Acceptance Criteria
-
-- editing adjacent to a mention is stable under insert, delete, and paste operations
-- partial edits inside a mention produce predictable degradation into plain text
-- IME and normal Enter handling do not accidentally select or submit mentions
-
----
-
-## Phase E - Decide Whether To Introduce Atomic Mention Chips
-
-Status: completed
-
-### Objective
-
-Make an explicit architectural decision about whether textarea-based mentions are sufficient, or whether parity now requires moving to an atomic inline representation.
-
-### Decision Gate
-
-At the start of this phase, review the remaining gaps after Phase D.
-
-If the remaining issues are mostly ranking and source quality, keep the textarea.
-
-If the remaining issues are still dominated by caret, deletion, selection, and edit-boundary bugs, plan a separate editor-model upgrade.
-
-### Option 1 - Stay With Textarea
-
-- keep sidecar mention ranges
-- continue incremental heuristics
-- document known non-parity behaviors clearly
-
-### Option 2 - Move Toward Atomic Inline Mentions
-
-- prototype a richer editor surface for atomic file and agent tokens
-- evaluate whether a contenteditable or segmented input model is maintainable inside the panel webview
-- preserve the bridge and submit model from Phase A so the editor swap is mostly local to the webview
-
-### Acceptance Criteria
-
-- a documented decision exists with tradeoffs, risks, and recommended path
-- if a prototype is built, it proves whether atomic mentions materially reduce bug surface
-
-### Progress
-
-- completed with a reversed architecture decision: strict parity goals require replacing the current textarea plus sidecar mention-range model
-- documented the new direction, tradeoffs, and migration path in `COMPOSER_EDITOR_DECISION.md`
-- implemented the first editor-model upgrade by replacing the composer textarea with a structured inline editor that renders atomic file and agent tokens in the panel webview
-- preserved the Phase A submit contract by continuing to derive full draft text plus typed file and agent prompt parts from structured editor state
-- aligned insertion and editing behavior more closely with upstream web prompt behavior: `@query` replacement now inserts an atomic token plus trailing space, Enter inserts normalized newlines through the structured model, and Backspace and Delete remove adjacent tokens atomically
-- added focused structured-editor regression coverage in `src/panel/webview/app/composer-editor.test.ts`
-
----
-
-## Phase F - Add Missing TUI-Style Entry Paths
-
-Status: completed
-
-### Objective
-
-Close surrounding `@file` affordance gaps beyond plain keyboard search.
-
-### Scope
-
-- support converting dropped files into composer file mentions where appropriate
-- review whether file selections or line ranges should be representable in the extension prompt model
-- evaluate whether session-context files should be distinguishable from inline `@file` mentions
-- bring empty-state and helper copy closer to the real behavior of each source
-
-### Files Most Likely To Change
-
-- `src/panel/webview/app/App.tsx`
-- `src/panel/provider/files.ts`
-- `src/core/sdk.ts`
-- `src/bridge/types.ts`
-
-### Acceptance Criteria
-
-- dropped files can become valid file mentions when that action is unambiguous
-- selected file references can carry richer metadata if the host can submit it correctly
-- mention entry paths feel coherent rather than bolted on
-
-### Progress
-
-- completed with upstream-style file URI dropping into the structured composer as atomic file mentions
-- the mention model now carries optional line-range metadata, so selecting a `@file` result with `#12` or `#12-20` preserves that range through editor state and submit conversion
-- host search now surfaces the active editor selection as a distinct `selection` source ahead of recent files when the selection maps cleanly into the current workspace
-- host submit now serializes selected-line file mentions to file URLs with `start` and optional `end` query params, matching the upstream web and TUI request shape more closely
-- helper copy now points users toward path-plus-range entry (`path#12-20`) and drop-to-mention behavior
-
----
-
-## Phase G - Revisit MCP Resource Mentions Separately
-
-Status: completed
-
-### Objective
-
-Only add `@resource` behavior when the runtime exposes a real list or search surface.
-
-### Scope
-
-- inspect local SDK and runtime capabilities for MCP resource listing or querying
-- define a resource mention source only if the extension can search, insert, and submit it honestly
-- avoid mixing speculative MCP UI into the file-parity work before the backend exists
-
-### Acceptance Criteria
-
-- MCP resource suggestions do not appear until the runtime can truly serve them
-- if implemented, MCP resources follow the same submit semantics as files and agents
-
-### Progress
-
-- completed after confirming the upstream runtime already exposes `experimental.resource.list`, so the extension now surfaces MCP resources only when the SDK can actually provide them
-- session snapshots now carry MCP resource inventory separately from MCP connection status, and composer autocomplete merges those resources into `@` results alongside agents and file-oriented entries
-- selecting an MCP resource now inserts an atomic structured resource mention in the composer and submits it as a `file` prompt part with upstream-style `source.type = resource` metadata instead of pretending it is a local workspace path
-- regression coverage now includes resource mention serialization and structured editor metadata preservation
-
----
-
-## Cross-Cutting Work
-
-### Validation
-
-For each implementation phase, validate with:
+For each phase, validate with:
 
 - `bun run check-types`
 - `bun run lint`
@@ -341,43 +251,18 @@ For each implementation phase, validate with:
 
 ### Suggested Manual Verification Matrix
 
-- empty `@` behavior
-- `@` with agent-name query
-- `@` with basename file query
-- `@` with nested path query
-- `@` with directory query without trailing slash
-- `@` with root-level file query such as `@README` or `@index`
-- `@` with fuzzy partial query such as `@bttn`
-- keyboard navigation in long result lists
-- selecting a file mention in the middle of existing text
-- editing before, after, and inside an inserted mention
-- submitting one prompt with mixed text, `@agent`, and `@file`
-- unresolved file mention fallback behavior
-- narrow panel width popup readability
-
-### Non-Goals Until A Later Decision
-
-- full TUI slash-command parity
-- copying the TUI editor DOM model wholesale into the extension
-- snapshotting large file indexes into panel bootstrap payloads
-- exposing MCP resource UI without a real runtime data source
-
-### Success Criteria For This Roadmap
-
-At the end of the roadmap, the extension should either:
-
-- behave close enough to the TUI that remaining differences are small and documented
-
-or:
-
-- have a clear architectural decision showing that true parity requires replacing the textarea editor model
+- open the picker with at least two providers and confirm current-model preselection
+- switch models and verify the composer identity updates before submit
+- submit two consecutive messages with two different models and verify history reflects the change
+- reopen a session and confirm the model restores from the latest user message
+- run compact with a non-default model selected and verify it follows the active selection
+- verify fallback behavior when there are no manual overrides
+- verify degraded behavior when no providers or no valid models are available
 
 ### Recommended Execution Order
 
-1. Phase A
-2. Phase B
-3. Phase C
-4. Phase D
-5. Phase E
-6. Phase F
-7. Phase G
+1. Phase H
+2. Phase I
+3. Phase J
+4. Phase K
+5. Phase L

@@ -142,6 +142,7 @@ export type WebviewMessage =
         providerID: string
         modelID: string
       }
+      variant?: string
     }
   | {
       type: "permissionReply"
@@ -194,9 +195,16 @@ export type WebviewMessage =
       type: "runSlashCommand"
       command: string
       arguments: string
+      agent?: string
+      model?: string
+      variant?: string
     }
   | {
       type: "searchFiles"
       requestID: string
       query: string
+    }
+  | {
+      type: "openDocs"
+      target: "providers"
     }

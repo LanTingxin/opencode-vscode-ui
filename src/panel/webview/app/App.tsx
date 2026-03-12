@@ -3,7 +3,7 @@ import type { ComposerPathResult, ComposerPromptPart, SessionBootstrap } from ".
 import type { QuestionRequest } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, WorkspaceDirContext } from "./contexts"
 import { answerKey, PermissionDock, QuestionDock, RetryStatus, SessionNav, SubagentNotice } from "./docks"
-import { createInitialState, type AppState, type ComposerEditorPart, type VsCodeApi } from "./state"
+import { createInitialState, persistableAppState, type AppState, type ComposerEditorPart, type PersistedAppState, type VsCodeApi } from "./state"
 import { Timeline } from "./timeline"
 import { AgentBadge, CompactionDivider, EmptyState, MarkdownBlock, PartView, WebviewBindingsProvider } from "./webview-bindings"
 import { ensureComposerCursorVisible, resizeComposer, useComposerResize } from "../hooks/useComposer"
@@ -12,12 +12,13 @@ import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
 import { formatComposerFileContent, parseComposerFileQuery } from "../lib/composer-file-selection"
-import { agentColor, composerIdentity, composerMetrics, composerSelection, formatUsd, isSessionRunning, overallLspStatus, overallMcpStatus, sessionTitle, type StatusItem, type StatusTone } from "../lib/session-meta"
+import { agentColor, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel, type StatusItem, type StatusTone } from "../lib/session-meta"
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
 import { composerTabIntent, cycleAgentName, isShortcutTarget, leaderAction } from "./keyboard-shortcuts"
+import { buildModelPickerSections, ModelPicker } from "./model-picker"
 import { activeChildSessionId } from "./session-navigation"
 
 declare global {
@@ -30,6 +31,7 @@ declare function acquireVsCodeApi(): VsCodeApi
 
 const vscode = acquireVsCodeApi()
 const initialRef = window.__OPENCODE_INITIAL_STATE__ ?? null
+const persistedState = vscode.getState<PersistedAppState>()
 const fileRefStatus = new Map<string, boolean>()
 const FILE_SEARCH_DEBOUNCE_MS = 180
 const ESC_INTERRUPT_WINDOW_MS = 5000
@@ -39,7 +41,7 @@ if (initialRef) {
 }
 
 export function App() {
-  const [state, setState] = React.useState(() => createInitialState(initialRef))
+  const [state, setState] = React.useState(() => createInitialState(initialRef, persistedState))
   const [composing, setComposing] = React.useState(false)
   const [composerFocused, setComposerFocused] = React.useState(false)
   const [escPending, setEscPending] = React.useState(false)
@@ -48,8 +50,10 @@ export function App() {
   const [fileResults, setFileResults] = React.useState<ComposerPathResult[]>([])
   const [fileSearch, setFileSearch] = React.useState<{ status: "idle" | "searching" | "done"; query: string }>({ status: "idle", query: "" })
   const [composerDrag, setComposerDrag] = React.useState<null | "mention">(null)
+  const [modelPickerOpen, setModelPickerOpen] = React.useState(false)
   const timelineRef = React.useRef<HTMLDivElement | null>(null)
   const composerRef = React.useRef<HTMLDivElement | null>(null)
+  const modelPickerRef = React.useRef<HTMLDivElement | null>(null)
   const composerCursorRef = React.useRef<number | null>(null)
   const searchRef = React.useRef<{ requestID: string; query: string } | null>(null)
   const escTimerRef = React.useRef<number | null>(null)
@@ -68,6 +72,22 @@ export function App() {
   }, [])
   const composerMenuItems = React.useMemo(() => buildComposerMenuItems(state, fileResults), [fileResults, state])
   const composerAutocomplete = useComposerAutocomplete(composerMenuItems)
+  const currentSelection = React.useMemo(() => composerSelection({
+    ...state.snapshot,
+    composerAgentOverride: state.composerAgentOverride,
+    composerMentionAgentOverride: state.composerMentionAgentOverride,
+    composerRecentModels: state.composerRecentModels,
+    composerModelOverrides: state.composerModelOverrides,
+    composerModelVariants: state.composerModelVariants,
+  }), [state.composerAgentOverride, state.composerMentionAgentOverride, state.composerModelOverrides, state.composerModelVariants, state.composerRecentModels, state.snapshot])
+  const latestUserSelection = React.useMemo(() => lastUserSelection(state.snapshot.messages, state.snapshot.providers), [state.snapshot.messages, state.snapshot.providers])
+  const modelPickerSections = React.useMemo(() => buildModelPickerSections({
+    providers: state.snapshot.providers,
+    favorites: state.composerFavoriteModels,
+    recents: state.composerRecentModels,
+    currentModel: currentSelection.model,
+    variants: state.composerModelVariants,
+  }), [currentSelection.model, state.composerFavoriteModels, state.composerModelVariants, state.composerRecentModels, state.snapshot.providers])
 
   const blocked = state.snapshot.permissions.length > 0 || state.snapshot.questions.length > 0
   const isChildSession = !!state.bootstrap.session?.parentID
@@ -157,6 +177,83 @@ export function App() {
     setState,
     vscode,
   })
+
+  const persistedPanelState = React.useMemo(() => persistableAppState(state), [
+    state.bootstrap.sessionRef.dir,
+    state.bootstrap.sessionRef.sessionId,
+    state.composerAgentOverride,
+    state.composerFavoriteModels,
+    state.composerModelOverrides,
+    state.composerModelVariants,
+    state.composerRecentModels,
+  ])
+
+  React.useEffect(() => {
+    vscode.setState(persistedPanelState)
+  }, [persistedPanelState])
+
+  React.useEffect(() => {
+    if (!latestUserSelection?.messageID) {
+      return
+    }
+
+    setState((current) => {
+      if (current.composerHydratedMessageID === latestUserSelection.messageID) {
+        return current
+      }
+
+      const nextOverrides = { ...current.composerModelOverrides }
+      if (latestUserSelection.agent && latestUserSelection.model) {
+        nextOverrides[latestUserSelection.agent] = latestUserSelection.model
+      }
+
+      const nextVariants = { ...current.composerModelVariants }
+      const nextModelKey = modelKey(latestUserSelection.model)
+      if (nextModelKey) {
+        if (latestUserSelection.variant) {
+          nextVariants[nextModelKey] = latestUserSelection.variant
+        } else {
+          delete nextVariants[nextModelKey]
+        }
+      }
+
+      return {
+        ...current,
+        composerAgentOverride: latestUserSelection.agent || current.composerAgentOverride,
+        composerModelOverrides: nextOverrides,
+        composerRecentModels: pushRecentModel(current.composerRecentModels, latestUserSelection.model),
+        composerModelVariants: nextVariants,
+        composerHydratedMessageID: latestUserSelection.messageID,
+      }
+    })
+  }, [latestUserSelection])
+
+  React.useEffect(() => {
+    if (!modelPickerOpen) {
+      return
+    }
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target
+      if (target instanceof Node && modelPickerRef.current?.contains(target)) {
+        return
+      }
+      setModelPickerOpen(false)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setModelPickerOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", onPointerDown)
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown)
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [modelPickerOpen])
 
   React.useEffect(() => {
     const onDragOver = (event: DragEvent) => {
@@ -253,6 +350,7 @@ export function App() {
 
     const finalized = ensureTextPart(absorbFileSelectionSuffix(state.composerParts, true).parts)
     const draft = composerText(finalized)
+    const selection = currentSelection
 
     // Check if draft is a slash command invocation: starts with "/" and first token matches a known server command
     const slashMatch = draft.match(/^\/(\S+)(?:\s+([\s\S]*))?$/)
@@ -261,7 +359,14 @@ export function App() {
       const cmdArgs = (slashMatch[2] ?? "").trim()
       const knownCmd = state.snapshot.commands.find((c) => c.name === cmdName && c.source !== "skill")
       if (knownCmd) {
-        vscode.postMessage({ type: "runSlashCommand", command: cmdName, arguments: cmdArgs })
+        vscode.postMessage({
+          type: "runSlashCommand",
+          command: cmdName,
+          arguments: cmdArgs,
+          agent: selection.agent,
+          model: selection.model ? `${selection.model.providerID}/${selection.model.modelID}` : undefined,
+          variant: selection.variant,
+        })
         setState((current) => ({
           ...current,
           draft: "",
@@ -274,12 +379,16 @@ export function App() {
       }
     }
 
+    if (!selection.model) {
+      setState((current) => ({
+        ...current,
+        error: current.snapshot.providers.length > 0 ? "Select a model before sending this message." : "Configure a provider before sending this message.",
+      }))
+      setModelPickerOpen(true)
+      return
+    }
+
     const mentions = mentionsFromParts(finalized)
-    const selection = composerSelection({
-      ...state.snapshot,
-      composerAgentOverride: state.composerAgentOverride,
-      composerMentionAgentOverride: state.composerMentionAgentOverride,
-    })
     const parts = buildComposerSubmitParts(draft, mentions)
     vscode.postMessage({
       type: "submit",
@@ -287,6 +396,7 @@ export function App() {
       parts,
       agent: selection.agent,
       model: selection.model,
+      variant: selection.variant,
     })
     setState((current) => ({
       ...current,
@@ -296,7 +406,7 @@ export function App() {
       composerMentionAgentOverride: undefined,
       error: "",
     }))
-  }, [blocked, state.composerAgentOverride, state.composerMentionAgentOverride, state.composerParts, state.snapshot])
+  }, [blocked, currentSelection, state.composerParts, state.snapshot.commands])
 
   const clearComposerDraft = React.useCallback(() => {
     setState((current) => ({
@@ -337,6 +447,80 @@ export function App() {
     vscode.postMessage({ type: "newSession" })
   }, [])
 
+  const openModelPicker = React.useCallback(() => {
+    setModelPickerOpen(true)
+  }, [])
+
+  const toggleModelPicker = React.useCallback(() => {
+    setModelPickerOpen((current) => !current)
+  }, [])
+
+  const selectComposerModel = React.useCallback((model: { providerID: string; modelID: string }) => {
+    setState((current) => {
+      const agent = composerSelection({
+        ...current.snapshot,
+        composerAgentOverride: current.composerAgentOverride,
+        composerMentionAgentOverride: current.composerMentionAgentOverride,
+        composerRecentModels: current.composerRecentModels,
+        composerModelOverrides: current.composerModelOverrides,
+        composerModelVariants: current.composerModelVariants,
+      }).agent
+      if (!agent) {
+        return current
+      }
+
+      return {
+        ...current,
+        composerModelOverrides: {
+          ...current.composerModelOverrides,
+          [agent]: model,
+        },
+        composerRecentModels: pushRecentModel(current.composerRecentModels, model),
+        error: "",
+      }
+    })
+    setModelPickerOpen(false)
+  }, [])
+
+  const toggleComposerFavorite = React.useCallback((model: { providerID: string; modelID: string }) => {
+    setState((current) => ({
+      ...current,
+      composerFavoriteModels: toggleFavoriteModel(current.composerFavoriteModels, model),
+    }))
+  }, [])
+
+  const cycleComposerVariant = React.useCallback((model?: { providerID: string; modelID: string }) => {
+    setState((current) => {
+      const target = model || composerSelection({
+        ...current.snapshot,
+        composerAgentOverride: current.composerAgentOverride,
+        composerMentionAgentOverride: current.composerMentionAgentOverride,
+        composerRecentModels: current.composerRecentModels,
+        composerModelOverrides: current.composerModelOverrides,
+        composerModelVariants: current.composerModelVariants,
+      }).model
+      const nextVariant = cycleModelVariant(current.snapshot.providers, target, target ? current.composerModelVariants[modelKey(target)] : undefined)
+      const nextVariants = { ...current.composerModelVariants }
+      const key = modelKey(target)
+      if (!key) {
+        return current
+      }
+      if (nextVariant) {
+        nextVariants[key] = nextVariant
+      } else {
+        delete nextVariants[key]
+      }
+      return {
+        ...current,
+        composerModelVariants: nextVariants,
+      }
+    })
+  }, [])
+
+  const openProviderDocs = React.useCallback(() => {
+    vscode.postMessage({ type: "openDocs", target: "providers" })
+  }, [])
+
   const postComposerAction = React.useCallback((action: "refreshSession" | "compactSession" | "undoSession" | "redoSession" | "interruptSession", model?: { providerID: string; modelID: string }) => {
     vscode.postMessage({ type: "composerAction", action, model })
   }, [])
@@ -364,12 +548,7 @@ export function App() {
   }, [])
 
   const cycleComposerAgent = React.useCallback(() => {
-    const current = composerSelection({
-      ...state.snapshot,
-      composerAgentOverride: state.composerAgentOverride,
-      composerMentionAgentOverride: state.composerMentionAgentOverride,
-    }).agent
-    const next = cycleAgentName(state.snapshot.agents, current)
+    const next = cycleAgentName(state.snapshot.agents, currentSelection.agent)
     if (!next) {
       return false
     }
@@ -380,7 +559,7 @@ export function App() {
       error: "",
     }))
     return true
-  }, [state.composerAgentOverride, state.composerMentionAgentOverride, state.snapshot])
+  }, [currentSelection.agent, state.snapshot.agents])
 
   const runLeaderAction = React.useCallback((action: ReturnType<typeof leaderAction>) => {
     if (!action) {
@@ -507,13 +686,15 @@ export function App() {
       }
 
       if (item.id === "slash-compact") {
-        const selection = composerSelection({
-          ...state.snapshot,
-          composerAgentOverride: state.composerAgentOverride,
-          composerMentionAgentOverride: state.composerMentionAgentOverride,
-        })
         clearComposerDraft()
-        postComposerAction("compactSession", selection.model)
+        postComposerAction("compactSession", currentSelection.model)
+        composerAutocomplete.close()
+        return
+      }
+
+      if (item.id === "slash-model") {
+        clearComposerDraft()
+        openModelPicker()
         composerAutocomplete.close()
         return
       }
@@ -571,7 +752,7 @@ export function App() {
       composerAutocomplete.close()
       restoreComposerCursor(result.draft, next.cursor)
     }
-  }, [clearComposerDraft, composerAutocomplete, postComposerAction, restoreComposerCursor, setComposerState, state.composerAgentOverride, state.composerMentionAgentOverride, state.composerParts, state.snapshot])
+  }, [clearComposerDraft, composerAutocomplete, currentSelection.model, openModelPicker, postComposerAction, restoreComposerCursor, setComposerState, state.composerParts, state.snapshot])
 
   const sendQuestionReply = React.useCallback((request: QuestionRequest) => {
     const answers = request.questions.map((_item, index) => {
@@ -860,12 +1041,7 @@ export function App() {
                       }
 
                       if (event.key === "Tab") {
-                        const currentAgent = composerSelection({
-                          ...state.snapshot,
-                          composerAgentOverride: state.composerAgentOverride,
-                          composerMentionAgentOverride: state.composerMentionAgentOverride,
-                        }).agent
-                        const nextAgent = cycleAgentName(state.snapshot.agents, currentAgent)
+                        const nextAgent = cycleAgentName(state.snapshot.agents, currentSelection.agent)
                         const tabIntent = composerTabIntent({
                           hasAutocomplete: !!composerAutocomplete.state,
                           hasCurrentItem: !!composerAutocomplete.currentItem,
@@ -880,6 +1056,14 @@ export function App() {
                         }
                       }
 
+                      if (!event.shiftKey && !event.altKey && !event.metaKey && event.ctrlKey && event.key.toLowerCase() === "t") {
+                        if (modelVariants(state.snapshot.providers, currentSelection.model).length > 0) {
+                          event.preventDefault()
+                          cycleComposerVariant()
+                          return
+                        }
+                      }
+
                       if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) {
                         return
                       }
@@ -889,7 +1073,20 @@ export function App() {
                   />
                   {!state.draft.trim() && !composerFocused ? <div className="oc-composerPlaceholder" aria-hidden="true">Ask OpenCode to inspect, explain, or change this workspace.</div> : null}
                 </div>
-                <ComposerInfo state={state} leaderPending={leaderPending} />
+                <div className="oc-composerInfoWrap" ref={modelPickerRef}>
+                  <ComposerInfo state={state} leaderPending={leaderPending} modelPickerOpen={modelPickerOpen} onToggleModelPicker={toggleModelPicker} onCycleVariant={() => cycleComposerVariant()} />
+                  {modelPickerOpen ? (
+                    <ModelPicker
+                      sections={modelPickerSections}
+                      currentAgent={currentSelection.agent}
+                      onClose={() => setModelPickerOpen(false)}
+                      onOpenProviderDocs={openProviderDocs}
+                      onSelect={selectComposerModel}
+                      onToggleFavorite={toggleComposerFavorite}
+                      onCycleVariant={cycleComposerVariant}
+                    />
+                  ) : null}
+                </div>
                 {composerAutocomplete.state ? <ComposerAutocompletePopup state={composerAutocomplete.state} fileSearch={fileSearch} onSelect={acceptComposerAutocomplete} /> : null}
               </div>
             <div className="oc-composerActions">
@@ -1013,21 +1210,52 @@ function popupEmptyText(state: ComposerAutocompleteState, fileSearch: { status: 
   return `No agents or paths match \"${state.query}\"`
 }
 
-function ComposerInfo({ state, leaderPending: _leaderPending }: { state: AppState; leaderPending: boolean }) {
+function ComposerInfo({
+  state,
+  leaderPending: _leaderPending,
+  modelPickerOpen,
+  onToggleModelPicker,
+  onCycleVariant,
+}: {
+  state: AppState
+  leaderPending: boolean
+  modelPickerOpen: boolean
+  onToggleModelPicker: () => void
+  onCycleVariant: () => void
+}) {
   const info = composerIdentity({
     ...state.snapshot,
     composerAgentOverride: state.composerAgentOverride,
     composerMentionAgentOverride: state.composerMentionAgentOverride,
+    composerRecentModels: state.composerRecentModels,
+    composerModelOverrides: state.composerModelOverrides,
+    composerModelVariants: state.composerModelVariants,
   })
+  const variantOptions = modelVariants(state.snapshot.providers, info.modelRef)
   return (
-    <div className="oc-composerInfo" aria-hidden="true">
+    <div className="oc-composerInfo">
       <div className="oc-composerInfoSpacer" />
       <div className="oc-composerInfoRow">
         <span className="oc-composerIdentityStart">
           <span className="oc-composerAgent" style={{ color: agentColor(info.agent) }}>{info.agent}</span>
         </span>
-        {info.model ? <span className="oc-composerModel" title={info.model}>{info.model}</span> : null}
-        {info.provider ? <span className="oc-composerProvider" title={info.provider}>{info.provider}</span> : null}
+        {info.model || info.provider ? (
+          <button
+            type="button"
+            className={`oc-composerModelTrigger${modelPickerOpen ? " is-open" : ""}`}
+            aria-label="Switch model"
+            aria-expanded={modelPickerOpen}
+            onClick={onToggleModelPicker}
+          >
+            {info.model ? <span className="oc-composerModel" title={info.model}>{info.model}</span> : null}
+            {info.provider ? <span className="oc-composerProvider" title={info.provider}>{info.provider}</span> : null}
+          </button>
+        ) : null}
+        {variantOptions.length > 0 ? (
+          <button type="button" className="oc-composerVariantTrigger" onClick={onCycleVariant} title="Cycle variant">
+            {info.variant || "default"}
+          </button>
+        ) : null}
       </div>
     </div>
   )

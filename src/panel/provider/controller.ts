@@ -52,7 +52,7 @@ export class SessionPanelController implements vscode.Disposable {
         }
 
         if (message?.type === "submit") {
-          void submit(this.actionContext(), message.text, message.parts, message.agent, message.model)
+          void submit(this.actionContext(), message.text, message.parts, message.agent, message.model, message.variant)
           return
         }
 
@@ -96,6 +96,13 @@ export class SessionPanelController implements vscode.Disposable {
           return
         }
 
+        if (message?.type === "openDocs") {
+          if (message.target === "providers") {
+            void vscode.commands.executeCommand("opencode-ui.openProviderDocs")
+          }
+          return
+        }
+
         if (message?.type === "toggleMcp") {
           void toggleMcp(this.actionContext(), message.name, message.action)
           return
@@ -107,7 +114,7 @@ export class SessionPanelController implements vscode.Disposable {
         }
 
         if (message?.type === "runSlashCommand") {
-          void runSlashCommand(this.actionContext(), message.command, message.arguments)
+          void runSlashCommand(this.actionContext(), message.command, message.arguments, message.agent, message.model, message.variant)
         }
       },
       undefined,

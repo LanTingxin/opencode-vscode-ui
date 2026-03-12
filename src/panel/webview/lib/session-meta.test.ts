@@ -1,13 +1,13 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { AgentInfo, ProviderInfo, SessionMessage } from "../../../core/sdk"
-import { composerIdentity, composerSelection } from "./session-meta"
+import { composerIdentity, composerSelection, cycleModelVariant, lastUserSelection, pushRecentModel, toggleFavoriteModel } from "./session-meta"
 
 const providers: ProviderInfo[] = [{
   id: "p1",
   name: "Provider 1",
   models: {
-    m1: { id: "m1", name: "Model 1" },
+    m1: { id: "m1", name: "Model 1", variants: { fast: {}, deep: {} } },
     m2: { id: "m2", name: "Model 2" },
   },
 }]
@@ -47,6 +47,7 @@ describe("session meta composer state", () => {
     assert.deepEqual(selection, {
       agent: "plan",
       model: { providerID: "p1", modelID: "m2" },
+      variant: undefined,
     })
   })
 
@@ -65,6 +66,7 @@ describe("session meta composer state", () => {
     assert.deepEqual(selection, {
       agent: "plan",
       model: { providerID: "p1", modelID: "m2" },
+      variant: undefined,
     })
   })
 
@@ -83,6 +85,7 @@ describe("session meta composer state", () => {
     assert.deepEqual(selection, {
       agent: "build",
       model: { providerID: "p1", modelID: "m1" },
+      variant: undefined,
     })
   })
 
@@ -103,6 +106,8 @@ describe("session meta composer state", () => {
       agent: "plan",
       model: "Model 2",
       provider: "Provider 1",
+      modelRef: { providerID: "p1", modelID: "m2" },
+      variant: "",
     })
   })
 
@@ -121,6 +126,141 @@ describe("session meta composer state", () => {
     assert.deepEqual(selection, {
       agent: "plan",
       model: { providerID: "p1", modelID: "m2" },
+      variant: undefined,
     })
+  })
+
+  test("composerSelection prefers manual model override for the current agent", () => {
+    const selection = composerSelection({
+      messages: [userMessage("build", "m1")],
+      agents,
+      defaultAgent: "build",
+      providers,
+      providerDefault: { p1: "m1" },
+      configuredModel: undefined,
+      composerAgentOverride: "build",
+      composerMentionAgentOverride: undefined,
+      composerModelOverrides: {
+        build: { providerID: "p1", modelID: "m2" },
+      },
+      composerModelVariants: {},
+    })
+
+    assert.deepEqual(selection, {
+      agent: "build",
+      model: { providerID: "p1", modelID: "m2" },
+      variant: undefined,
+    })
+  })
+
+  test("composerSelection falls back to configured model when the agent has no model", () => {
+    const selection = composerSelection({
+      messages: [],
+      agents: [{ name: "build", mode: "primary" }],
+      defaultAgent: "build",
+      providers,
+      providerDefault: { p1: "m1" },
+      configuredModel: { providerID: "p1", modelID: "m2" },
+      composerAgentOverride: undefined,
+      composerMentionAgentOverride: undefined,
+      composerModelOverrides: {},
+      composerModelVariants: {},
+    })
+
+    assert.deepEqual(selection, {
+      agent: "build",
+      model: { providerID: "p1", modelID: "m2" },
+      variant: undefined,
+    })
+  })
+
+  test("composerSelection returns stored variant for the selected model", () => {
+    const selection = composerSelection({
+      messages: [],
+      agents,
+      defaultAgent: "build",
+      providers,
+      providerDefault: { p1: "m1" },
+      configuredModel: undefined,
+      composerAgentOverride: undefined,
+      composerMentionAgentOverride: undefined,
+      composerModelOverrides: {},
+      composerModelVariants: {
+        "p1/m1": "fast",
+      },
+    })
+
+    assert.deepEqual(selection, {
+      agent: "build",
+      model: { providerID: "p1", modelID: "m1" },
+      variant: "fast",
+    })
+  })
+
+  test("lastUserSelection returns the latest valid user model and variant", () => {
+    const selection = lastUserSelection([
+      userMessage("build", "m1"),
+      {
+        info: {
+          id: "msg-2",
+          sessionID: "session-1",
+          role: "user",
+          time: { created: 1 },
+          agent: "plan",
+          model: { providerID: "p1", modelID: "m2" },
+          variant: "deep",
+        },
+        parts: [],
+      },
+    ], providers)
+
+    assert.deepEqual(selection, {
+      messageID: "msg-2",
+      agent: "plan",
+      model: { providerID: "p1", modelID: "m2" },
+      variant: "deep",
+    })
+  })
+
+  test("composerSelection falls back to the most recent valid model before provider default", () => {
+    const selection = composerSelection({
+      messages: [],
+      agents: [],
+      defaultAgent: undefined,
+      providers,
+      providerDefault: { p1: "m1" },
+      configuredModel: undefined,
+      composerAgentOverride: undefined,
+      composerMentionAgentOverride: undefined,
+      composerRecentModels: [{ providerID: "p1", modelID: "m2" }],
+      composerModelOverrides: {},
+      composerModelVariants: {},
+    })
+
+    assert.deepEqual(selection, {
+      agent: undefined,
+      model: { providerID: "p1", modelID: "m2" },
+      variant: undefined,
+    })
+  })
+
+  test("pushRecentModel keeps a deduped MRU list capped at 10", () => {
+    const recents = Array.from({ length: 10 }, (_item, index) => ({ providerID: "p1", modelID: `m${index}` }))
+    const next = pushRecentModel(recents, { providerID: "p1", modelID: "m5" })
+    assert.equal(next[0].modelID, "m5")
+    assert.equal(next.length, 10)
+  })
+
+  test("toggleFavoriteModel adds and removes a model", () => {
+    const added = toggleFavoriteModel([], { providerID: "p1", modelID: "m1" })
+    assert.deepEqual(added, [{ providerID: "p1", modelID: "m1" }])
+    const removed = toggleFavoriteModel(added, { providerID: "p1", modelID: "m1" })
+    assert.deepEqual(removed, [])
+  })
+
+  test("cycleModelVariant follows upstream undefined to next to undefined semantics", () => {
+    assert.equal(cycleModelVariant(providers, { providerID: "p1", modelID: "m1" }, undefined), "fast")
+    assert.equal(cycleModelVariant(providers, { providerID: "p1", modelID: "m1" }, "fast"), "deep")
+    assert.equal(cycleModelVariant(providers, { providerID: "p1", modelID: "m1" }, "deep"), undefined)
   })
 })

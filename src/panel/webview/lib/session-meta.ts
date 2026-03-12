@@ -1,6 +1,8 @@
 import type { SessionBootstrap } from "../../../bridge/types"
 import type { AgentInfo, LspStatus, McpStatus, MessageInfo, ProviderInfo, SessionMessage, SessionStatus } from "../../../core/sdk"
 
+export type ModelRef = NonNullable<MessageInfo["model"]>
+
 export type StatusTone = "green" | "orange" | "red" | "gray"
 
 export type StatusItem = {
@@ -61,6 +63,86 @@ export function providerById(providers: ProviderInfo[], providerID?: string) {
   return providers.find((item) => item.id === providerID)
 }
 
+export function normalizeModelRef(model: MessageInfo["model"] | undefined): ModelRef | undefined {
+  const providerID = model?.providerID?.trim()
+  const modelID = model?.modelID?.trim()
+  if (!providerID || !modelID) {
+    return undefined
+  }
+
+  return { providerID, modelID }
+}
+
+export function modelKey(model: MessageInfo["model"] | undefined) {
+  const normalized = normalizeModelRef(model)
+  return normalized ? `${normalized.providerID}/${normalized.modelID}` : ""
+}
+
+export function sameModelRef(left: MessageInfo["model"] | undefined, right: MessageInfo["model"] | undefined) {
+  const a = normalizeModelRef(left)
+  const b = normalizeModelRef(right)
+  return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID
+}
+
+export function isValidModelRef(providers: ProviderInfo[], model: MessageInfo["model"] | undefined): model is ModelRef {
+  const normalized = normalizeModelRef(model)
+  if (!normalized) {
+    return false
+  }
+
+  return !!providerModelById(providerById(providers, normalized.providerID), normalized.modelID)
+}
+
+export function pushRecentModel(recents: ModelRef[], model: MessageInfo["model"] | undefined, limit = 10) {
+  const normalized = normalizeModelRef(model)
+  if (!normalized) {
+    return recents
+  }
+
+  const key = modelKey(normalized)
+  const next = [normalized, ...recents.filter((item) => modelKey(item) !== key)]
+  return next.slice(0, limit)
+}
+
+export function toggleFavoriteModel(favorites: ModelRef[], model: MessageInfo["model"] | undefined) {
+  const normalized = normalizeModelRef(model)
+  if (!normalized) {
+    return favorites
+  }
+
+  const key = modelKey(normalized)
+  const exists = favorites.some((item) => modelKey(item) === key)
+  if (exists) {
+    return favorites.filter((item) => modelKey(item) !== key)
+  }
+
+  return [normalized, ...favorites]
+}
+
+export function modelVariants(providers: ProviderInfo[], model: MessageInfo["model"] | undefined) {
+  const normalized = normalizeModelRef(model)
+  if (!normalized) {
+    return []
+  }
+
+  const info = providerModelById(providerById(providers, normalized.providerID), normalized.modelID)
+  return Object.keys(info?.variants ?? {})
+}
+
+export function cycleModelVariant(providers: ProviderInfo[], model: MessageInfo["model"] | undefined, current?: string) {
+  const variants = modelVariants(providers, model)
+  if (variants.length === 0) {
+    return undefined
+  }
+
+  const currentIndex = current ? variants.indexOf(current) : -1
+  if (currentIndex < 0) {
+    return variants[0]
+  }
+
+  return currentIndex === variants.length - 1 ? undefined : variants[currentIndex + 1]
+}
+
 export function displayModelRef(model: MessageInfo["model"] | undefined, providers: ProviderInfo[]) {
   const providerID = model?.providerID?.trim()
   const modelID = model?.modelID?.trim()
@@ -95,6 +177,14 @@ export function fallbackModelRef(providers: ProviderInfo[], defaults?: Record<st
     providerID: provider.id,
     modelID: model.id,
   }
+}
+
+export function fallbackRecentModel(recents: ModelRef[] | undefined, providers: ProviderInfo[]) {
+  if (!Array.isArray(recents)) {
+    return undefined
+  }
+
+  return recents.find((item) => isValidModelRef(providers, item))
 }
 
 export function lastUserMessage(messages: SessionMessage[]) {
@@ -247,6 +337,9 @@ export function composerIdentity(snapshot: {
   agentMode: "build" | "plan"
   composerAgentOverride?: string
   composerMentionAgentOverride?: string
+  composerRecentModels?: ModelRef[]
+  composerModelOverrides?: Record<string, ModelRef>
+  composerModelVariants?: Record<string, string>
 }) {
   const selection = composerSelection(snapshot)
   const lastUser = lastUserMessage(snapshot.messages)
@@ -254,6 +347,8 @@ export function composerIdentity(snapshot: {
     agent: selection.agent || lastUser?.info.agent?.trim() || snapshot.agentMode,
     model: displayModelRef(selection.model, snapshot.providers) || displayModelRef(lastUser?.info.model, snapshot.providers) || "",
     provider: displayProviderRef(selection.model, snapshot.providers) || displayProviderRef(lastUser?.info.model, snapshot.providers) || "",
+    modelRef: selection.model,
+    variant: selection.variant || lastUser?.info.variant?.trim() || "",
   }
 }
 
@@ -269,15 +364,38 @@ export function composerSelection(snapshot: {
   }
   composerAgentOverride?: string
   composerMentionAgentOverride?: string
+  composerRecentModels?: ModelRef[]
+  composerModelOverrides?: Record<string, ModelRef>
+  composerModelVariants?: Record<string, string>
 }) {
   const agent = primaryAgent(snapshot.agents, snapshot.composerMentionAgentOverride || snapshot.composerAgentOverride || snapshot.defaultAgent)
-  const model = agent?.model && providerModelById(providerById(snapshot.providers, agent.model.providerID), agent.model.modelID)
-    ? agent.model
-    : undefined
+  const overrideModel = agent?.name ? snapshot.composerModelOverrides?.[agent.name] : undefined
+  const manualModel = isValidModelRef(snapshot.providers, overrideModel) ? overrideModel : undefined
+  const agentModel = isValidModelRef(snapshot.providers, agent?.model) ? agent.model : undefined
+  const configuredModel = isValidModelRef(snapshot.providers, snapshot.configuredModel) ? snapshot.configuredModel : undefined
+  const recentModel = fallbackRecentModel(snapshot.composerRecentModels, snapshot.providers)
+  const model = manualModel || agentModel || configuredModel || recentModel || fallbackModelRef(snapshot.providers, snapshot.providerDefault)
+  const variant = model ? snapshot.composerModelVariants?.[modelKey(model)] : undefined
 
   return {
     agent: agent?.name,
-    model: model || (snapshot.agents.length === 0 ? snapshot.configuredModel || fallbackModelRef(snapshot.providers, snapshot.providerDefault) : undefined),
+    model,
+    variant: variant || (agentModel && model && sameModelRef(agentModel, model) ? agent?.variant : undefined),
+  }
+}
+
+export function lastUserSelection(messages: SessionMessage[], providers: ProviderInfo[]) {
+  const message = lastUserMessage(messages)
+  if (!message) {
+    return undefined
+  }
+
+  const model = isValidModelRef(providers, message.info.model) ? message.info.model : undefined
+  return {
+    messageID: message.info.id,
+    agent: message.info.agent?.trim() || undefined,
+    model,
+    variant: message.info.variant?.trim() || undefined,
   }
 }
 

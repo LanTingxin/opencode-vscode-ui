@@ -24,7 +24,7 @@ type ActionContext = {
   push: (force?: boolean) => Promise<void>
 }
 
-export async function submit(ctx: ActionContext, textValue: string, parts?: ComposerPromptPart[], agent?: string, model?: MessageInfo["model"]) {
+export async function submit(ctx: ActionContext, textValue: string, parts?: ComposerPromptPart[], agent?: string, model?: MessageInfo["model"], variant?: string) {
   if (!textValue.trim() || ctx.state.disposed) {
     return
   }
@@ -47,6 +47,7 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
       directory: rt.dir,
       agent,
       model,
+      variant,
       parts: prompt,
     })
     await wait(400)
@@ -94,7 +95,7 @@ export async function toggleMcp(ctx: ActionContext, name: string, action: "conne
   }
 }
 
-export async function runSlashCommand(ctx: ActionContext, command: string, args: string) {
+export async function runSlashCommand(ctx: ActionContext, command: string, args: string, agent?: string, model?: string, variant?: string) {
   if (!command || ctx.state.disposed) {
     return
   }
@@ -115,6 +116,9 @@ export async function runSlashCommand(ctx: ActionContext, command: string, args:
       directory: rt.dir,
       command,
       arguments: args,
+      agent,
+      model,
+      variant,
     })
     await wait(400)
     if (!ctx.state.disposed && run === ctx.state.run) {

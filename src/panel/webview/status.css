@@ -247,14 +247,19 @@
   opacity: 0.8;
 }
 
-.oc-composerInfo {
-  pointer-events: none;
+.oc-composerInfoWrap {
   position: absolute;
   inset: auto 1px 1px 1px;
+  pointer-events: none;
+}
+
+.oc-composerInfo {
+  position: relative;
   padding: 0 12px 10px;
   background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
   display: grid;
   grid-template-rows: 1.65em 1.65em;
+  pointer-events: none;
 }
 
 .oc-composerInfoSpacer {
@@ -341,6 +346,47 @@
   text-overflow: ellipsis;
 }
 
+.oc-composerModelTrigger {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.oc-composerModelTrigger:hover,
+.oc-composerModelTrigger.is-open {
+  opacity: 0.92;
+}
+
+.oc-composerModelTrigger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--oc-accent) 52%, transparent 48%);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.oc-composerVariantTrigger {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--oc-accent) 28%, transparent 72%);
+  border-radius: 999px;
+  padding: 1px 8px;
+  background: color-mix(in srgb, var(--oc-accent) 10%, transparent 90%);
+  color: var(--oc-accent);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.oc-composerVariantTrigger:hover {
+  background: color-mix(in srgb, var(--oc-accent) 14%, transparent 86%);
+}
+
 .oc-composerModel {
   color: var(--oc-accent);
 }
@@ -386,6 +432,191 @@
 
 .oc-composerHintText.is-warning {
   color: var(--oc-warning);
+}
+
+.oc-modelPicker {
+  position: absolute;
+  left: 12px;
+  bottom: calc(100% + 8px);
+  width: min(380px, calc(100vw - 48px));
+  max-height: min(420px, 60vh);
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--oc-border) 82%, transparent 18%);
+  border-radius: 10px;
+  background: var(--oc-status-popover-bg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  z-index: 30;
+}
+
+.oc-modelPickerHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.oc-modelPickerToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.oc-modelPickerSearch {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--oc-border-strong);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--oc-surface-control) 94%, transparent 6%);
+  color: var(--oc-fg);
+  padding: 8px 10px;
+}
+
+.oc-modelPickerToolbarAction,
+.oc-modelPickerAction {
+  appearance: none;
+  border: 1px solid var(--oc-border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--oc-surface-control) 94%, transparent 6%);
+  color: var(--oc-fg);
+  cursor: pointer;
+}
+
+.oc-modelPickerToolbarAction:hover,
+.oc-modelPickerAction:hover {
+  border-color: color-mix(in srgb, var(--oc-accent) 34%, var(--oc-border-strong) 66%);
+}
+
+.oc-modelPickerTitle {
+  font-weight: 600;
+  color: var(--oc-fg);
+}
+
+.oc-modelPickerMeta {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-modelPickerSections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.oc-modelPickerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oc-modelPickerSectionTitle {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.oc-modelPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.oc-modelPickerItem {
+  appearance: none;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--oc-surface-control) 92%, transparent 8%);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.oc-modelPickerItem:hover,
+.oc-modelPickerItem.is-selected,
+.oc-modelPickerItem.is-active {
+  border-color: color-mix(in srgb, var(--oc-accent) 34%, transparent 66%);
+  background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
+}
+
+.oc-modelPickerItemMain {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.oc-modelPickerItemIdentity,
+.oc-modelPickerItemMeta,
+.oc-modelPickerEmptyActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oc-modelPickerEmptyActions {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.oc-modelPickerItemLabel,
+.oc-modelPickerItemDetail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oc-modelPickerItemLabel {
+  color: var(--oc-fg);
+}
+
+.oc-modelPickerItemDetail {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-modelPickerVariant,
+.oc-modelPickerFavorite,
+.oc-modelPickerItemHint,
+.oc-modelPickerEmptyText {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-modelPickerVariant {
+  color: var(--oc-accent);
+}
+
+.oc-modelPickerFavorite {
+  color: var(--oc-warning);
+}
+
+.oc-modelPickerFavoriteToggle {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--oc-fg-muted) 76%, transparent 24%);
+  cursor: pointer;
+}
+
+.oc-modelPickerFavoriteToggle.is-favorite,
+.oc-modelPickerFavoriteToggle:hover {
+  color: var(--oc-warning);
+}
+
+.oc-modelPickerItemHint {
+  display: block;
+  margin-top: 4px;
 }
 
 .oc-keycap {

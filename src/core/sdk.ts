@@ -82,6 +82,7 @@ export type FileDiff = {
 export type ProviderModel = {
   id: string
   name?: string
+  variants?: Record<string, Record<string, unknown>>
   limit?: {
     context?: number
   }

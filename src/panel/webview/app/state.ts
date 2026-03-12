@@ -1,8 +1,9 @@
 import type { ComposerFileSelection, ComposerPathKind, SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
-import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
+import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, MessageInfo, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 
 export type VsCodeApi = {
   postMessage(message: unknown): void
+  getState<T>(): T | undefined
   setState<T>(state: T): void
 }
 
@@ -56,6 +57,8 @@ export type ComposerEditorPart = ({
   content: string
 }) & ComposerMentionBase
 
+export type ComposerModelRef = NonNullable<MessageInfo["model"]>
+
 export type AppState = {
   bootstrap: SessionBootstrap
   snapshot: {
@@ -94,11 +97,27 @@ export type AppState = {
   composerMentions: ComposerMention[]
   composerAgentOverride?: string
   composerMentionAgentOverride?: string
+  composerModelOverrides: Record<string, ComposerModelRef>
+  composerRecentModels: ComposerModelRef[]
+  composerFavoriteModels: ComposerModelRef[]
+  composerModelVariants: Record<string, string>
+  composerHydratedMessageID?: string
   error: string
   form: FormState
 }
 
-export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | null): AppState {
+export type PersistedAppState = {
+  dir: string
+  sessionId: string
+  composerAgentOverride?: string
+  composerModelOverrides?: Record<string, ComposerModelRef>
+  composerRecentModels?: ComposerModelRef[]
+  composerFavoriteModels?: ComposerModelRef[]
+  composerModelVariants?: Record<string, string>
+}
+
+export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | null, persisted?: PersistedAppState): AppState {
+  const sameSession = persisted?.dir === initialRef?.dir && persisted?.sessionId === initialRef?.sessionId
   return {
     bootstrap: {
       status: "loading",
@@ -132,14 +151,31 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
     draft: "",
     composerParts: [{ type: "text", content: "", start: 0, end: 0 }],
     composerMentions: [],
-    composerAgentOverride: undefined,
+    composerAgentOverride: sameSession ? persisted?.composerAgentOverride : undefined,
     composerMentionAgentOverride: undefined,
+    composerModelOverrides: sameSession ? normalizeModelMap(persisted?.composerModelOverrides) : {},
+    composerRecentModels: sameSession ? normalizeModelList(persisted?.composerRecentModels) : [],
+    composerFavoriteModels: normalizeModelList(persisted?.composerFavoriteModels),
+    composerModelVariants: sameSession ? normalizeVariantMap(persisted?.composerModelVariants) : {},
+    composerHydratedMessageID: undefined,
     error: "",
     form: {
       selected: {},
       custom: {},
       reject: {},
     },
+  }
+}
+
+export function persistableAppState(state: AppState): PersistedAppState {
+  return {
+    dir: state.bootstrap.sessionRef.dir,
+    sessionId: state.bootstrap.sessionRef.sessionId,
+    composerAgentOverride: state.composerAgentOverride,
+    composerModelOverrides: normalizeModelMap(state.composerModelOverrides),
+    composerRecentModels: normalizeModelList(state.composerRecentModels),
+    composerFavoriteModels: normalizeModelList(state.composerFavoriteModels),
+    composerModelVariants: normalizeVariantMap(state.composerModelVariants),
   }
 }
 
@@ -207,4 +243,57 @@ function recordOfSessions(value: unknown) {
 
 function recordValue(value: unknown) {
   return value && typeof value === "object" ? value as Record<string, unknown> : {}
+}
+
+function normalizeModelList(value: ComposerModelRef[] | undefined) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map(normalizeModelRef)
+    .filter((item): item is ComposerModelRef => !!item)
+}
+
+function normalizeModelMap(value: Record<string, ComposerModelRef> | undefined) {
+  if (!value || typeof value !== "object") {
+    return {}
+  }
+
+  const out: Record<string, ComposerModelRef> = {}
+  for (const [key, model] of Object.entries(value)) {
+    const normalized = normalizeModelRef(model)
+    if (normalized) {
+      out[key] = normalized
+    }
+  }
+  return out
+}
+
+function normalizeVariantMap(value: Record<string, string> | undefined) {
+  if (!value || typeof value !== "object") {
+    return {}
+  }
+
+  const out: Record<string, string> = {}
+  for (const [key, variant] of Object.entries(value)) {
+    if (typeof variant !== "string") {
+      continue
+    }
+    const clean = variant.trim()
+    if (clean) {
+      out[key] = clean
+    }
+  }
+  return out
+}
+
+function normalizeModelRef(model: ComposerModelRef | undefined) {
+  const providerID = model?.providerID?.trim()
+  const modelID = model?.modelID?.trim()
+  if (!providerID || !modelID) {
+    return undefined
+  }
+
+  return { providerID, modelID }
 }

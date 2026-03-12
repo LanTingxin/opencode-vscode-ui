@@ -20,6 +20,9 @@ export function commands(
     vscode.commands.registerCommand("opencode-ui.openOutput", () => {
       out.show(true)
     }),
+    vscode.commands.registerCommand("opencode-ui.openProviderDocs", async () => {
+      await vscode.env.openExternal(vscode.Uri.parse("https://opencode.ai/docs"))
+    }),
     vscode.commands.registerCommand("opencode-ui.newSession", async (item?: WorkspaceItem) => {
       const dir = item?.runtime.dir ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 
