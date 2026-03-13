@@ -15,6 +15,12 @@ export class SessionPanelController implements vscode.Disposable {
   private ready = false
   private pending: Promise<void> | undefined
   private current: SessionSnapshot | undefined
+  private refreshSeq = 0
+  private deferredDirty = {
+    sessionStatus: false,
+    permissions: false,
+    questions: false,
+  }
   private readonly bag: vscode.Disposable[] = []
   private readonly state: PanelActionState = {
     disposed: false,
@@ -178,7 +184,13 @@ export class SessionPanelController implements vscode.Disposable {
   }
 
   private async refresh() {
-    const payload = await buildSessionSnapshot({
+    const seq = ++this.refreshSeq
+    this.deferredDirty = {
+      sessionStatus: false,
+      permissions: false,
+      questions: false,
+    }
+    const build = await buildSessionSnapshot({
       ref: this.ref,
       mgr: this.mgr,
       log: (message) => {
@@ -186,8 +198,37 @@ export class SessionPanelController implements vscode.Disposable {
       },
       isSubmitting: () => this.isSubmitting(),
     })
+    const payload = this.seedDeferredFields(build.snapshot)
     this.current = payload
     await this.post(payload)
+
+    if (!build.deferred || payload.status !== "ready") {
+      return
+    }
+
+    void build.deferred
+      .then(async (deferred) => {
+        if (this.state.disposed || this.refreshSeq !== seq || !this.current || this.current.status !== "ready") {
+          return
+        }
+
+        this.current = patch({
+          ...this.current,
+          sessionStatus: this.deferredDirty.sessionStatus ? this.current.sessionStatus : deferred.sessionStatus,
+          permissions: this.deferredDirty.permissions ? this.current.permissions : deferred.permissions,
+          questions: this.deferredDirty.questions ? this.current.questions : deferred.questions,
+          mcp: deferred.mcp,
+          mcpResources: deferred.mcpResources,
+          lsp: deferred.lsp,
+          commands: deferred.commands,
+        })
+        await this.post(this.current)
+      })
+      .catch(() => {
+        if (this.state.disposed || this.refreshSeq !== seq) {
+          return
+        }
+      })
   }
 
   private async post(payload: SessionSnapshot) {
@@ -211,6 +252,8 @@ export class SessionPanelController implements vscode.Disposable {
       return
     }
 
+    this.markDeferredDirty(event)
+
     if (this.current && needsRefresh(event, this.current)) {
       await this.push(true)
       return
@@ -231,6 +274,39 @@ export class SessionPanelController implements vscode.Disposable {
 
   private log(message: string) {
     this.out.appendLine(`[panel ${this.key}] ${message}`)
+  }
+
+  private seedDeferredFields(snapshot: SessionSnapshot) {
+    if (!this.current || this.current.status !== "ready" || snapshot.status !== "ready") {
+      return snapshot
+    }
+
+    return patch({
+      ...snapshot,
+      sessionStatus: this.current.sessionStatus,
+      permissions: this.current.permissions,
+      questions: this.current.questions,
+      mcp: this.current.mcp,
+      mcpResources: this.current.mcpResources,
+      lsp: this.current.lsp,
+      commands: this.current.commands,
+    })
+  }
+
+  private markDeferredDirty(event: SessionEvent) {
+    if (event.type === "session.status") {
+      this.deferredDirty.sessionStatus = true
+      return
+    }
+
+    if (event.type === "permission.asked" || event.type === "permission.replied") {
+      this.deferredDirty.permissions = true
+      return
+    }
+
+    if (event.type === "question.asked" || event.type === "question.replied" || event.type === "question.rejected") {
+      this.deferredDirty.questions = true
+    }
   }
 
   private actionContext() {

@@ -13,30 +13,43 @@ type SnapshotContext = {
   isSubmitting: () => boolean
 }
 
-export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: SnapshotContext): Promise<SessionSnapshot> {
+type DeferredSnapshotData = Pick<SessionSnapshot, "sessionStatus" | "permissions" | "questions" | "mcp" | "mcpResources" | "lsp" | "commands">
+
+export type SessionSnapshotBuild = {
+  snapshot: SessionSnapshot
+  deferred?: Promise<DeferredSnapshotData>
+}
+
+export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: SnapshotContext): Promise<SessionSnapshotBuild> {
   const rt = mgr.get(ref.workspaceId)
   const workspaceName = rt?.name || path.basename(ref.dir)
 
   if (!rt) {
-    return fallbackSnapshot(ref, workspaceName, "error", "Workspace runtime is unavailable for this folder.", isSubmitting())
+    return {
+      snapshot: fallbackSnapshot(ref, workspaceName, "error", "Workspace runtime is unavailable for this folder.", isSubmitting()),
+    }
   }
 
   if (rt.state === "starting" || rt.state === "stopping" || !rt.sdk) {
-    return fallbackSnapshot(
-      ref,
-      workspaceName,
-      "loading",
-      rt.state === "stopping" ? "Workspace runtime is stopping." : "Workspace runtime is starting.",
-      isSubmitting(),
-    )
+    return {
+      snapshot: fallbackSnapshot(
+        ref,
+        workspaceName,
+        "loading",
+        rt.state === "stopping" ? "Workspace runtime is stopping." : "Workspace runtime is starting.",
+        isSubmitting(),
+      ),
+    }
   }
 
   if (rt.state !== "ready") {
-    return fallbackSnapshot(ref, workspaceName, "error", rt.err || "Workspace runtime is not ready.", isSubmitting())
+    return {
+      snapshot: fallbackSnapshot(ref, workspaceName, "error", rt.err || "Workspace runtime is not ready.", isSubmitting()),
+    }
   }
 
   try {
-    const [sessionRes, rootMessageRes, statusRes, todoRes, diffRes, permissionRes, questionRes, configRes, configProvidersRes, agentRes, providerRes, mcpRes, resourceRes, lspRes, commandRes] = await Promise.all([
+    const [sessionRes, rootMessageRes, todoRes, diffRes, configRes, configProvidersRes, agentRes, providerRes] = await Promise.all([
       rt.sdk.session.get({
         sessionID: ref.sessionId,
         directory: rt.dir,
@@ -46,9 +59,6 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
         directory: rt.dir,
         limit: 200,
       }),
-      rt.sdk.session.status({
-        directory: rt.dir,
-      }),
       rt.sdk.session.todo({
         sessionID: ref.sessionId,
         directory: rt.dir,
@@ -57,32 +67,20 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
         sessionID: ref.sessionId,
         directory: rt.dir,
       }),
-      rt.sdk.permission.list({
-        directory: rt.dir,
-      }),
-      rt.sdk.question.list({
-        directory: rt.dir,
-      }),
       configInfo(rt.sdk, rt.dir),
       configProviders(rt.sdk, rt.dir),
       agentInfo(rt.sdk, rt.dir),
       rt.sdk.provider.list({
         directory: rt.dir,
       }),
-      rt.sdk.mcp.status({
-        directory: rt.dir,
-      }),
-      experimentalResources(rt.sdk, rt.dir),
-      rt.sdk.lsp.status({
-        directory: rt.dir,
-      }),
-      commandList(rt.sdk, rt.dir),
     ])
 
     const session = sessionRes.data
 
     if (!session) {
-      return fallbackSnapshot(ref, workspaceName, "error", "Session metadata was not found for this workspace.", isSubmitting())
+      return {
+        snapshot: fallbackSnapshot(ref, workspaceName, "error", "Session metadata was not found for this workspace.", isSubmitting()),
+      }
     }
 
     rt.sessions.set(session.id, session)
@@ -98,47 +96,99 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
     const firstAgent = agents[0]
     const freshModel = firstAgent?.model || (agents.length === 0 ? configuredModel || fallbackModelRef(providers, defaults) : undefined)
 
-    log(
-      [
-        `agent count=${agents.length}`,
-        `first=${firstAgent?.name || "-"}`,
-        `firstModel=${modelLabel(firstAgent?.model)}`,
-        `defaultAgent=${defaultAgent || "-"}`,
-        `freshModel=${modelLabel(freshModel)}`,
-        `agentSource=${agents.length > 0 ? "agent" : "fallback"}`,
-      ].join(" "),
-    )
+    log([
+      `agent count=${agents.length}`,
+      `first=${firstAgent?.name || "-"}`,
+      `firstModel=${modelLabel(firstAgent?.model)}`,
+      `defaultAgent=${defaultAgent || "-"}`,
+      `freshModel=${modelLabel(freshModel)}`,
+      `agentSource=${agents.length > 0 ? "agent" : "fallback"}`,
+    ].join(" "))
 
-    return patch({
+    const snapshot = patch({
       status: "ready",
       sessionRef: ref,
       workspaceName,
       session,
-      sessionStatus: statusRes.data?.[ref.sessionId] ?? idle(),
+      sessionStatus: idle(),
       messages,
       childMessages,
       childSessions,
       submitting: isSubmitting(),
       todos: todoRes.data ?? [],
       diff: sortDiff(diffRes.data ?? []),
-      permissions: filterPermission(permissionRes.data ?? [], tree.requestSessionIds),
-      questions: filterQuestion(questionRes.data ?? [], tree.requestSessionIds),
+      permissions: [],
+      questions: [],
       agents,
       defaultAgent,
       providers,
       providerDefault: defaults,
       configuredModel,
-      mcp: mcpStatusMap(mcpRes.data),
-      mcpResources: mcpResourceMap(resourceRes.data),
-      lsp: lspStatuses(lspRes.data ?? [], rt.dir),
-      commands: commandArr(commandRes.data),
+      mcp: {},
+      mcpResources: {},
+      lsp: [],
+      commands: [],
       relatedSessionIds: tree.relatedSessionIds,
       agentMode: agentMode(messages),
       navigation,
     })
+
+    return {
+      snapshot,
+      deferred: loadDeferredSnapshot({
+        sdk: rt.sdk,
+        dir: rt.dir,
+        sessionId: ref.sessionId,
+        requestSessionIds: tree.requestSessionIds,
+      }),
+    }
   } catch (err) {
     log(`snapshot failed: ${text(err)}`)
-    return fallbackSnapshot(ref, workspaceName, "error", text(err), isSubmitting())
+    return {
+      snapshot: fallbackSnapshot(ref, workspaceName, "error", text(err), isSubmitting()),
+    }
+  }
+}
+
+async function loadDeferredSnapshot({
+  sdk,
+  dir,
+  sessionId,
+  requestSessionIds,
+}: {
+  sdk: Client
+  dir: string
+  sessionId: string
+  requestSessionIds: string[]
+}) {
+  const [statusRes, permissionRes, questionRes, mcpRes, resourceRes, lspRes, commandRes] = await Promise.all([
+    sdk.session.status({
+      directory: dir,
+    }),
+    sdk.permission.list({
+      directory: dir,
+    }),
+    sdk.question.list({
+      directory: dir,
+    }),
+    sdk.mcp.status({
+      directory: dir,
+    }),
+    experimentalResources(sdk, dir),
+    sdk.lsp.status({
+      directory: dir,
+    }),
+    commandList(sdk, dir),
+  ])
+
+  return {
+    sessionStatus: statusRes.data?.[sessionId] ?? idle(),
+    permissions: filterPermission(permissionRes.data ?? [], requestSessionIds),
+    questions: filterQuestion(questionRes.data ?? [], requestSessionIds),
+    mcp: mcpStatusMap(mcpRes.data),
+    mcpResources: mcpResourceMap(resourceRes.data),
+    lsp: lspStatuses(lspRes.data ?? [], dir),
+    commands: commandArr(commandRes.data),
   }
 }
 
