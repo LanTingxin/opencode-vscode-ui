@@ -50,8 +50,7 @@ export function commands(
         return
       }
 
-      const session = await sessions.create(rt.workspaceId)
-      await vscode.window.showInformationMessage(`Created session ${session.title || session.id.slice(0, 8)}.`)
+      await vscode.commands.executeCommand("opencode-ui.newSessionAndOpen", workspaceRef(rt))
     }),
     vscode.commands.registerCommand("opencode-ui.newSessionAndOpen", async (workspace?: WorkspaceRef) => {
       const rt = workspace ? mgr.get(workspace.workspaceId) : firstRuntime(mgr)
@@ -67,7 +66,7 @@ export function commands(
       }
 
       const session = await sessions.create(rt.workspaceId)
-      await tabs.openSession(workspaceRef(rt), session)
+      await vscode.commands.executeCommand("opencode-ui.openSessionById", workspaceRef(rt), session.id)
     }),
     vscode.commands.registerCommand("opencode-ui.restartWorkspaceServer", async (item?: WorkspaceItem) => {
       const rt = item?.runtime
