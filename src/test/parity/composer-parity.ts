@@ -61,7 +61,7 @@ export type ComposerParityFixture = {
 }
 
 export function runComposerParity(fix: ComposerParityFixture): ComposerParityResult {
-  const state = createInitialState({ dir: "/workspace", sessionId: "session" })
+  const state = createInitialState({ workspaceId: "file:///workspace", dir: "/workspace", sessionId: "session" })
   state.snapshot.session = {
     id: "session",
     directory: "/workspace",

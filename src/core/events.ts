@@ -3,6 +3,7 @@ import type { SessionEvent } from "./sdk"
 import { WorkspaceManager } from "./workspace"
 
 export type WorkspaceEvent = {
+  workspaceId: string
   dir: string
   event: SessionEvent
 }
@@ -26,23 +27,23 @@ export class EventHub implements vscode.Disposable {
   }
 
   async sync() {
-    const dirs = new Set(this.mgr.list().map((item) => item.dir))
+    const ids = new Set(this.mgr.list().map((item) => item.workspaceId))
 
-    for (const [dir, ctrl] of this.ctrls) {
-      if (dirs.has(dir)) {
+    for (const [workspaceId, ctrl] of this.ctrls) {
+      if (ids.has(workspaceId)) {
         continue
       }
       ctrl.abort()
-      this.ctrls.delete(dir)
+      this.ctrls.delete(workspaceId)
     }
 
     for (const rt of this.mgr.list()) {
-      if (rt.state !== "ready" || !rt.sdk || this.ctrls.has(rt.dir)) {
+      if (rt.state !== "ready" || !rt.sdk || this.ctrls.has(rt.workspaceId)) {
         continue
       }
       const ctrl = new AbortController()
-      this.ctrls.set(rt.dir, ctrl)
-      void this.loop(rt.dir, ctrl)
+      this.ctrls.set(rt.workspaceId, ctrl)
+      void this.loop(rt.workspaceId, ctrl)
     }
   }
 
@@ -55,19 +56,19 @@ export class EventHub implements vscode.Disposable {
     vscode.Disposable.from(...this.bag).dispose()
   }
 
-  private async loop(dir: string, ctrl: AbortController) {
+  private async loop(workspaceId: string, ctrl: AbortController) {
     while (!ctrl.signal.aborted) {
-      const rt = this.mgr.get(dir)
+      const rt = this.mgr.get(workspaceId)
 
       if (!rt || rt.state !== "ready" || !rt.sdk) {
         break
       }
 
       try {
-        this.log(dir, "subscribing to /event")
+        this.log(workspaceId, "subscribing to /event")
         const res = await rt.sdk.event.subscribe(
           {
-            directory: dir,
+            directory: rt.dir,
           },
           {
             signal: ctrl.signal,
@@ -75,7 +76,7 @@ export class EventHub implements vscode.Disposable {
               if (ctrl.signal.aborted) {
                 return
               }
-              this.log(dir, `event stream error: ${text(err)}`)
+              this.log(workspaceId, `event stream error: ${text(err)}`)
             },
           },
         )
@@ -90,27 +91,28 @@ export class EventHub implements vscode.Disposable {
           }
 
           this.change.fire({
-            dir,
+            workspaceId: rt.workspaceId,
+            dir: rt.dir,
             event: item,
           })
         }
       } catch (err) {
         if (!ctrl.signal.aborted) {
-          this.log(dir, `event stream failed: ${text(err)}`)
+          this.log(workspaceId, `event stream failed: ${text(err)}`)
           await wait(400)
         }
       }
     }
 
-    const cur = this.ctrls.get(dir)
+    const cur = this.ctrls.get(workspaceId)
     if (cur === ctrl) {
-      this.ctrls.delete(dir)
+      this.ctrls.delete(workspaceId)
     }
   }
 
-  private log(dir: string, message: string) {
-    const rt = this.mgr.get(dir)
-    this.out.appendLine(`[events ${rt?.name || dir}] ${message}`)
+  private log(workspaceId: string, message: string) {
+    const rt = this.mgr.get(workspaceId)
+    this.out.appendLine(`[events ${rt?.name || workspaceId}] ${message}`)
   }
 }
 

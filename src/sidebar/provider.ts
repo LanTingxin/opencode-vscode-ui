@@ -37,7 +37,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<vscode.TreeItem>
     }
 
     if (item instanceof WorkspaceItem) {
-      const rt = this.mgr.get(item.runtime.dir) ?? item.runtime
+      const rt = this.mgr.get(item.runtime.workspaceId) ?? item.runtime
 
       if (rt.state === "starting") {
         return [new StatusItem(`Starting server on ${rt.url}`)]
@@ -55,7 +55,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<vscode.TreeItem>
         return [new StatusItem("Loading sessions...")]
       }
 
-      const list = this.sessions.list(rt.dir).map((session) => new SessionItem(rt, session))
+      const list = this.sessions.list(rt.workspaceId).map((session) => new SessionItem(rt, session))
 
       if (rt.sessionsErr) {
         return [new StatusItem(`Session error: ${rt.sessionsErr}`), ...list]

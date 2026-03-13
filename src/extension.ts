@@ -15,6 +15,7 @@ let mgr: WorkspaceManager | undefined
 
 export async function activate(ctx: vscode.ExtensionContext) {
   const out = vscode.window.createOutputChannel("OpenCode UI")
+  out.appendLine(`OpenCode UI activating (remote=${vscode.env.remoteName || "local"}, uiKind=${vscode.UIKind[vscode.env.uiKind]})`)
   mgr = new WorkspaceManager(out)
   const sessions = new SessionStore(mgr, out)
   const events = new EventHub(mgr, out)

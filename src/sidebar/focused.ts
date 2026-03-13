@@ -38,7 +38,7 @@ export class FocusedSessionStore implements vscode.Disposable {
     })
 
     this.events.onDidEvent((item) => {
-      void this.handle(item.dir, item.event)
+      void this.handle(item.workspaceId, item.event)
     })
 
     this.mgr.onDidChange(() => {
@@ -46,7 +46,7 @@ export class FocusedSessionStore implements vscode.Disposable {
       if (!ref) {
         return
       }
-      const rt = this.mgr.get(ref.dir)
+      const rt = this.mgr.get(ref.workspaceId)
       if (!rt || rt.state !== "ready" || !rt.sdk) {
         this.set({
           status: "error",
@@ -85,7 +85,7 @@ export class FocusedSessionStore implements vscode.Disposable {
       diff: [],
     })
 
-    const rt = this.mgr.get(ref.dir)
+    const rt = this.mgr.get(ref.workspaceId)
     if (!rt || rt.state !== "ready" || !rt.sdk) {
       this.set({
         status: "error",
@@ -140,9 +140,9 @@ export class FocusedSessionStore implements vscode.Disposable {
     }
   }
 
-  private async handle(dir: string, event: SessionEvent) {
+  private async handle(workspaceId: string, event: SessionEvent) {
     const ref = this.state.ref
-    if (!ref || ref.dir !== dir) {
+    if (!ref || ref.workspaceId !== workspaceId) {
       return
     }
 
@@ -213,7 +213,7 @@ export class FocusedSessionStore implements vscode.Disposable {
 }
 
 function sameRef(a?: SessionPanelRef, b?: SessionPanelRef) {
-  return a?.dir === b?.dir && a?.sessionId === b?.sessionId
+  return a?.workspaceId === b?.workspaceId && a?.sessionId === b?.sessionId
 }
 
 function text(err: unknown) {

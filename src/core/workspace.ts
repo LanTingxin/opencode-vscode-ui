@@ -1,9 +1,10 @@
 import * as vscode from "vscode"
 import { client } from "./sdk"
-import { freeport, health, spawn, stop, type WorkspaceRuntime } from "./server"
+import { freeport, health, spawn, startupFailure, stop, type WorkspaceRuntime } from "./server"
 
 export class WorkspaceManager implements vscode.Disposable {
   private state = new Map<string, WorkspaceRuntime>()
+  private dirIndex = new Map<string, string>()
   private ops = new Map<string, Promise<unknown>>()
   private shuttingDown = false
   private change = new vscode.EventEmitter<void>()
@@ -17,7 +18,7 @@ export class WorkspaceManager implements vscode.Disposable {
   }
 
   get(dir: string) {
-    return this.state.get(dir)
+    return this.state.get(dir) ?? this.state.get(this.dirIndex.get(dir) || "")
   }
 
   invalidate() {
@@ -25,32 +26,39 @@ export class WorkspaceManager implements vscode.Disposable {
   }
 
   async sync(folders: readonly vscode.WorkspaceFolder[]) {
-    const next = new Set(folders.map((item) => item.uri.fsPath))
-    const gone = [...this.state.keys()].filter((dir) => !next.has(dir))
+    const next = new Set(folders.map((item) => workspaceId(item)))
+    const gone = [...this.state.keys()].filter((id) => !next.has(id))
 
-    await Promise.all(gone.map((dir) => this.remove(dir)))
+    await Promise.all(gone.map((id) => this.remove(id)))
     await Promise.all(folders.map((item) => this.ensure(item)))
   }
 
   async ensure(folder: vscode.WorkspaceFolder) {
-    return this.serialize(folder.uri.fsPath, async () => this.ensureNow(folder))
+    return this.serialize(workspaceId(folder), async () => this.ensureNow(folder))
   }
 
-  async restart(dir: string) {
-    const folder = vscode.workspace.workspaceFolders?.find((item) => item.uri.fsPath === dir)
+  async restart(id: string) {
+    const folder = vscode.workspace.workspaceFolders?.find((item) => workspaceId(item) === id || item.uri.fsPath === id)
 
     if (!folder) {
       return
     }
 
-    await this.serialize(dir, async () => {
-      await this.removeNow(dir)
+    const key = workspaceId(folder)
+
+    await this.serialize(key, async () => {
+      await this.removeNow(key)
       return await this.ensureNow(folder)
     })
   }
 
-  async remove(dir: string) {
-    await this.serialize(dir, async () => this.removeNow(dir))
+  async remove(id: string) {
+    const rt = this.get(id)
+    if (!rt) {
+      return
+    }
+
+    await this.serialize(rt.workspaceId, async () => this.removeNow(rt.workspaceId))
   }
 
   async shutdown() {
@@ -73,7 +81,7 @@ export class WorkspaceManager implements vscode.Disposable {
     })
 
     rt.proc?.on("exit", (code, signal) => {
-      const cur = this.state.get(rt.dir)
+      const cur = this.state.get(rt.workspaceId)
 
       if (!cur || cur.proc !== rt.proc) {
         return
@@ -91,7 +99,7 @@ export class WorkspaceManager implements vscode.Disposable {
     })
 
     rt.proc?.on("error", (err) => {
-      const cur = this.state.get(rt.dir)
+      const cur = this.state.get(rt.workspaceId)
 
       if (!cur) {
         return
@@ -118,8 +126,9 @@ export class WorkspaceManager implements vscode.Disposable {
   }
 
   private async ensureNow(folder: vscode.WorkspaceFolder) {
+    const id = workspaceId(folder)
     const dir = folder.uri.fsPath
-    const cur = this.state.get(dir)
+    const cur = this.state.get(id)
 
     if (this.shuttingDown) {
       return cur
@@ -136,7 +145,9 @@ export class WorkspaceManager implements vscode.Disposable {
     const port = await freeport()
     const url = `http://127.0.0.1:${port}`
     const proc = spawn(dir, port)
+    const startup = startupFailure(proc)
     const rt: WorkspaceRuntime = {
+      workspaceId: id,
       dir,
       name: folder.name,
       port,
@@ -148,23 +159,27 @@ export class WorkspaceManager implements vscode.Disposable {
       proc,
     }
 
-    this.state.set(dir, rt)
-    this.log(rt, `starting server on ${url}`)
+    this.state.set(id, rt)
+    this.dirIndex.set(dir, id)
+    this.log(rt, `starting server on ${url} for ${hostLabel(folder)} cwd=${dir}`)
     this.bind(rt)
     this.fire()
 
     try {
-      await health(url, 800, 25)
-      const live = this.state.get(dir)
+      await Promise.race([health(url, 800, 25), startup.promise])
+      const live = this.state.get(id)
       if (live !== rt || rt.state === "stopping") {
+        startup.dispose()
         return live
       }
+      startup.dispose()
       rt.sdk = await client(url, dir)
       rt.state = "ready"
       rt.err = undefined
-      this.log(rt, "server ready")
+      this.log(rt, `server ready on ${hostLabel(folder)}`)
     } catch (err) {
-      const live = this.state.get(dir)
+      startup.dispose()
+      const live = this.state.get(id)
       if (live !== rt || rt.state === "stopping") {
         return live
       }
@@ -175,11 +190,11 @@ export class WorkspaceManager implements vscode.Disposable {
     }
 
     this.fire()
-    return this.state.get(dir)
+    return this.state.get(id)
   }
 
-  private async removeNow(dir: string) {
-    const rt = this.state.get(dir)
+  private async removeNow(id: string) {
+    const rt = this.state.get(id)
 
     if (!rt) {
       return
@@ -191,8 +206,9 @@ export class WorkspaceManager implements vscode.Disposable {
     this.fire()
     await stop(rt.proc)
 
-    if (this.state.get(dir) === rt) {
-      this.state.delete(dir)
+    if (this.state.get(id) === rt) {
+      this.state.delete(id)
+      this.dirIndex.delete(rt.dir)
       this.fire()
     }
     this.log(rt, "server stopped")
@@ -214,10 +230,19 @@ export class WorkspaceManager implements vscode.Disposable {
   }
 }
 
+function workspaceId(folder: vscode.WorkspaceFolder) {
+  return folder.uri.toString()
+}
+
 function text(err: unknown) {
   if (err instanceof Error) {
     return err.message
   }
 
   return String(err)
+}
+
+function hostLabel(folder: vscode.WorkspaceFolder) {
+  const remote = vscode.env.remoteName || "local"
+  return `${folder.uri.scheme}:${folder.name} host=${remote}`
 }

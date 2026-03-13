@@ -1,32 +1,14 @@
 import * as vscode from "vscode"
 import type { SessionBootstrap, SessionPanelRef, SessionSnapshot } from "../../bridge/types"
 import type { SessionStatus } from "../../core/sdk"
-
-export type SessionPanelState = SessionPanelRef
-
-export function reviveState(state: unknown): SessionPanelState | undefined {
-  if (!state || typeof state !== "object") {
-    return undefined
-  }
-
-  const maybe = state as Partial<SessionPanelState>
-
-  if (!maybe.dir || !maybe.sessionId) {
-    return undefined
-  }
-
-  return {
-    dir: maybe.dir,
-    sessionId: maybe.sessionId,
-  }
-}
+export { canRestoreRef, reviveState, type SessionPanelState } from "./restore-state"
 
 export function panelKey(ref?: SessionPanelRef) {
   if (!ref) {
     return ""
   }
 
-  return `${ref.dir}::${ref.sessionId}`
+  return `${ref.workspaceId}::${ref.sessionId}`
 }
 
 export function panelTitle(title: string) {

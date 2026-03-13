@@ -14,7 +14,7 @@ type SnapshotContext = {
 }
 
 export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: SnapshotContext): Promise<SessionSnapshot> {
-  const rt = mgr.get(ref.dir)
+  const rt = mgr.get(ref.workspaceId)
   const workspaceName = rt?.name || path.basename(ref.dir)
 
   if (!rt) {

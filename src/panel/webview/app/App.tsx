@@ -31,7 +31,7 @@ declare function acquireVsCodeApi(): VsCodeApi
 
 const vscode = acquireVsCodeApi()
 const initialRef = window.__OPENCODE_INITIAL_STATE__ ?? null
-const persistedState = vscode.getState<PersistedAppState>()
+const persistedState = normalizePersistedState(vscode.getState<PersistedAppState | SessionBootstrap["sessionRef"]>())
 const fileRefStatus = new Map<string, boolean>()
 const ESC_INTERRUPT_WINDOW_MS = 5000
 
@@ -40,10 +40,6 @@ function sameAutocompleteMatch(
   right: { trigger: ComposerAutocompleteState["trigger"]; query: string; start: number; end: number } | null,
 ) {
   return !!left && !!right && left.trigger === right.trigger && left.query === right.query && left.start === right.start && left.end === right.end
-}
-
-if (initialRef) {
-  vscode.setState(initialRef)
 }
 
 export function App() {
@@ -220,6 +216,7 @@ export function App() {
   })
 
   const persistedPanelState = React.useMemo(() => persistableAppState(state), [
+    state.bootstrap.sessionRef.workspaceId,
     state.bootstrap.sessionRef.dir,
     state.bootstrap.sessionRef.sessionId,
     state.composerAgentOverride,
@@ -1152,6 +1149,28 @@ export function App() {
       </ChildMessagesContext.Provider>
     </WorkspaceDirContext.Provider>
   )
+}
+
+function normalizePersistedState(value: PersistedAppState | SessionBootstrap["sessionRef"] | null | undefined): PersistedAppState | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined
+  }
+
+  const maybe = value as Partial<PersistedAppState> & { workspaceId?: string }
+  if (!maybe.dir || !maybe.sessionId) {
+    return undefined
+  }
+
+  return {
+    workspaceId: maybe.workspaceId || maybe.dir,
+    dir: maybe.dir,
+    sessionId: maybe.sessionId,
+    composerAgentOverride: maybe.composerAgentOverride,
+    composerModelOverrides: maybe.composerModelOverrides,
+    composerRecentModels: maybe.composerRecentModels,
+    composerFavoriteModels: maybe.composerFavoriteModels,
+    composerModelVariants: maybe.composerModelVariants,
+  }
 }
 
 function ComposerAutocompletePopup({ state, fileSearch, onSelect }: { state: ComposerAutocompleteState; fileSearch: { status: "idle" | "searching" | "done"; query: string }; onSelect: (item: ComposerAutocompleteItem) => void }) {

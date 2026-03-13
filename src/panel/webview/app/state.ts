@@ -107,6 +107,7 @@ export type AppState = {
 }
 
 export type PersistedAppState = {
+  workspaceId: string
   dir: string
   sessionId: string
   composerAgentOverride?: string
@@ -117,12 +118,12 @@ export type PersistedAppState = {
 }
 
 export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | null, persisted?: PersistedAppState): AppState {
-  const sameSession = persisted?.dir === initialRef?.dir && persisted?.sessionId === initialRef?.sessionId
+  const sameSession = samePersistedSession(initialRef, persisted)
   return {
     bootstrap: {
       status: "loading",
       workspaceName: initialRef?.dir ? initialRef.dir.split(/[\\/]/).pop() || initialRef.dir : "-",
-      sessionRef: initialRef ?? { dir: "-", sessionId: "-" },
+      sessionRef: initialRef ?? { workspaceId: "-", dir: "-", sessionId: "-" },
       message: "Waiting for workspace server and session metadata.",
     },
     snapshot: {
@@ -169,6 +170,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
 
 export function persistableAppState(state: AppState): PersistedAppState {
   return {
+    workspaceId: state.bootstrap.sessionRef.workspaceId,
     dir: state.bootstrap.sessionRef.dir,
     sessionId: state.bootstrap.sessionRef.sessionId,
     composerAgentOverride: state.composerAgentOverride,
@@ -177,6 +179,18 @@ export function persistableAppState(state: AppState): PersistedAppState {
     composerFavoriteModels: normalizeModelList(state.composerFavoriteModels),
     composerModelVariants: normalizeVariantMap(state.composerModelVariants),
   }
+}
+
+function samePersistedSession(initialRef: SessionBootstrap["sessionRef"] | null, persisted?: PersistedAppState) {
+  if (!initialRef || !persisted) {
+    return false
+  }
+
+  if (persisted.workspaceId) {
+    return persisted.workspaceId === initialRef.workspaceId && persisted.sessionId === initialRef.sessionId
+  }
+
+  return persisted.dir === initialRef.dir && persisted.sessionId === initialRef.sessionId
 }
 
 export function bootstrapFromSnapshot(payload: SessionSnapshot): SessionBootstrap {

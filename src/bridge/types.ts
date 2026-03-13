@@ -2,8 +2,12 @@ import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatu
 
 export const SESSION_PANEL_VIEW_TYPE = "opencode-ui.session"
 
-export type SessionPanelRef = {
+export type WorkspaceRef = {
+  workspaceId: string
   dir: string
+}
+
+export type SessionPanelRef = WorkspaceRef & {
   sessionId: string
 }
 

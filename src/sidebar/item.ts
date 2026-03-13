@@ -5,7 +5,7 @@ import type { WorkspaceRuntime } from "../core/server"
 export class WorkspaceItem extends vscode.TreeItem {
   constructor(readonly runtime: WorkspaceRuntime) {
     super(runtime.name, vscode.TreeItemCollapsibleState.Expanded)
-    this.id = runtime.dir
+    this.id = runtime.workspaceId
     this.description = desc(runtime)
     this.tooltip = `${runtime.dir}\n${runtime.url}`
     this.contextValue = "workspace"
@@ -27,7 +27,7 @@ export class SessionItem extends vscode.TreeItem {
     readonly session: SessionInfo,
   ) {
     super(session.title || session.id.slice(0, 8), vscode.TreeItemCollapsibleState.None)
-    this.id = `${runtime.dir}:${session.id}`
+    this.id = `${runtime.workspaceId}:${session.id}`
     this.description = session.id.slice(0, 8)
     this.tooltip = `${session.title || session.id}\n${session.id}\n${runtime.dir}`
     this.contextValue = "session"

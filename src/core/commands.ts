@@ -1,5 +1,7 @@
 import * as vscode from "vscode"
+import type { WorkspaceRef } from "../bridge/types"
 import { SessionItem, WorkspaceItem } from "../sidebar/item"
+import type { WorkspaceRuntime } from "./server"
 import { SessionStore } from "./session"
 import { TabManager } from "./tabs"
 import { WorkspaceManager } from "./workspace"
@@ -24,61 +26,57 @@ export function commands(
       await vscode.env.openExternal(vscode.Uri.parse("https://opencode.ai/docs"))
     }),
     vscode.commands.registerCommand("opencode-ui.newSession", async (item?: WorkspaceItem) => {
-      const dir = item?.runtime.dir ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      const rt = item?.runtime ?? firstRuntime(mgr)
 
-      if (!dir) {
+      if (!rt) {
         await vscode.window.showInformationMessage("Open a workspace folder first.")
         return
       }
-
-      const rt = mgr.get(dir)
 
       if (!rt || rt.state !== "ready") {
         await vscode.window.showInformationMessage("Wait for the workspace server to become ready first.")
         return
       }
 
-      const session = await sessions.create(dir)
+      const session = await sessions.create(rt.workspaceId)
       await vscode.window.showInformationMessage(`Created session ${session.title || session.id.slice(0, 8)}.`)
     }),
-    vscode.commands.registerCommand("opencode-ui.newSessionAndOpen", async (dir?: string) => {
-      const targetDir = dir ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    vscode.commands.registerCommand("opencode-ui.newSessionAndOpen", async (workspace?: WorkspaceRef) => {
+      const rt = workspace ? mgr.get(workspace.workspaceId) : firstRuntime(mgr)
 
-      if (!targetDir) {
+      if (!rt) {
         await vscode.window.showInformationMessage("Open a workspace folder first.")
         return
       }
-
-      const rt = mgr.get(targetDir)
 
       if (!rt || rt.state !== "ready") {
         await vscode.window.showInformationMessage("Wait for the workspace server to become ready first.")
         return
       }
 
-      const session = await sessions.create(targetDir)
-      await tabs.openSession(targetDir, session)
+      const session = await sessions.create(rt.workspaceId)
+      await tabs.openSession(workspaceRef(rt), session)
     }),
     vscode.commands.registerCommand("opencode-ui.restartWorkspaceServer", async (item?: WorkspaceItem) => {
-      const dir = item?.runtime.dir
+      const rt = item?.runtime
 
-      if (!dir) {
+      if (!rt) {
         await vscode.window.showInformationMessage("Pick a workspace item to restart its server.")
         return
       }
 
-      await mgr.restart(dir)
-      await sessions.refresh(dir, true)
+      await mgr.restart(rt.workspaceId)
+      await sessions.refresh(rt.workspaceId, true)
     }),
     vscode.commands.registerCommand("opencode-ui.refreshWorkspaceSessions", async (item?: WorkspaceItem) => {
-      const dir = item?.runtime.dir
+      const rt = item?.runtime
 
-      if (!dir) {
+      if (!rt) {
         await vscode.window.showInformationMessage("Pick a workspace item to refresh its sessions.")
         return
       }
 
-      await sessions.refresh(dir)
+      await sessions.refresh(rt.workspaceId)
     }),
     vscode.commands.registerCommand("opencode-ui.openSession", async (item?: SessionItem) => {
       if (!item) {
@@ -86,14 +84,14 @@ export function commands(
         return
       }
 
-      await tabs.openSession(item.runtime.dir, item.session)
+      await tabs.openSession(workspaceRef(item.runtime), item.session)
     }),
-    vscode.commands.registerCommand("opencode-ui.openSessionById", async (dir?: string, sessionID?: string) => {
-      if (!dir || !sessionID) {
+    vscode.commands.registerCommand("opencode-ui.openSessionById", async (workspace?: WorkspaceRef, sessionID?: string) => {
+      if (!workspace || !sessionID) {
         return
       }
 
-      const rt = mgr.get(dir)
+      const rt = mgr.get(workspace.workspaceId)
 
       if (!rt || rt.state !== "ready" || !rt.sdk) {
         await vscode.window.showInformationMessage("Wait for the workspace server to become ready first.")
@@ -102,7 +100,7 @@ export function commands(
 
       const res = await rt.sdk.session.get({
         sessionID,
-        directory: dir,
+        directory: rt.dir,
       })
 
       if (!res.data) {
@@ -110,7 +108,7 @@ export function commands(
         return
       }
 
-      await tabs.openSession(dir, res.data)
+      await tabs.openSession(workspaceRef(rt), res.data)
     }),
     vscode.commands.registerCommand("opencode-ui.deleteSession", async (item?: SessionItem) => {
       if (!item) {
@@ -129,8 +127,20 @@ export function commands(
         return
       }
 
-      await sessions.delete(item.runtime.dir, item.session.id)
-      tabs.closeSession(item.runtime.dir, item.session.id)
+      await sessions.delete(item.runtime.workspaceId, item.session.id)
+      tabs.closeSession(workspaceRef(item.runtime), item.session.id)
     }),
   )
+}
+
+function firstRuntime(mgr: WorkspaceManager): WorkspaceRuntime | undefined {
+  const folder = vscode.workspace.workspaceFolders?.[0]
+  return folder ? mgr.get(folder.uri.toString()) : undefined
+}
+
+function workspaceRef(runtime: { workspaceId: string; dir: string }): WorkspaceRef {
+  return {
+    workspaceId: runtime.workspaceId,
+    dir: runtime.dir,
+  }
 }

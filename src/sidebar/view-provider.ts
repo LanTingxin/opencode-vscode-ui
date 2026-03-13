@@ -1,8 +1,8 @@
-import * as path from "node:path"
 import * as vscode from "vscode"
 import { FocusedSessionStore } from "./focused"
 import { sidebarViewHtml } from "./html"
 import type { SidebarHostMessage, SidebarViewMode, SidebarWebviewMessage } from "./view-types"
+import { openFile } from "../panel/provider/files"
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private readonly bag: vscode.Disposable[] = []
@@ -37,8 +37,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider, vscode.D
           return
         }
 
-        const target = vscode.Uri.file(path.join(ref.dir, message.filePath))
-        void vscode.commands.executeCommand("vscode.open", target)
+        void openFile(ref, message.filePath)
       }
     }, undefined, this.bag)
   }

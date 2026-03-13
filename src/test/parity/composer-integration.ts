@@ -27,7 +27,7 @@ export type ComposerIntegrationFixture = {
 
 export function runComposerIntegration(fix: ComposerIntegrationFixture) {
   const match = matchAutocomplete(fix.draft, fix.cursor, fix.cursor)
-  const state = createInitialState({ dir: "/workspace", sessionId: "session" })
+  const state = createInitialState({ workspaceId: "file:///workspace", dir: "/workspace", sessionId: "session" })
   state.snapshot.session = {
     id: "session",
     directory: "/workspace",

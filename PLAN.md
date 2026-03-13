@@ -1,268 +1,328 @@
 # OpenCode UI Plan
 
-## Switch Model TUI Parity Roadmap
+## Remote SSH Support Roadmap
 
 ### Goal
 
-Bring session model switching in the VS Code extension close to the upstream TUI behavior, especially around state ownership, picker structure, submission semantics, and session rehydration.
+Make the extension work correctly in VS Code Remote SSH without regressing the current local-workspace behavior.
 
-### Upstream Implementation Summary
+The target outcome is:
 
-The upstream TUI does not treat switch model as a standalone server-side session toggle. It is primarily local prompt state that affects later actions.
+- the extension runs on the remote workspace extension host
+- `opencode serve` starts on the remote machine for each workspace folder
+- session tabs, sidebar actions, and file-opening behavior keep targeting the correct remote workspace
+- webviews continue to function without needing direct browser access to the remote localhost server
+- restored panels and cached session state remain stable across multiple SSH hosts and workspaces
 
-- entry action is registered in `opencode/packages/opencode/src/cli/cmd/tui/app.tsx`
-- model picker UI lives in `opencode/packages/opencode/src/cli/cmd/tui/component/dialog-model.tsx`
-- local persisted model state lives in `opencode/packages/opencode/src/cli/cmd/tui/context/local.tsx`
-- prompt submission reads the active model and variant in `opencode/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx`
-- session re-entry restores model state from the latest user message in `opencode/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx`
+### Current Architecture Summary
 
-### Upstream Behavior To Mirror
+The extension already has a workable shape for Remote SSH, but several core assumptions are still local-path based.
 
-#### State Model
-
-The TUI keeps these concerns separate:
-
-- per-agent manual model override
-- recent model MRU list capped at 10
-- favorite model list
-- per-model variant selection
-
-Effective model precedence in the TUI:
-
-1. per-agent manual override
-2. agent-configured model
-3. fallback model
-
-Fallback resolution in the TUI prefers:
-
-1. CLI `--model`
-2. config `model`
-3. first valid recent model
-4. first provider default model
-5. first model from the first provider
-
-#### Picker Behavior
-
-- opening the picker preselects the current effective model
-- sections are ordered as `Favorites`, `Recent`, then provider groups
-- models already shown in favorites or recents are removed from later provider sections
-- deprecated or disabled models are not offered for selection
-- selecting a model updates local selection state and recent models
-- variants are managed independently from the base model choice
-- when no providers are connected, submit is blocked and the provider-connect flow is surfaced
-
-#### Submission Behavior
-
-- normal prompt submit sends `providerID`, `modelID`, and current `variant`
-- slash-command submission also carries model and variant
-- shell execution carries model but not variant
-- summarize uses the currently selected model
-- the new choice only affects future actions; old messages do not change retroactively
-
-#### Rehydration Behavior
-
-- reopening a session restores model and variant from the latest user message metadata
-- if the user changes model locally but has not submitted yet, the local unsent selection remains the visible current choice
-
-### Existing Extension Integration Points
-
-The current extension already has most of the transport and display hooks needed for this feature.
-
-- provider and configured-model snapshot assembly: `src/panel/provider/snapshot.ts`
-- bridge snapshot types with model-related fields: `src/bridge/types.ts`
-- composer identity and current effective model helpers: `src/panel/webview/app/App.tsx`, `src/panel/webview/lib/session-meta.ts`
-- submit and composer-action routing: `src/panel/provider/controller.ts`, `src/panel/provider/actions.ts`
-- SDK calls that already accept per-request model input: `src/core/sdk.ts`
+- workspace runtimes are keyed by `dir` strings derived from `workspaceFolder.uri.fsPath` in `src/core/workspace.ts`
+- session and panel identity also use `dir` strings in `src/bridge/types.ts`, `src/panel/provider/utils.ts`, and `src/panel/webview/app/state.ts`
+- file opening and file existence checks rebuild URIs with `vscode.Uri.file(...)` in `src/panel/provider/files.ts` and `src/sidebar/view-provider.ts`
+- runtime startup spawns `opencode serve` bound to `127.0.0.1` in `src/core/server.ts`, which is acceptable only when the extension host runs on the remote workspace side
+- webview static assets already use `webview.asWebviewUri(...)` and `localResourceRoots`, which is the correct Remote SSH-compatible pattern
 
 ### Design Direction
 
-To stay aligned with the TUI, the extension should implement switch model as session-local panel state that is rehydrated from message history.
+Keep the existing architecture of one runtime per workspace folder and one panel per workspace-plus-session pair.
 
-Do not introduce a new host-side long-lived session model setting unless later parity work proves it is necessary.
+Do not redesign the extension around browser-to-server networking.
 
-That means:
+Instead:
 
-- choose a model locally in the panel
-- use that selection for subsequent submit, command, compact, and summarize flows
-- restore the visible current model from latest session history when reopening or refreshing
-- keep override, recents, favorites, and variants as distinct state buckets
+- explicitly place the extension on the workspace extension host
+- promote workspace identity from raw local path strings to remote-safe workspace references
+- keep host-to-runtime traffic inside the extension host
+- keep webviews talking only to the host bridge unless a later feature proves an external URI is required
+- migrate risky path reconstruction sites incrementally, starting with file open and panel restore
+
+### Non-Goals
+
+This roadmap is only for Remote SSH support. It does not aim to:
+
+- add vscode.dev or github.dev web support
+- add Codespaces-specific UX beyond what falls out naturally from URI-safe APIs
+- redesign the upstream runtime protocol
+- replace the current localhost runtime model with a remote HTTP exposure flow
 
 ---
 
-## Phase H - Introduce Session-Local Model State
+## Phase R0 - Lock Extension Placement And Remote Assumptions
 
-Status: planned
+Status: completed
 
 ### Objective
 
-Add the same core model-state primitives the TUI relies on.
+Ensure the extension is installed and executed in the correct place under Remote SSH, and make failures easy to diagnose.
 
 ### Scope
 
-- add session-local model override state in the webview
-- make override state agent-aware rather than one flat current-model value
-- add state buckets for recent models, favorite models, and per-model variants
-- update effective model resolution to follow TUI precedence as closely as local extension data allows
+- declare `extensionKind` in `package.json` with workspace-first placement
+- confirm the current extension entrypoint and activation model do not require UI-host execution
+- add or improve output-channel diagnostics around runtime startup so it is obvious whether `opencode` is missing on the remote host or the remote process failed to start
+- document the expected Remote SSH execution model directly in the plan and implementation notes
 
 ### Files Most Likely To Change
 
-- `src/panel/webview/app/state.ts`
-- `src/panel/webview/lib/session-meta.ts`
-- `src/panel/webview/lib/session-meta.test.ts`
+- `package.json`
+- `src/core/server.ts`
+- `src/core/workspace.ts`
 
 ### Acceptance Criteria
 
-- composer model resolution prefers manual override over agent default and fallback
-- the state layer can represent recents, favorites, and variants independently
-- existing submit behavior does not change when no override exists
+- in a Remote SSH window, `Developer: Show Running Extensions` shows the extension on the workspace side
+- runtime startup logs clearly identify the workspace and failure mode when `opencode` is unavailable remotely
+- current local development behavior still works unchanged
+
+### Validation
+
+- `bun run check-types`
+- `bun run lint`
+- manual: connect over Remote SSH, open a workspace, and verify the extension host placement plus runtime startup logging
 
 ---
 
-## Phase I - Build A TUI-Shaped Model Picker
+## Phase R1 - Introduce A Remote-Safe Workspace Identity Model
 
-Status: planned
-
-### Objective
-
-Add a panel-local model picker that follows the TUI information architecture closely.
-
-### Scope
-
-- open the picker from the composer model chip
-- add a `/model` command entry in the composer flow
-- preselect the current effective model when the picker opens
-- render sections in TUI order: favorites, recents, then provider groups
-- deduplicate models across sections
-- hide disabled or deprecated models when current provider metadata can identify them
-
-### Files Most Likely To Change
-
-- `src/panel/webview/app/App.tsx`
-- `src/panel/webview/app/composer-menu.ts`
-- `src/panel/webview/status.css`
-- `src/panel/webview/app/model-picker.tsx`
-
-### Acceptance Criteria
-
-- users can open and close the picker entirely inside the panel webview
-- the current model is visibly preselected on open
-- selecting a model updates local composer state immediately
-- section ordering and deduplication stay stable across refreshes
-
----
-
-## Phase J - Route The Current Model Through All Relevant Actions
-
-Status: planned
+Status: completed
 
 ### Objective
 
-Make every relevant composer-driven action use the active model selection.
+Stop treating workspace identity as only `fsPath`, so the extension can distinguish the same path on different remotes and avoid losing URI authority.
 
 ### Scope
 
-- keep normal prompt submit wired to the active selected model
-- ensure model-aware composer actions use the same current value
-- make compact and summarize follow the active selection
-- carry variant where upstream behavior expects it
-- avoid adding a separate set-session-model RPC unless later parity work truly needs it
+- define a canonical workspace reference shape for host-side logic and panel/session references
+- preserve enough URI information to reconstruct the original workspace folder in local and remote environments
+- update state keys, lookup helpers, and panel identity helpers to use the new canonical workspace reference instead of a bare `dir` string where required
+- keep SDK calls compatible with the current server contract by continuing to pass a directory path string only at the API boundary that actually needs it
 
 ### Files Most Likely To Change
 
 - `src/bridge/types.ts`
-- `src/panel/provider/controller.ts`
-- `src/panel/provider/actions.ts`
-- `src/core/sdk.ts`
-
-### Acceptance Criteria
-
-- submit uses the currently selected provider and model every time
-- compact and summarize use the same model source of truth
-- variant is included where the current SDK path supports it
-
----
-
-## Phase K - Rehydrate From Session History
-
-Status: planned
-
-### Objective
-
-Restore the active session model from what the user last actually sent, matching TUI behavior.
-
-### Scope
-
-- inspect the latest user-message metadata for `providerID`, `modelID`, and `variant`
-- restore visible composer model state when the panel reopens or session data refreshes
-- preserve unsent local selection until a real message supersedes it
-- keep restoration logic centralized instead of scattering it through render paths
-
-### Files Most Likely To Change
-
-- `src/panel/webview/lib/session-meta.ts`
-- `src/panel/webview/app/App.tsx`
-- `src/panel/webview/app/state.ts`
-
-### Acceptance Criteria
-
-- reopening an existing session restores the last actually used model
-- unsent local changes remain visible until a newer sent message replaces them
-- composer identity and submission logic remain synchronized after refreshes
-
----
-
-## Phase L - Close Remaining TUI Parity Gaps
-
-Status: planned
-
-### Objective
-
-Finish the remaining model-specific parity work after the base flow is stable.
-
-### Scope
-
-- add variant selection or cycling UI backed by per-model variant state
-- persist and cap recent models at 10 like the TUI
-- add favorites toggling and favorites-first picker rendering
-- evaluate whether the panel should surface provider-connect flow directly from the picker when no providers are available
-
-### Files Most Likely To Change
-
-- `src/panel/webview/app/model-picker.tsx`
-- `src/panel/webview/app/App.tsx`
-- `src/panel/webview/app/state.ts`
+- `src/core/workspace.ts`
 - `src/core/commands.ts`
+- `src/core/tabs.ts`
+- `src/panel/provider/utils.ts`
+- `src/sidebar/focused.ts`
+- related panel/provider call sites that compare refs or build keys
 
 ### Acceptance Criteria
 
-- recent models behave as a stable deduped MRU list capped at 10
-- favorites and variants no longer require state-model redesign later
-- the no-provider path degrades clearly and guides the user toward connecting a provider
+- the extension can uniquely identify a session panel by workspace plus session even when two remotes expose the same absolute path
+- host-side comparisons no longer depend on `Uri.file(...)` semantics
+- existing local-workspace flows still produce the same visible behavior
+
+### Validation
+
+- `bun run check-types`
+- `bun run lint`
+- manual: open two workspace folders that would otherwise share the same path string across environments and confirm panel/session identity remains stable
 
 ---
 
-## Validation
+## Phase R2 - Migrate File Resolution And File Opening To URI-Based APIs
 
-For each phase, validate with:
+Status: completed
+
+### Objective
+
+Make all user-facing file navigation and existence checks resolve against the actual workspace folder URI instead of rebuilding local file URIs.
+
+### Scope
+
+- replace `vscode.Uri.file(...)` reconstruction in panel file open logic with workspace-aware URI resolution
+- replace sidebar file-open path joining with workspace-aware URI resolution
+- use `vscode.workspace.fs.stat` and URI joins consistently for prompt-file existence checks and directory/file detection
+- preserve support for absolute file references and canonical `file://` values only where they can be resolved safely without dropping remote authority
+
+### Files Most Likely To Change
+
+- `src/panel/provider/files.ts`
+- `src/sidebar/view-provider.ts`
+- any helper introduced to map workspace refs to `vscode.WorkspaceFolder`
+
+### Acceptance Criteria
+
+- clicking a file reference from a panel opens the correct remote document under Remote SSH
+- clicking a file from the sidebar opens the correct remote document under Remote SSH
+- file existence and directory detection used by the composer still work in both local and remote workspaces
+
+### Validation
+
+- `bun run check-types`
+- `bun run lint`
+- manual: from a Remote SSH session, open files from panel links, sidebar diff/todo items, and composer file references
+
+---
+
+## Phase R3 - Make Panel Restore And Persisted Webview State Authority-Aware
+
+Status: completed
+
+### Objective
+
+Prevent restored panels and webview state from drifting across remotes or reviving against the wrong workspace.
+
+### Scope
+
+- update persisted panel state so it carries the new workspace reference instead of only `dir + sessionId`
+- update panel restore validation and revive helpers to reject stale or incomplete workspace identity
+- update webview persisted state matching so session-local composer state is restored only when the full workspace reference and session id still match
+- verify panel keys and active-session comparisons stay stable after the identity migration
+
+### Files Most Likely To Change
+
+- `src/panel/provider/utils.ts`
+- `src/panel/provider/index.ts`
+- `src/panel/webview/app/state.ts`
+- `src/sidebar/focused.ts`
+- any host/webview bootstrap payloads that still assume a bare `dir`
+
+### Acceptance Criteria
+
+- reloading a Remote SSH window restores only the panels belonging to the same remote workspace
+- session-local panel state is not accidentally reused for the same path on another host
+- invalid legacy state degrades gracefully instead of crashing panel restore
+
+### Validation
+
+- `bun run check-types`
+- `bun run lint`
+- manual: open panels, reload the Remote SSH window, reconnect to a different SSH target with similar folder paths, and verify restore behavior remains correct
+
+---
+
+## Phase R4 - Audit Runtime, Event, And Command Boundaries For Remote Correctness
+
+Status: completed
+
+### Objective
+
+Finish the host-side cleanup so runtime APIs, command entrypoints, and event routing all use the new workspace identity consistently.
+
+### Scope
+
+- review command handlers that currently default to `workspaceFolders[0].uri.fsPath`
+- review event routing and focused-session state to ensure ref matching remains correct after the workspace identity migration
+- review runtime maps, restart flows, and session opening helpers for any remaining `fsPath`-only assumptions
+- keep API-boundary conversion to directory strings centralized instead of spreading it across commands and providers
+
+### Files Most Likely To Change
+
+- `src/core/commands.ts`
+- `src/core/session.ts`
+- `src/core/events.ts`
+- `src/core/workspace.ts`
+- `src/sidebar/focused.ts`
+- `src/panel/provider/controller.ts`
+- `src/panel/provider/snapshot.ts`
+
+### Acceptance Criteria
+
+- all command flows still work from sidebar actions, command palette entrypoints, and panel-triggered actions in local and remote windows
+- focused-session sidebar data keeps following the active panel under Remote SSH
+- workspace restart and refresh flows continue targeting the correct remote runtime
+
+### Validation
 
 - `bun run check-types`
 - `bun run lint`
 - `bun run compile`
+- manual: exercise new session, open session, refresh, restart server, delete session, and focused-session sidebar flows in a Remote SSH window
 
-### Suggested Manual Verification Matrix
+---
 
-- open the picker with at least two providers and confirm current-model preselection
-- switch models and verify the composer identity updates before submit
-- submit two consecutive messages with two different models and verify history reflects the change
-- reopen a session and confirm the model restores from the latest user message
-- run compact with a non-default model selected and verify it follows the active selection
-- verify fallback behavior when there are no manual overrides
-- verify degraded behavior when no providers or no valid models are available
+## Phase R5 - Regression Hardening And Remote Verification Matrix
 
-### Recommended Execution Order
+Status: completed
 
-1. Phase H
-2. Phase I
-3. Phase J
-4. Phase K
-5. Phase L
+### Objective
+
+Close the roadmap with repeatable verification steps and lightweight regression coverage where the current repo supports it.
+
+### Scope
+
+- add targeted tests for new identity helpers and restore logic where there are already testable pure helpers
+- add a documented manual verification checklist for Remote SSH and for local regression checks
+- verify there is no accidental dependency on browser-to-remote `localhost` access from webviews
+- capture any remaining limitations explicitly if they are deferred beyond this roadmap
+
+### Files Most Likely To Change
+
+- `PLAN.md`
+- pure helper tests near whichever modules gain reusable identity helpers
+- small documentation touch-ups if a command or expectation changes
+
+### Acceptance Criteria
+
+- identity helper coverage exists for the most failure-prone normalization and equality logic
+- the project has a concrete Remote SSH manual test matrix instead of ad hoc spot-checking
+- any deferred behavior is named explicitly and does not block the base Remote SSH support claim
+
+### Validation
+
+- `bun run check-types`
+- `bun run lint`
+- `bun run compile`
+- run any newly added focused tests if they do not require the unresolved `vscode` runtime package chain
+
+---
+
+## Suggested Execution Order
+
+1. Phase R0
+2. Phase R1
+3. Phase R2
+4. Phase R3
+5. Phase R4
+6. Phase R5
+
+## Cross-Phase Guardrails
+
+- keep one runtime per workspace folder
+- keep one session panel per workspace-plus-session pair
+- avoid changing the runtime server protocol unless Remote SSH support proves it is necessary
+- prefer `vscode.Uri`, `vscode.workspace.fs`, and workspace-folder lookups over Node path reconstruction for workspace files
+- keep remote-aware conversion to plain directory strings at the narrowest possible boundary, ideally only where the SDK or child process launch actually requires it
+- preserve the existing host-bridged webview architecture; do not route webview traffic directly to the runtime unless a future feature requires `vscode.env.asExternalUri(...)`
+
+## Manual Verification Matrix
+
+### Local Window Baseline
+
+- open a local folder and confirm the runtime starts normally
+- create, open, refresh, and delete a session
+- open a file from panel references and sidebar entries
+- reload the VS Code window and confirm session panels restore
+
+### Remote SSH Core Flow
+
+- connect to a remote machine with `opencode` installed and open a folder
+- verify the extension runs on the workspace extension host
+- verify one runtime starts per workspace folder on the remote machine
+- create, open, refresh, restart, and delete sessions
+- open files from panel references, sidebar diff items, and composer file references
+- reload the window and verify panel restore still targets the same remote workspace
+
+### Multi-Workspace And Identity Safety
+
+- open multiple workspace folders in one Remote SSH window and confirm each gets its own runtime
+- switch active panels across folders and verify focused-session sidebar state follows correctly
+- reconnect to another remote that contains a similar absolute folder path and verify old panel state is not misapplied
+
+### Failure And Recovery Cases
+
+- start a Remote SSH window where `opencode` is missing from remote PATH and verify the error is actionable
+- stop or restart the remote runtime and verify the extension reports the transition cleanly
+- disconnect and reconnect the SSH session and verify stale panel state degrades gracefully
+
+## Exit Criteria
+
+The roadmap is complete when:
+
+- the extension can honestly claim basic Remote SSH support for runtime startup, session management, file navigation, and panel restore
+- local behavior remains intact
+- known deferred items, if any, are documented explicitly rather than hidden behind path-based assumptions

@@ -1,19 +1,22 @@
+import type { WorkspaceRef } from "../bridge/types"
 import type { SessionInfo } from "./sdk"
 import { SessionPanelManager } from "../panel/provider"
 
 export class TabManager {
   constructor(private panels: SessionPanelManager) {}
 
-  async openSession(dir: string, session: SessionInfo) {
+  async openSession(workspace: WorkspaceRef, session: SessionInfo) {
     await this.panels.open({
-      dir,
+      workspaceId: workspace.workspaceId,
+      dir: workspace.dir,
       sessionId: session.id,
     })
   }
 
-  closeSession(dir: string, sessionID: string) {
+  closeSession(workspace: WorkspaceRef, sessionID: string) {
     return this.panels.close({
-      dir,
+      workspaceId: workspace.workspaceId,
+      dir: workspace.dir,
       sessionId: sessionID,
     })
   }

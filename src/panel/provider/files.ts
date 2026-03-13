@@ -1,13 +1,12 @@
 import * as path from "node:path"
-import { fileURLToPath } from "node:url"
 import * as vscode from "vscode"
-import type { ComposerPathResult } from "../../bridge/types"
+import type { ComposerPathResult, WorkspaceRef } from "../../bridge/types"
 import { WorkspaceManager } from "../../core/workspace"
 import { postToWebview } from "../../bridge/host"
 import { trimDirectorySuffix } from "./file-search"
 
-export async function openFile(workspaceDir: string, filePath: string, line?: number) {
-  const target = await resolveFileUri(workspaceDir, filePath)
+export async function openFile(workspace: WorkspaceRef, filePath: string, line?: number) {
+  const target = await resolveFileUri(workspace, filePath)
   if (!target) {
     return
   }
@@ -28,8 +27,8 @@ export async function openFile(workspaceDir: string, filePath: string, line?: nu
   editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport)
 }
 
-export async function resolveFileUri(workspaceDir: string, filePath: string) {
-  const resolved = await resolvePromptPath(workspaceDir, filePath)
+export async function resolveFileUri(workspace: WorkspaceRef, filePath: string) {
+  const resolved = await resolvePromptPath(workspace, filePath)
   if (!resolved || resolved.kind === "directory") {
     return undefined
   }
@@ -37,13 +36,13 @@ export async function resolveFileUri(workspaceDir: string, filePath: string) {
   return resolved.uri
 }
 
-export async function resolvePromptPath(workspaceDir: string, filePath: string) {
+export async function resolvePromptPath(workspace: WorkspaceRef, filePath: string) {
   const value = filePath.trim()
   if (!value) {
     return undefined
   }
 
-  const target = toFileUri(trimDirectorySuffix(value), workspaceDir)
+  const target = toFileUri(trimDirectorySuffix(value), workspace)
   if (!target) {
     return undefined
   }
@@ -59,10 +58,10 @@ export async function resolvePromptPath(workspaceDir: string, filePath: string) 
   }
 }
 
-export async function resolveFileRefs(webview: vscode.Webview, workspaceDir: string, refs: Array<{ key: string; filePath: string }>) {
+export async function resolveFileRefs(webview: vscode.Webview, workspace: WorkspaceRef, refs: Array<{ key: string; filePath: string }>) {
   const resolved = await Promise.all(refs.map(async (item) => ({
     key: item.key,
-    exists: !!await resolveFileUri(workspaceDir, item.filePath),
+    exists: !!await resolveFileUri(workspace, item.filePath),
   })))
 
   await postToWebview(webview, {
@@ -71,8 +70,8 @@ export async function resolveFileRefs(webview: vscode.Webview, workspaceDir: str
   })
 }
 
-export async function searchFiles(webview: vscode.Webview, mgr: WorkspaceManager, workspaceDir: string, requestID: string, query: string) {
-  const rt = mgr.get(workspaceDir)
+export async function searchFiles(webview: vscode.Webview, mgr: WorkspaceManager, workspaceId: string, requestID: string, query: string) {
+  const rt = mgr.get(workspaceId)
   const results = rt?.state === "ready" && rt.sdk
     ? mapSearchResults((await rt.sdk.find.files({
       directory: rt.dir,
@@ -88,20 +87,26 @@ export async function searchFiles(webview: vscode.Webview, mgr: WorkspaceManager
   })
 }
 
-export function toFileUri(filePath: string, workspaceDir: string) {
+export function toFileUri(filePath: string, workspace: WorkspaceRef) {
+  const folder = workspaceFolder(workspace)
+
   if (filePath.startsWith("file://")) {
     try {
-      return vscode.Uri.file(fileURLToPath(filePath))
+      return absoluteUri(vscode.Uri.parse(filePath).path, folder)
     } catch {
       return undefined
     }
   }
 
   if (path.isAbsolute(filePath)) {
-    return vscode.Uri.file(path.normalize(filePath))
+    return absoluteUri(filePath, folder)
   }
 
-  return vscode.Uri.file(path.join(workspaceDir, filePath))
+  if (folder) {
+    return vscode.Uri.joinPath(folder.uri, ...relativeSegments(filePath))
+  }
+
+  return vscode.Uri.file(path.join(workspace.dir, filePath))
 }
 
 function mapSearchResults(items: string[] | undefined): ComposerPathResult[] {
@@ -110,4 +115,28 @@ function mapSearchResults(items: string[] | undefined): ComposerPathResult[] {
     kind: item.endsWith("/") ? "directory" as const : "file" as const,
     source: "search" as const,
   }))
+}
+
+function workspaceFolder(workspace: WorkspaceRef) {
+  return vscode.workspace.workspaceFolders?.find((folder) => folder.uri.toString() === workspace.workspaceId || folder.uri.fsPath === workspace.dir)
+}
+
+function absoluteUri(filePath: string, folder?: vscode.WorkspaceFolder) {
+  const normalized = path.normalize(filePath)
+
+  if (!folder || (folder.uri.scheme === "file" && !folder.uri.authority)) {
+    return vscode.Uri.file(normalized)
+  }
+
+  return folder.uri.with({
+    path: slashPath(normalized),
+  })
+}
+
+function relativeSegments(filePath: string) {
+  return filePath.split(/[\\/]+/).filter(Boolean)
+}
+
+function slashPath(filePath: string) {
+  return filePath.replace(/\\/g, "/")
 }

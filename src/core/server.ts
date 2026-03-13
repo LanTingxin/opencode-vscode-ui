@@ -5,6 +5,7 @@ import type { Client, SessionInfo } from "./sdk"
 export type RuntimeState = "starting" | "ready" | "error" | "stopped" | "stopping"
 
 export type WorkspaceRuntime = {
+  workspaceId: string
   dir: string
   name: string
   port: number
@@ -65,6 +66,57 @@ export async function health(url: string, timeout: number, tries: number) {
   }
 
   throw new Error("health check timed out")
+}
+
+export function startupFailure(proc: cp.ChildProcess) {
+  let done = false
+  let onError: ((err: NodeJS.ErrnoException) => void) | undefined
+  let onExit: ((code: number | null, signal: NodeJS.Signals | null) => void) | undefined
+
+  const cleanup = () => {
+    if (onError) {
+      proc.off("error", onError)
+    }
+
+    if (onExit) {
+      proc.off("exit", onExit)
+    }
+  }
+
+  const promise = new Promise<never>((_, reject) => {
+    const fail = (message: string) => {
+      if (done) {
+        return
+      }
+
+      done = true
+      cleanup()
+      reject(new Error(message))
+    }
+
+    onError = (err: NodeJS.ErrnoException) => {
+      fail(formatSpawnError(err))
+    }
+
+    onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      if (done) {
+        return
+      }
+
+      fail(`server exited before ready (code=${code ?? "unknown"} signal=${signal ?? "none"})`)
+    }
+
+    proc.once("error", onError)
+    proc.once("exit", onExit)
+  })
+
+  return {
+    promise,
+    dispose() {
+      done = true
+      cleanup()
+    },
+  }
 }
 
 export function spawn(dir: string, port: number) {
@@ -138,4 +190,17 @@ async function killWindows(pid: number) {
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function formatSpawnError(err: NodeJS.ErrnoException) {
+  if (err.code === "ENOENT") {
+    return 'failed to start opencode: command "opencode" was not found on the current host PATH'
+  }
+
+  if (err.code === "EACCES") {
+    return 'failed to start opencode: command "opencode" is not executable on the current host'
+  }
+
+  const message = err.message || String(err)
+  return err.code ? `${message} (code=${err.code})` : message
 }

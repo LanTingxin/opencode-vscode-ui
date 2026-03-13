@@ -27,6 +27,9 @@
     "onWebviewPanel:opencode-ui.session"
   ],
   "main": "./dist/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
   "scripts": {
     "vscode:prepublish": "bun run package",
     "compile": "bun run check-types && bun run lint && node esbuild.js",

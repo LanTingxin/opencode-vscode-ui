@@ -22,6 +22,7 @@ function snapshot(current: SessionInfo, relatedSessionIds: string[]): SessionSna
   return {
     status: "ready",
     sessionRef: {
+      workspaceId: "file:///workspace",
       dir: "/workspace",
       sessionId: current.id,
     },

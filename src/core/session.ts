@@ -14,8 +14,8 @@ export class SessionStore implements vscode.Disposable {
     })
   }
 
-  list(dir: string) {
-    const rt = this.mgr.get(dir)
+  list(workspaceId: string) {
+    const rt = this.mgr.get(workspaceId)
 
     if (!rt) {
       return []
@@ -24,8 +24,8 @@ export class SessionStore implements vscode.Disposable {
     return [...rt.sessions.values()].sort((a, b) => b.time.updated - a.time.updated)
   }
 
-  async refresh(dir: string, quiet?: boolean) {
-    const rt = this.mgr.get(dir)
+  async refresh(workspaceId: string, quiet?: boolean) {
+    const rt = this.mgr.get(workspaceId)
 
     if (!rt || rt.state !== "ready" || !rt.sdk) {
       return []
@@ -44,7 +44,7 @@ export class SessionStore implements vscode.Disposable {
       rt.sessions = new Map(list.map((item: SessionInfo) => [item.id, item]))
       rt.sessionsState = "ready"
       rt.sessionsErr = undefined
-      this.seen.add(dir)
+      this.seen.add(rt.workspaceId)
       this.log(rt.name, `loaded ${list.length} sessions`)
       return list
     } catch (err) {
@@ -61,12 +61,12 @@ export class SessionStore implements vscode.Disposable {
   }
 
   async refreshAll() {
-    await Promise.all(this.mgr.list().map((rt) => this.refresh(rt.dir, true)))
+    await Promise.all(this.mgr.list().map((rt) => this.refresh(rt.workspaceId, true)))
     this.mgr.invalidate()
   }
 
-  async create(dir: string) {
-    const rt = this.mgr.get(dir)
+  async create(workspaceId: string) {
+    const rt = this.mgr.get(workspaceId)
 
     if (!rt || rt.state !== "ready" || !rt.sdk) {
       throw new Error("workspace server is not ready")
@@ -85,7 +85,7 @@ export class SessionStore implements vscode.Disposable {
       rt.sessionsErr = undefined
       this.mgr.invalidate()
       this.log(rt.name, `created session ${item.id}`)
-      await this.refresh(dir, true)
+      await this.refresh(rt.workspaceId, true)
       return item
     } catch (err) {
       const msg = text(err)
@@ -95,8 +95,8 @@ export class SessionStore implements vscode.Disposable {
     }
   }
 
-  async delete(dir: string, sessionID: string) {
-    const rt = this.mgr.get(dir)
+  async delete(workspaceId: string, sessionID: string) {
+    const rt = this.mgr.get(workspaceId)
 
     if (!rt || rt.state !== "ready" || !rt.sdk) {
       throw new Error("workspace server is not ready")
@@ -124,15 +124,15 @@ export class SessionStore implements vscode.Disposable {
   dispose() {}
 
   private async sync() {
-    const dirs = new Set(this.mgr.list().map((rt) => rt.dir))
+    const ids = new Set(this.mgr.list().map((rt) => rt.workspaceId))
 
-    this.seen = new Set([...this.seen].filter((dir) => dirs.has(dir)))
+    this.seen = new Set([...this.seen].filter((workspaceId) => ids.has(workspaceId)))
 
     await Promise.all(
       this.mgr
         .list()
-        .filter((rt) => rt.state === "ready" && rt.sdk && !this.seen.has(rt.dir) && rt.sessionsState !== "loading")
-        .map((rt) => this.refresh(rt.dir, true)),
+        .filter((rt) => rt.state === "ready" && rt.sdk && !this.seen.has(rt.workspaceId) && rt.sessionsState !== "loading")
+        .map((rt) => this.refresh(rt.workspaceId, true)),
     )
   }
 

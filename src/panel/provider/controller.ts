@@ -72,27 +72,27 @@ export class SessionPanelController implements vscode.Disposable {
         }
 
         if (message?.type === "navigateSession") {
-          void vscode.commands.executeCommand("opencode-ui.openSessionById", this.ref.dir, message.sessionID)
+          void vscode.commands.executeCommand("opencode-ui.openSessionById", this.ref, message.sessionID)
           return
         }
 
         if (message?.type === "newSession") {
-          void vscode.commands.executeCommand("opencode-ui.newSessionAndOpen", this.ref.dir)
+          void vscode.commands.executeCommand("opencode-ui.newSessionAndOpen", this.ref)
           return
         }
 
         if (message?.type === "openFile") {
-          void openFile(this.ref.dir, message.filePath, message.line)
+          void openFile(this.ref, message.filePath, message.line)
           return
         }
 
         if (message?.type === "resolveFileRefs") {
-          void resolveFileRefs(this.panel.webview, this.ref.dir, message.refs)
+          void resolveFileRefs(this.panel.webview, this.ref, message.refs)
           return
         }
 
         if (message?.type === "searchFiles") {
-          void searchFiles(this.panel.webview, this.mgr, this.ref.dir, message.requestID, message.query)
+          void searchFiles(this.panel.webview, this.mgr, this.ref.workspaceId, message.requestID, message.query)
           return
         }
 
@@ -134,7 +134,7 @@ export class SessionPanelController implements vscode.Disposable {
         void this.push(true)
       }),
       this.events.onDidEvent((item) => {
-        if (item.dir !== this.ref.dir) {
+        if (item.workspaceId !== this.ref.workspaceId) {
           return
         }
         void this.handle(item.event)

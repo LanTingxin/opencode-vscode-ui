@@ -28,7 +28,7 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
     return
   }
 
-  const rt = ctx.mgr.get(ctx.ref.dir)
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
 
   if (!rt || rt.state !== "ready" || !rt.sdk) {
     await fail(ctx.panel.webview, "Workspace server is not ready.")
@@ -69,7 +69,7 @@ export async function toggleMcp(ctx: ActionContext, name: string, action: "conne
     return
   }
 
-  const rt = ctx.mgr.get(ctx.ref.dir)
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
   if (!rt || rt.state !== "ready" || !rt.sdk) {
     return
   }
@@ -99,7 +99,7 @@ export async function runSlashCommand(ctx: ActionContext, command: string, args:
     return
   }
 
-  const rt = ctx.mgr.get(ctx.ref.dir)
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
   if (!rt || rt.state !== "ready" || !rt.sdk) {
     await fail(ctx.panel.webview, "Workspace server is not ready.")
     return
@@ -139,7 +139,7 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
     return
   }
 
-  const rt = ctx.mgr.get(ctx.ref.dir)
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
 
   try {
     if (action === "refreshSession") {
@@ -379,7 +379,7 @@ function parseRestoredFileSource(path: string, value: string, mime?: string) {
 }
 
 export async function replyPermission(ctx: ActionContext, requestID: string, reply: PermissionReply, message?: string) {
-  const rt = ctx.mgr.get(ctx.ref.dir)
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
 
   if (!rt || rt.state !== "ready" || !rt.sdk) {
     await fail(ctx.panel.webview, "Workspace server is not ready.")
@@ -402,7 +402,7 @@ export async function replyPermission(ctx: ActionContext, requestID: string, rep
 }
 
 export async function replyQuestion(ctx: ActionContext, requestID: string, answers: string[][]) {
-  const rt = ctx.mgr.get(ctx.ref.dir)
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
 
   if (!rt || rt.state !== "ready" || !rt.sdk) {
     await fail(ctx.panel.webview, "Workspace server is not ready.")
@@ -424,7 +424,7 @@ export async function replyQuestion(ctx: ActionContext, requestID: string, answe
 }
 
 export async function rejectQuestion(ctx: ActionContext, requestID: string) {
-  const rt = ctx.mgr.get(ctx.ref.dir)
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
 
   if (!rt || rt.state !== "ready" || !rt.sdk) {
     await fail(ctx.panel.webview, "Workspace server is not ready.")

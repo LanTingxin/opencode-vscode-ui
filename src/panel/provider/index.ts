@@ -4,7 +4,7 @@ import { EventHub } from "../../core/events"
 import { WorkspaceManager } from "../../core/workspace"
 import { sessionPanelHtml } from "../html"
 import { SessionPanelController } from "./controller"
-import { panelIconPath, panelKey, panelTitle, reviveState } from "./utils"
+import { canRestoreRef, panelIconPath, panelKey, panelTitle, reviveState } from "./utils"
 
 export class SessionPanelManager implements vscode.Disposable {
   private readonly panels = new Map<string, SessionPanelController>()
@@ -48,6 +48,14 @@ export class SessionPanelManager implements vscode.Disposable {
       panel.title = panelTitle("unknown")
       panel.iconPath = panelIconPath(this.extensionUri)
       this.out.appendLine("[panel] skipped restore due to invalid state")
+      return
+    }
+
+    if (!canRestoreRef(ref, vscode.workspace.workspaceFolders)) {
+      panel.webview.html = sessionPanelHtml(panel.webview, this.extensionUri)
+      panel.title = panelTitle(ref.sessionId)
+      panel.iconPath = panelIconPath(this.extensionUri)
+      this.out.appendLine(`[panel] skipped restore because workspace is unavailable: ${ref.workspaceId}`)
       return
     }
 
