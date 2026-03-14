@@ -84,6 +84,7 @@ export type AppState = {
     mcpResources: Record<string, McpResource>
     lsp: LspStatus[]
     commands: CommandInfo[]
+    relatedSessionIds: string[]
     agentMode: "build" | "plan"
     navigation: {
       firstChild?: { id: string; title: string }
@@ -102,6 +103,7 @@ export type AppState = {
   composerFavoriteModels: ComposerModelRef[]
   composerModelVariants: Record<string, string>
   composerHydratedMessageID?: string
+  hostTraceID?: number
   error: string
   form: FormState
 }
@@ -146,6 +148,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
       mcpResources: {},
       lsp: [],
       commands: [],
+      relatedSessionIds: [],
       agentMode: "build",
       navigation: {},
     },
@@ -159,6 +162,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
     composerFavoriteModels: normalizeModelList(persisted?.composerFavoriteModels),
     composerModelVariants: sameSession ? normalizeVariantMap(persisted?.composerModelVariants) : {},
     composerHydratedMessageID: undefined,
+    hostTraceID: undefined,
     error: "",
     form: {
       selected: {},
@@ -203,11 +207,11 @@ export function bootstrapFromSnapshot(payload: SessionSnapshot): SessionBootstra
   }
 }
 
-export function normalizeSnapshotPayload(payload: SessionSnapshot): AppState["snapshot"] {
+export function normalizeSnapshotPayload(payload: SessionSnapshot, previous?: AppState["snapshot"]): AppState["snapshot"] {
   return {
     session: payload.session,
-    messages: Array.isArray(payload.messages) ? payload.messages : [],
-    childMessages: recordOfMessageLists(payload.childMessages),
+    messages: reconcileMessageList(Array.isArray(payload.messages) ? payload.messages : [], previous?.messages),
+    childMessages: recordOfMessageLists(payload.childMessages, previous?.childMessages),
     childSessions: recordOfSessions(payload.childSessions),
     sessionStatus: payload.sessionStatus,
     submitting: !!payload.submitting,
@@ -224,21 +228,131 @@ export function normalizeSnapshotPayload(payload: SessionSnapshot): AppState["sn
     mcpResources: recordValue(payload.mcpResources) as Record<string, McpResource>,
     lsp: Array.isArray(payload.lsp) ? payload.lsp : [],
     commands: Array.isArray(payload.commands) ? payload.commands : [],
+    relatedSessionIds: Array.isArray(payload.relatedSessionIds) ? payload.relatedSessionIds : [],
     agentMode: payload.agentMode === "plan" ? "plan" : "build",
     navigation: payload.navigation || {},
   }
 }
 
-function recordOfMessageLists(value: unknown) {
+function recordOfMessageLists(value: unknown, previous?: Record<string, SessionMessage[]>) {
   if (!value || typeof value !== "object") {
     return {} as Record<string, SessionMessage[]>
   }
 
   const out: Record<string, SessionMessage[]> = {}
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    out[key] = Array.isArray(entry) ? entry.filter((item): item is SessionMessage => !!item && typeof item === "object") : []
+    out[key] = Array.isArray(entry)
+      ? reconcileMessageList(entry.filter((item): item is SessionMessage => !!item && typeof item === "object"), previous?.[key])
+      : []
   }
   return out
+}
+
+function reconcileMessageList(next: SessionMessage[], previous?: SessionMessage[]) {
+  if (!previous || previous.length === 0 || next.length === 0) {
+    return next
+  }
+
+  const previousById = new Map(previous.map((message) => [message.info.id, message]))
+  let changed = false
+  const reconciled = next.map((message) => {
+    const existing = previousById.get(message.info.id)
+    if (!existing) {
+      changed = true
+      return message
+    }
+
+    const parts = reconcilePartList(message.parts, existing.parts)
+    if (parts === existing.parts && deepEqual(existing.info, message.info)) {
+      return existing
+    }
+
+    if (parts !== message.parts || deepEqual(existing.info, message.info)) {
+      changed = true
+      return {
+        ...message,
+        info: deepEqual(existing.info, message.info) ? existing.info : message.info,
+        parts,
+      }
+    }
+
+    changed = true
+    return message
+  })
+
+  if (!changed && previous.length === reconciled.length && reconciled.every((message, index) => message === previous[index])) {
+    return previous
+  }
+
+  return reconciled
+}
+
+function reconcilePartList(next: SessionMessage["parts"], previous?: SessionMessage["parts"]) {
+  if (!previous || previous.length === 0 || next.length === 0) {
+    return next
+  }
+
+  const previousById = new Map(previous.map((part) => [part.id, part]))
+  let changed = false
+  const reconciled = next.map((part) => {
+    const existing = previousById.get(part.id)
+    if (!existing) {
+      changed = true
+      return part
+    }
+    if (deepEqual(existing, part)) {
+      return existing
+    }
+    changed = true
+    return part
+  })
+
+  if (!changed && previous.length === reconciled.length && reconciled.every((part, index) => part === previous[index])) {
+    return previous
+  }
+
+  return reconciled
+}
+
+function deepEqual(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true
+  }
+  if (left == null || right == null) {
+    return false
+  }
+  if (typeof left !== typeof right) {
+    return false
+  }
+  if (typeof left !== "object" || typeof right !== "object") {
+    return false
+  }
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+      return false
+    }
+    for (let index = 0; index < left.length; index += 1) {
+      if (!deepEqual(left[index], right[index])) {
+        return false
+      }
+    }
+    return true
+  }
+
+  const leftEntries = Object.entries(left)
+  const rightEntries = Object.entries(right)
+  if (leftEntries.length !== rightEntries.length) {
+    return false
+  }
+
+  for (const [key, value] of leftEntries) {
+    if (!deepEqual(value, (right as Record<string, unknown>)[key])) {
+      return false
+    }
+  }
+
+  return true
 }
 
 function recordOfSessions(value: unknown) {

@@ -22,6 +22,7 @@ type ActionContext = {
   state: PanelActionState
   log: (message: string) => void
   push: (force?: boolean) => Promise<void>
+  syncSubmitting: () => Promise<void>
 }
 
 export async function submit(ctx: ActionContext, textValue: string, parts?: ComposerPromptPart[], agent?: string, model?: MessageInfo["model"], variant?: string) {
@@ -38,7 +39,7 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
 
   const run = ++ctx.state.run
   ctx.state.pendingSubmitCount += 1
-  await ctx.push(true)
+  await ctx.syncSubmitting()
 
   try {
     const prompt = toPromptParts(ctx.ref.dir, textValue, parts)
@@ -51,9 +52,6 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
       parts: prompt,
     })
     await wait(400)
-    if (!ctx.state.disposed && run === ctx.state.run) {
-      await ctx.push(true)
-    }
   } catch (err) {
     const message = textError(err)
     ctx.log(`submit failed: ${message}`)
@@ -61,7 +59,9 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
     await fail(ctx.panel.webview, message)
   } finally {
     ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
-    await ctx.push(true)
+    if (!ctx.state.disposed && run === ctx.state.run) {
+      await ctx.syncSubmitting()
+    }
   }
 }
 
@@ -108,7 +108,7 @@ export async function runSlashCommand(ctx: ActionContext, command: string, args:
 
   const run = ++ctx.state.run
   ctx.state.pendingSubmitCount += 1
-  await ctx.push(true)
+  await ctx.syncSubmitting()
 
   try {
     await rt.sdk.session.command({
@@ -121,9 +121,6 @@ export async function runSlashCommand(ctx: ActionContext, command: string, args:
       variant,
     })
     await wait(400)
-    if (!ctx.state.disposed && run === ctx.state.run) {
-      await ctx.push(true)
-    }
   } catch (err) {
     const message = textError(err)
     ctx.log(`slash command failed: ${command} ${message}`)
@@ -131,7 +128,9 @@ export async function runSlashCommand(ctx: ActionContext, command: string, args:
     await fail(ctx.panel.webview, message)
   } finally {
     ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
-    await ctx.push(true)
+    if (!ctx.state.disposed && run === ctx.state.run) {
+      await ctx.syncSubmitting()
+    }
   }
 }
 
@@ -148,7 +147,7 @@ export async function runShellCommand(ctx: ActionContext, command: string, agent
 
   const run = ++ctx.state.run
   ctx.state.pendingSubmitCount += 1
-  await ctx.push(true)
+  await ctx.syncSubmitting()
 
   try {
     await rt.sdk.session.shell({
@@ -162,9 +161,6 @@ export async function runShellCommand(ctx: ActionContext, command: string, agent
 
     ctx.panel.webview.postMessage({ type: "shellCommandSucceeded" })
     await wait(400)
-    if (!ctx.state.disposed && run === ctx.state.run) {
-      await ctx.push(true)
-    }
   } catch (err) {
     const rawMessage = textError(err)
     const message = friendlyShellSubmitError(rawMessage)
@@ -176,7 +172,9 @@ export async function runShellCommand(ctx: ActionContext, command: string, agent
     await vscode.window.showErrorMessage(message)
   } finally {
     ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
-    await ctx.push(true)
+    if (!ctx.state.disposed && run === ctx.state.run) {
+      await ctx.syncSubmitting()
+    }
   }
 }
 
@@ -210,7 +208,7 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
 
       const run = ++ctx.state.run
       ctx.state.pendingSubmitCount += 1
-      await ctx.push(true)
+      await ctx.syncSubmitting()
 
       try {
         await rt.sdk.session.summarize({
@@ -221,12 +219,11 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
           auto: false,
         })
         await wait(400)
-        if (!ctx.state.disposed && run === ctx.state.run) {
-          await ctx.push(true)
-        }
       } finally {
         ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
-        await ctx.push(true)
+        if (!ctx.state.disposed && run === ctx.state.run) {
+          await ctx.syncSubmitting()
+        }
       }
       return
     }
@@ -262,7 +259,7 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
 
       const run = ++ctx.state.run
       ctx.state.pendingSubmitCount += 1
-      await ctx.push(true)
+      await ctx.syncSubmitting()
 
       try {
         const status = (await rt.sdk.session.status({
@@ -300,12 +297,11 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
           messageID: msg.info.id,
         })
         await wait(400)
-        if (!ctx.state.disposed && run === ctx.state.run) {
-          await ctx.push(true)
-        }
       } finally {
         ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
-        await ctx.push(true)
+        if (!ctx.state.disposed && run === ctx.state.run) {
+          await ctx.syncSubmitting()
+        }
       }
       return
     }
@@ -318,7 +314,7 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
 
       const run = ++ctx.state.run
       ctx.state.pendingSubmitCount += 1
-      await ctx.push(true)
+      await ctx.syncSubmitting()
 
       try {
         const session = (await rt.sdk.session.get({
@@ -349,12 +345,11 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
         }
 
         await wait(400)
-        if (!ctx.state.disposed && run === ctx.state.run) {
-          await ctx.push(true)
-        }
       } finally {
         ctx.state.pendingSubmitCount = Math.max(0, ctx.state.pendingSubmitCount - 1)
-        await ctx.push(true)
+        if (!ctx.state.disposed && run === ctx.state.run) {
+          await ctx.syncSubmitting()
+        }
       }
       return
     }

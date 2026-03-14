@@ -35,9 +35,12 @@ This repo is a standalone VS Code extension for browsing and operating OpenCode 
 - Watch esbuild bundle: `bun run watch:esbuild`.
 - Watch TypeScript only: `bun run watch:tsc`.
 - Current test command: `bun run test`.
-- Current test status: there is no real test runner or test suite yet; `bun run test` only prints `No tests yet`.
-- Current single-test support: none exists yet. Do not invent a per-file or per-case test command in commits, reviews, or follow-up docs.
-- If you add a real test framework later, update this file with the exact single-test command and the pattern for selecting one test.
+- Default test scope: `bun run test` runs `bun test ./src/panel ./src/test` so only this extension's local tests run, not the upstream `opencode/` symlink tree.
+- Current single-test support: `bun test path/to/file.test.ts`.
+- Test placement convention:
+  - Keep module-local unit tests next to the code they cover, such as `src/panel/**/foo.test.ts`.
+  - Put cross-module, integration-style, and parity tests under `src/test/`.
+  - Do not add new tests under the local `opencode/` symlink.
 - Build pipeline details from `package.json`:
   - `compile`: runs type-check, lint, then `node esbuild.js`
   - `package`: runs type-check, lint, then `node esbuild.js --production`

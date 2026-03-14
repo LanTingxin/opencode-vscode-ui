@@ -57,7 +57,7 @@ export function parseComposerEditor(root: HTMLElement): ComposerEditorPart[] {
   let buffer = ""
 
   const flushText = () => {
-    let content = buffer.replace(/\r\n?/g, "\n").replace(/\u200B/g, "")
+    const content = buffer.replace(/\r\n?/g, "\n").replace(/\u200B/g, "")
     buffer = ""
     if (!content && parts.length > 0) {
       return

@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { postToWebview } from "../../bridge/host"
-import type { SessionPanelRef, SessionSnapshot, WebviewMessage } from "../../bridge/types"
+import type { HostMessage, SessionPanelRef, SessionSnapshot, WebviewMessage } from "../../bridge/types"
 import { EventHub } from "../../core/events"
 import type { SessionEvent } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
@@ -13,6 +13,7 @@ import { sessionPanelHtml } from "../html"
 
 export class SessionPanelController implements vscode.Disposable {
   private ready = false
+  private incrementalReady = false
   private pending: Promise<void> | undefined
   private current: SessionSnapshot | undefined
   private refreshSeq = 0
@@ -48,12 +49,17 @@ export class SessionPanelController implements vscode.Disposable {
       (message: WebviewMessage) => {
         if (message?.type === "ready") {
           this.ready = true
-          void this.push()
+          void this.push(false, "webview:ready")
           return
         }
 
         if (message?.type === "refresh") {
-          void this.push(true)
+          void this.push(true, "webview:refresh")
+          return
+        }
+
+        if (message?.type === "debugLog") {
+          this.log(`[webview:${message.scope}] ${message.message}`)
           return
         }
 
@@ -142,7 +148,7 @@ export class SessionPanelController implements vscode.Disposable {
 
     this.bag.push(
       this.mgr.onDidChange(() => {
-        void this.push(true)
+        void this.push(true, "workspace:change")
       }),
       this.events.onDidEvent((item) => {
         if (item.workspaceId !== this.ref.workspaceId) {
@@ -154,22 +160,22 @@ export class SessionPanelController implements vscode.Disposable {
   }
 
   async reveal() {
-    await this.push()
+    await this.push(false, "reveal")
     this.panel.reveal(vscode.ViewColumn.Active)
   }
 
-  async push(force?: boolean) {
+  async push(force?: boolean, reason?: string) {
     if (!this.ready || this.state.disposed) {
       return
     }
 
     if (!force && this.current) {
-      await this.post(this.current)
+      await this.post(this.current, reason || "push:cached")
       return
     }
 
     if (!this.pending) {
-      this.pending = this.refresh().finally(() => {
+      this.pending = this.refresh(reason || (force ? "push:forced" : "push:initial")).finally(() => {
         this.pending = undefined
       })
     }
@@ -188,8 +194,9 @@ export class SessionPanelController implements vscode.Disposable {
     vscode.Disposable.from(...this.bag).dispose()
   }
 
-  private async refresh() {
+  private async refresh(reason: string) {
     const seq = ++this.refreshSeq
+    this.incrementalReady = false
     this.deferredDirty = {
       sessionStatus: false,
       permissions: false,
@@ -203,9 +210,15 @@ export class SessionPanelController implements vscode.Disposable {
       },
       isSubmitting: () => this.isSubmitting(),
     })
+    // Snapshot build returns the core session payload immediately, while status,
+    // permission, question, MCP, LSP, and command data arrives through the
+    // deferred path. Seed those deferred fields from the current snapshot first
+    // so the webview does not briefly fall back to empty defaults during a
+    // forced refresh.
     const payload = this.seedDeferredFields(build.snapshot)
     this.current = payload
-    await this.post(payload)
+    await this.post(payload, `${reason}:snapshot`)
+    this.incrementalReady = true
 
     if (!build.deferred || payload.status !== "ready") {
       return
@@ -217,8 +230,7 @@ export class SessionPanelController implements vscode.Disposable {
           return
         }
 
-        this.current = patch({
-          ...this.current,
+        const deferredPayload = {
           sessionStatus: this.deferredDirty.sessionStatus ? this.current.sessionStatus : deferred.sessionStatus,
           permissions: this.deferredDirty.permissions ? this.current.permissions : deferred.permissions,
           questions: this.deferredDirty.questions ? this.current.questions : deferred.questions,
@@ -226,8 +238,13 @@ export class SessionPanelController implements vscode.Disposable {
           mcpResources: deferred.mcpResources,
           lsp: deferred.lsp,
           commands: deferred.commands,
+        }
+        this.current = patch({
+          ...this.current,
+          ...deferredPayload,
         })
-        await this.post(this.current)
+        await this.postDeferred(deferredPayload, `${reason}:deferred`)
+        this.incrementalReady = true
       })
       .catch(() => {
         if (this.state.disposed || this.refreshSeq !== seq) {
@@ -236,7 +253,7 @@ export class SessionPanelController implements vscode.Disposable {
       })
   }
 
-  private async post(payload: SessionSnapshot) {
+  private async post(payload: SessionSnapshot, reason: string) {
     this.panel.title = panelTitle(payload.session?.title || this.ref.sessionId)
     await postToWebview(this.panel.webview, {
       type: "bootstrap",
@@ -245,7 +262,27 @@ export class SessionPanelController implements vscode.Disposable {
     await postToWebview(this.panel.webview, {
       type: "snapshot",
       payload,
+      reason,
     })
+  }
+
+  private async postDeferred(payload: Extract<HostMessage, { type: "deferredUpdate" }>["payload"], reason: string) {
+    await postToWebview(this.panel.webview, {
+      type: "deferredUpdate",
+      payload,
+      reason,
+    })
+  }
+
+  private async postSubmitting(value: boolean) {
+    await postToWebview(this.panel.webview, {
+      type: "submitting",
+      value,
+    })
+  }
+
+  private async postEvent(message: Extract<HostMessage, { type: "sessionEvent" }>) {
+    await postToWebview(this.panel.webview, message)
   }
 
   private isSubmitting() {
@@ -260,7 +297,7 @@ export class SessionPanelController implements vscode.Disposable {
     this.markDeferredDirty(event)
 
     if (this.current && needsRefresh(event, this.current)) {
-      await this.push(true)
+      await this.push(true, `event:${event.type}:refresh`)
       return
     }
 
@@ -274,7 +311,13 @@ export class SessionPanelController implements vscode.Disposable {
     }
 
     this.current = patch(next)
-    await this.post(this.current)
+    this.panel.title = panelTitle(this.current.session?.title || this.ref.sessionId)
+    if (this.incrementalReady && canPostIncrementalSessionEvent(event)) {
+      await this.postEvent({ type: "sessionEvent", event })
+      return
+    }
+
+    await this.post(this.current, `event:${event.type}:snapshot`)
   }
 
   private log(message: string) {
@@ -286,6 +329,8 @@ export class SessionPanelController implements vscode.Disposable {
       return snapshot
     }
 
+    // Only carry over fields that are loaded by loadDeferredSnapshot(). The new
+    // snapshot already contains the latest transcript/session tree data.
     return patch({
       ...snapshot,
       sessionStatus: this.current.sessionStatus,
@@ -323,7 +368,36 @@ export class SessionPanelController implements vscode.Disposable {
       log: (message: string) => {
         this.log(message)
       },
-      push: (force?: boolean) => this.push(force),
+      push: (force?: boolean) => this.push(force, force ? "action:forced" : "action"),
+      syncSubmitting: async () => {
+        if (!this.current) {
+          return
+        }
+        this.current = patch({
+          ...this.current,
+          submitting: this.isSubmitting(),
+        })
+        await this.postSubmitting(this.current.submitting)
+      },
     }
   }
+}
+
+function canPostIncrementalSessionEvent(event: SessionEvent) {
+  return event.type === "session.diff"
+    || event.type === "session.status"
+    || event.type === "todo.updated"
+    || event.type === "session.created"
+    || event.type === "session.updated"
+    || event.type === "session.deleted"
+    || event.type === "message.updated"
+    || event.type === "message.removed"
+    || event.type === "message.part.updated"
+    || event.type === "message.part.removed"
+    || event.type === "message.part.delta"
+    || event.type === "permission.asked"
+    || event.type === "permission.replied"
+    || event.type === "question.asked"
+    || event.type === "question.replied"
+    || event.type === "question.rejected"
 }

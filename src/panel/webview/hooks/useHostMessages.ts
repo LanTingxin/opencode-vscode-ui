@@ -1,6 +1,9 @@
 import React from "react"
-import type { ComposerPathResult, HostMessage } from "../../../bridge/types"
+import type { ComposerPathResult, HostMessage, SessionSnapshot } from "../../../bridge/types"
+import { reduceSessionSnapshot } from "../../shared/session-reducer"
+import { summarizeSessionSnapshot } from "../../shared/session-summary"
 import { bootstrapFromSnapshot, normalizeSnapshotPayload, type AppState, type VsCodeApi } from "../app/state"
+import { beginHostMessageTrace, completeHostMessageTrace, countChangedMessages, countReplacedMessages, formatHostMessageTrace, SLOW_HOST_MESSAGE_MS, summarizeSnapshotFieldChanges } from "../lib/host-message-trace"
 
 export function dispatchHostMessage(message: HostMessage, handlers: {
   fileRefStatus: Map<string, boolean>
@@ -9,18 +12,148 @@ export function dispatchHostMessage(message: HostMessage, handlers: {
   onShellCommandSucceeded: () => void
   setPendingMcpActions: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
   setState: React.Dispatch<React.SetStateAction<AppState>>
+  vscode: VsCodeApi
 }) {
+  const trace = beginHostMessageTrace(message)
+
   if (message?.type === "bootstrap") {
     handlers.setState((current) => ({ ...current, bootstrap: message.payload, error: "" }))
     return
   }
 
   if (message?.type === "snapshot") {
+    handlers.setState((current) => {
+      const normalizeStartedAt = timestamp()
+      const nextSnapshot = normalizeSnapshotPayload(message.payload, current.snapshot)
+      const normalizeMs = timestamp() - normalizeStartedAt
+      const changedFields = summarizeSnapshotFieldChanges(asSessionSnapshot(current), message.payload)
+      const completed = completeHostMessageTrace(trace, {
+        reduceMs: 0,
+        normalizeMs,
+        messagesBefore: current.snapshot.messages.length,
+        messagesAfter: nextSnapshot.messages.length,
+        changedMessages: countChangedMessages(current.snapshot.messages, nextSnapshot.messages),
+        replacedMessages: countReplacedMessages(current.snapshot.messages, nextSnapshot.messages),
+        changedFields,
+      })
+      const next = {
+        ...current,
+        bootstrap: bootstrapFromSnapshot(message.payload),
+        snapshot: nextSnapshot,
+        hostTraceID: completed?.id ?? current.hostTraceID,
+        error: "",
+      }
+      if (completed && normalizeMs >= SLOW_HOST_MESSAGE_MS) {
+        handlers.vscode.postMessage({
+          type: "debugLog",
+          scope: "host-message",
+          message: formatHostMessageTrace(completed),
+        })
+      }
+
+      return next
+    })
+    return
+  }
+
+  if (message?.type === "sessionEvent") {
+    handlers.setState((current) => {
+      const reduceStartedAt = timestamp()
+      const nextSnapshotState = reduceSessionSnapshot(asSessionSnapshot(current), message.event)
+      const reduceMs = timestamp() - reduceStartedAt
+      if (!nextSnapshotState) {
+        return current
+      }
+
+      const normalizeStartedAt = timestamp()
+      const nextSnapshot = normalizeSnapshotPayload(nextSnapshotState)
+      const normalizeMs = timestamp() - normalizeStartedAt
+      const changedFields = summarizeSnapshotFieldChanges(asSessionSnapshot(current), nextSnapshotState)
+      const completed = completeHostMessageTrace(trace, {
+        reduceMs,
+        normalizeMs,
+        messagesBefore: current.snapshot.messages.length,
+        messagesAfter: nextSnapshot.messages.length,
+        changedMessages: countChangedMessages(current.snapshot.messages, nextSnapshot.messages),
+        replacedMessages: countReplacedMessages(current.snapshot.messages, nextSnapshot.messages),
+        changedFields,
+      })
+      const next = {
+        ...current,
+        bootstrap: {
+          ...bootstrapFromSnapshot(nextSnapshotState),
+          message: summarizeSessionSnapshot(nextSnapshotState),
+        },
+        snapshot: nextSnapshot,
+        hostTraceID: completed?.id ?? current.hostTraceID,
+        error: "",
+      }
+      if (completed && reduceMs + normalizeMs >= SLOW_HOST_MESSAGE_MS) {
+        handlers.vscode.postMessage({
+          type: "debugLog",
+          scope: "host-message",
+          message: formatHostMessageTrace(completed),
+        })
+      }
+
+      return next
+    })
+    return
+  }
+
+  if (message?.type === "deferredUpdate") {
+    handlers.setState((current) => {
+      const completed = completeHostMessageTrace(trace, {
+        reduceMs: 0,
+        normalizeMs: 0,
+        messagesBefore: current.snapshot.messages.length,
+        messagesAfter: current.snapshot.messages.length,
+        changedMessages: 0,
+        replacedMessages: 0,
+        changedFields: Object.keys(message.payload),
+      })
+      const nextSnapshot = {
+        ...current.snapshot,
+        ...message.payload,
+      }
+      return {
+        ...current,
+        bootstrap: {
+          ...current.bootstrap,
+          message: summarizeSessionSnapshot({
+            ...nextSnapshot,
+            status: current.bootstrap.status,
+            workspaceName: current.bootstrap.workspaceName,
+            sessionRef: current.bootstrap.sessionRef,
+          }),
+        },
+        snapshot: {
+          ...nextSnapshot,
+        },
+        hostTraceID: completed?.id ?? current.hostTraceID,
+        error: "",
+      }
+    })
+    return
+  }
+
+  if (message?.type === "submitting") {
     handlers.setState((current) => ({
       ...current,
-      bootstrap: bootstrapFromSnapshot(message.payload),
-      snapshot: normalizeSnapshotPayload(message.payload),
-      error: "",
+      bootstrap: {
+        ...current.bootstrap,
+        message: summarizeSessionSnapshot({
+          ...current.snapshot,
+          submitting: message.value,
+          status: current.bootstrap.status,
+          workspaceName: current.bootstrap.workspaceName,
+          sessionRef: current.bootstrap.sessionRef,
+        }),
+      },
+      snapshot: {
+        ...current.snapshot,
+        submitting: message.value,
+      },
     }))
     return
   }
@@ -62,6 +195,17 @@ export function dispatchHostMessage(message: HostMessage, handlers: {
       delete next[message.name]
       return next
     })
+  }
+}
+
+function asSessionSnapshot(state: AppState): SessionSnapshot {
+  return {
+    ...state.snapshot,
+    status: state.bootstrap.status,
+    workspaceName: state.bootstrap.workspaceName,
+    sessionRef: state.bootstrap.sessionRef,
+    session: state.snapshot.session,
+    message: state.bootstrap.message || "",
   }
 }
 
@@ -107,6 +251,7 @@ export function useHostMessages({
         onShellCommandSucceeded: () => shellSucceededHandlerRef.current(),
         setPendingMcpActions,
         setState,
+        vscode,
       })
     }
 
@@ -114,4 +259,8 @@ export function useHostMessages({
     vscode.postMessage({ type: "ready" })
     return () => window.removeEventListener("message", handler)
   }, [fileRefStatus, setPendingMcpActions, setState, vscode])
+}
+
+function timestamp() {
+  return globalThis.performance?.now() ?? Date.now()
 }

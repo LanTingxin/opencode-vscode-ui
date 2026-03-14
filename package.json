@@ -54,7 +54,7 @@
     "package": "bun run check-types && bun run lint && node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "echo 'No tests yet'",
+    "test": "bun test ./src/panel ./src/test",
     "parity:composer": "bun test src/test/parity/composer-parity.test.ts",
     "parity:integration": "bun test src/test/parity/composer-integration.test.ts",
     "parity:upstream": "bun run src/test/parity/check-upstream-parity.ts",

@@ -12,6 +12,7 @@ import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
 import { formatComposerFileContent, parseComposerFileQuery } from "../lib/composer-file-selection"
+import { consumePendingHostMessageTraces, formatHostMessageTrace, peekPendingHostMessageTraces, SLOW_RENDER_MS } from "../lib/host-message-trace"
 import { agentColorClass, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel, type StatusItem, type StatusTone } from "../lib/session-meta"
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
@@ -64,6 +65,17 @@ export function App() {
   const autocompleteDismissedRef = React.useRef<null | { trigger: ComposerAutocompleteState["trigger"]; query: string; start: number; end: number }>(null)
   const leaderTimerRef = React.useRef<number | null>(null)
   const leaderPendingRef = React.useRef(false)
+  const lastConsumedHostTraceIDRef = React.useRef(0)
+  const renderTraceRef = React.useRef<{ startedAt: number; traces: ReturnType<typeof peekPendingHostMessageTraces>; messageCount: number } | null>(null)
+  const pendingTraceLimit = state.hostTraceID
+  const pendingRenderTraces = pendingTraceLimit && pendingTraceLimit > lastConsumedHostTraceIDRef.current
+    ? peekPendingHostMessageTraces().filter((trace) => trace.id > lastConsumedHostTraceIDRef.current && trace.id <= pendingTraceLimit)
+    : []
+  renderTraceRef.current = {
+    startedAt: globalThis.performance?.now() ?? Date.now(),
+    traces: pendingRenderTraces,
+    messageCount: state.snapshot.messages.length,
+  }
   const onFileSearchResults = React.useCallback((payload: { requestID: string; query: string; results: ComposerPathResult[] }) => {
     if (!searchRef.current || payload.requestID !== searchRef.current.requestID) {
       return
@@ -275,6 +287,29 @@ export function App() {
   React.useEffect(() => {
     vscode.setState(persistedPanelState)
   }, [persistedPanelState])
+
+  React.useLayoutEffect(() => {
+    const trace = renderTraceRef.current
+    if (!trace || trace.traces.length === 0) {
+      return
+    }
+
+    consumePendingHostMessageTraces(trace.traces.map((item) => item.id))
+    lastConsumedHostTraceIDRef.current = trace.traces[trace.traces.length - 1]?.id ?? lastConsumedHostTraceIDRef.current
+
+    const duration = (globalThis.performance?.now() ?? Date.now()) - trace.startedAt
+    if (duration < SLOW_RENDER_MS) {
+      return
+    }
+
+    const lastMessage = state.snapshot.messages.at(-1)?.info.id || "-"
+    const traceIDs = trace.traces.map((item) => item.id).join(",")
+    vscode.postMessage({
+      type: "debugLog",
+      scope: "render",
+      message: `render=${duration.toFixed(2)}ms messages=${trace.messageCount}->${state.snapshot.messages.length} lastMessage=${lastMessage} traceIDs=${traceIDs} traces=${trace.traces.map((item) => formatHostMessageTrace(item)).join(" | ")}`,
+    })
+  })
 
   React.useEffect(() => {
     if (!latestUserSelection?.messageID) {
@@ -893,108 +928,119 @@ export function App() {
       <ChildMessagesContext.Provider value={state.snapshot.childMessages}>
         <ChildSessionsContext.Provider value={state.snapshot.childSessions}>
           <WebviewBindingsProvider fileRefStatus={fileRefStatus} vscode={vscode}>
-          <div className="oc-shell">
-            <main ref={timelineRef} className="oc-transcript">
-              <div className="oc-transcriptInner">
-                <Timeline state={state} AgentBadge={AgentBadge} CompactionDivider={CompactionDivider} EmptyState={EmptyState} MarkdownBlock={MarkdownBlock} PartView={PartView} />
-              </div>
-            </main>
+            <div className="oc-shell">
+              <main ref={timelineRef} className="oc-transcript">
+                <div className="oc-transcriptInner">
+                  <Timeline
+                    bootstrapStatus={state.bootstrap.status}
+                    bootstrapMessage={state.bootstrap.message}
+                    messages={state.snapshot.messages}
+                    revertID={state.snapshot.session?.revert?.messageID}
+                    revertDiff={state.snapshot.session?.revert?.diff}
+                    AgentBadge={AgentBadge}
+                    CompactionDivider={CompactionDivider}
+                    EmptyState={EmptyState}
+                    MarkdownBlock={MarkdownBlock}
+                    PartView={PartView}
+                  />
+                </div>
+              </main>
 
-            <footer className="oc-footer">
-              <div className="oc-transcriptInner oc-footerInner">
-          {firstPermission ? (
-            <PermissionDock
-              request={firstPermission}
-              currentSessionID={state.bootstrap.session?.id || state.bootstrap.sessionRef.sessionId}
-              rejectMessage={state.form.reject[firstPermission.id] ?? ""}
-              onRejectMessage={(value: string) => {
-                setState((current) => ({
-                  ...current,
-                  form: {
-                    ...current.form,
-                    reject: {
-                      ...current.form.reject,
-                      [firstPermission.id]: value,
-                    },
-                  },
-                }))
-              }}
-              onReply={(reply: "once" | "always" | "reject", message?: string) => {
-                vscode.postMessage({ type: "permissionReply", requestID: firstPermission.id, reply, message })
-                setState((current) => ({ ...current, error: "" }))
-              }}
-            />
-          ) : null}
-          {firstQuestion ? (
-            <QuestionDock
-              request={firstQuestion}
-              form={state.form}
-              onOption={(index, label, multiple) => {
-                const key = answerKey(firstQuestion.id, index)
-                if (!multiple && firstQuestion.questions.length === 1) {
-                  vscode.postMessage({
-                    type: "questionReply",
-                    requestID: firstQuestion.id,
-                    answers: [[label]],
-                  })
-                  setState((current) => ({ ...current, error: "" }))
-                  return
-                }
-
-                setState((current) => {
-                  const next = current.form.selected[key] ?? []
-                  return {
+              <footer className="oc-footer">
+                <div className="oc-transcriptInner oc-footerInner">
+            {firstPermission ? (
+              <PermissionDock
+                request={firstPermission}
+                currentSessionID={state.bootstrap.session?.id || state.bootstrap.sessionRef.sessionId}
+                rejectMessage={state.form.reject[firstPermission.id] ?? ""}
+                onRejectMessage={(value: string) => {
+                  setState((current) => ({
                     ...current,
                     form: {
                       ...current.form,
-                      selected: {
-                        ...current.form.selected,
-                        [key]: multiple
-                          ? (next.includes(label) ? next.filter((item) => item !== label) : [...next, label])
-                          : [label],
-                      },
-                      custom: multiple ? current.form.custom : {
-                        ...current.form.custom,
-                        [key]: "",
+                      reject: {
+                        ...current.form.reject,
+                        [firstPermission.id]: value,
                       },
                     },
+                  }))
+                }}
+                onReply={(reply: "once" | "always" | "reject", message?: string) => {
+                  vscode.postMessage({ type: "permissionReply", requestID: firstPermission.id, reply, message })
+                  setState((current) => ({ ...current, error: "" }))
+                }}
+              />
+            ) : null}
+            {firstQuestion ? (
+              <QuestionDock
+                request={firstQuestion}
+                form={state.form}
+                onOption={(index, label, multiple) => {
+                  const key = answerKey(firstQuestion.id, index)
+                  if (!multiple && firstQuestion.questions.length === 1) {
+                    vscode.postMessage({
+                      type: "questionReply",
+                      requestID: firstQuestion.id,
+                      answers: [[label]],
+                    })
+                    setState((current) => ({ ...current, error: "" }))
+                    return
                   }
-                })
-              }}
-              onCustom={(index, value) => {
-                const key = answerKey(firstQuestion.id, index)
-                setState((current) => ({
-                  ...current,
-                  form: {
-                    ...current.form,
-                    selected: firstQuestion.questions[index]?.multiple ? current.form.selected : {
-                      ...current.form.selected,
-                      [key]: value.trim() ? [] : (current.form.selected[key] ?? []),
+
+                  setState((current) => {
+                    const next = current.form.selected[key] ?? []
+                    return {
+                      ...current,
+                      form: {
+                        ...current.form,
+                        selected: {
+                          ...current.form.selected,
+                          [key]: multiple
+                            ? (next.includes(label) ? next.filter((item) => item !== label) : [...next, label])
+                            : [label],
+                        },
+                        custom: multiple ? current.form.custom : {
+                          ...current.form.custom,
+                          [key]: "",
+                        },
+                      },
+                    }
+                  })
+                }}
+                onCustom={(index, value) => {
+                  const key = answerKey(firstQuestion.id, index)
+                  setState((current) => ({
+                    ...current,
+                    form: {
+                      ...current.form,
+                      selected: firstQuestion.questions[index]?.multiple ? current.form.selected : {
+                        ...current.form.selected,
+                        [key]: value.trim() ? [] : (current.form.selected[key] ?? []),
+                      },
+                      custom: {
+                        ...current.form.custom,
+                        [key]: value,
+                      },
                     },
-                    custom: {
-                      ...current.form.custom,
-                      [key]: value,
-                    },
-                  },
-                }))
-              }}
-              onReject={() => {
-                vscode.postMessage({ type: "questionReject", requestID: firstQuestion.id })
-                setState((current) => ({ ...current, error: "" }))
-              }}
-              onSubmit={() => sendQuestionReply(firstQuestion)}
-            />
-          ) : null}
-          {!blocked && !isChildSession ? <RetryStatus status={state.snapshot.sessionStatus} /> : null}
-          {isChildSession ? <SessionNav navigation={state.snapshot.navigation} onNavigate={(sessionID) => vscode.postMessage({ type: "navigateSession", sessionID })} /> : null}
+                  }))
+                }}
+                onReject={() => {
+                  vscode.postMessage({ type: "questionReject", requestID: firstQuestion.id })
+                  setState((current) => ({ ...current, error: "" }))
+                }}
+                onSubmit={() => sendQuestionReply(firstQuestion)}
+              />
+            ) : null}
+            {!blocked && !isChildSession ? <RetryStatus status={state.snapshot.sessionStatus} /> : null}
+            {isChildSession ? <SessionNav navigation={state.snapshot.navigation} onNavigate={(sessionID) => vscode.postMessage({ type: "navigateSession", sessionID })} /> : null}
 
           {!blocked && !isChildSession ? (
             <section className={`oc-composer${leaderPending ? " is-leaderPending" : ""}${composerMode === "shell" ? " is-shell" : ""}`}>
               <div className="oc-composerBody">
-                {composerDrag ? <div className="oc-composerDropOverlay">Drop to @mention file</div> : null}
-                <div className="oc-composerInputWrap">
-                  {leaderPending ? <div className="oc-composerLeaderOverlay"><span className="oc-composerLeaderOverlayText">Ctrl + X Pressed</span></div> : null}
-                  <div
+                    {composerDrag ? <div className="oc-composerDropOverlay">Drop to @mention file</div> : null}
+                    <div className="oc-composerInputWrap">
+                        {leaderPending ? <div className="oc-composerLeaderOverlay"><span className="oc-composerLeaderOverlayText">Ctrl + X Pressed</span></div> : null}
+                        <div
                     ref={composerRef}
                     className={`oc-composerInput${composerMode === "shell" ? " is-shell" : ""}`}
                     role="textbox"
@@ -1240,35 +1286,35 @@ export function App() {
                       submit()
                     }}
                   />
-                  {!state.draft.trim() && !composerFocused ? <div className="oc-composerPlaceholder" aria-hidden="true">{composerPlaceholder}</div> : null}
+                        {!state.draft.trim() && !composerFocused ? <div className="oc-composerPlaceholder" aria-hidden="true">{composerPlaceholder}</div> : null}
+                      </div>
+                    <div className="oc-composerInfoWrap" ref={modelPickerRef}>
+                      <ComposerInfo state={state} leaderPending={leaderPending} modelPickerOpen={modelPickerOpen} onToggleModelPicker={toggleModelPicker} onCycleVariant={() => cycleComposerVariant()} />
+                      {modelPickerOpen ? (
+                        <ModelPicker
+                          sections={modelPickerSections}
+                          currentAgent={currentSelection.agent}
+                          onClose={() => setModelPickerOpen(false)}
+                          onOpenProviderDocs={openProviderDocs}
+                          onSelect={selectComposerModel}
+                          onToggleFavorite={toggleComposerFavorite}
+                          onCycleVariant={cycleComposerVariant}
+                        />
+                      ) : null}
+                    </div>
+                    {activeAutocomplete ? <ComposerAutocompletePopup state={activeAutocomplete} fileSearch={fileSearch} onSelect={acceptComposerAutocomplete} /> : null}
+                  </div>
+                <div className="oc-composerActions">
+                  <div className="oc-composerActionsMain">
+                    <ComposerRunHints state={state} escPending={escPending} composerMode={composerMode} />
+                    {state.error ? <div className="oc-errorText oc-composerErrorText">{state.error}</div> : null}
+                  </div>
+                  <div className="oc-composerContextWrap">
+                    <ComposerMetrics state={state} />
+                    <ComposerStatusBadges state={state} pendingMcpActions={pendingMcpActions} onMcpActionStart={(name) => setPendingMcpActions((current) => ({ ...current, [name]: true }))} />
+                  </div>
                 </div>
-                <div className="oc-composerInfoWrap" ref={modelPickerRef}>
-                  <ComposerInfo state={state} leaderPending={leaderPending} modelPickerOpen={modelPickerOpen} onToggleModelPicker={toggleModelPicker} onCycleVariant={() => cycleComposerVariant()} />
-                  {modelPickerOpen ? (
-                    <ModelPicker
-                      sections={modelPickerSections}
-                      currentAgent={currentSelection.agent}
-                      onClose={() => setModelPickerOpen(false)}
-                      onOpenProviderDocs={openProviderDocs}
-                      onSelect={selectComposerModel}
-                      onToggleFavorite={toggleComposerFavorite}
-                      onCycleVariant={cycleComposerVariant}
-                    />
-                  ) : null}
-                </div>
-                {activeAutocomplete ? <ComposerAutocompletePopup state={activeAutocomplete} fileSearch={fileSearch} onSelect={acceptComposerAutocomplete} /> : null}
-              </div>
-            <div className="oc-composerActions">
-              <div className="oc-composerActionsMain">
-                <ComposerRunHints state={state} escPending={escPending} composerMode={composerMode} />
-                {state.error ? <div className="oc-errorText oc-composerErrorText">{state.error}</div> : null}
-              </div>
-              <div className="oc-composerContextWrap">
-                <ComposerMetrics state={state} />
-                <ComposerStatusBadges state={state} pendingMcpActions={pendingMcpActions} onMcpActionStart={(name) => setPendingMcpActions((current) => ({ ...current, [name]: true }))} />
-              </div>
-            </div>
-            </section>
+              </section>
           ) : null}
 
               {!blocked && isChildSession ? <SubagentNotice /> : null}

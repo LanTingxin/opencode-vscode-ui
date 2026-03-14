@@ -1,4 +1,4 @@
-import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, PromptSource, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
+import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, PromptSource, ProviderInfo, QuestionRequest, SessionEvent, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
 
 export const SESSION_PANEL_VIEW_TYPE = "opencode-ui.session"
 
@@ -77,6 +77,20 @@ export type HostMessage =
   | {
       type: "snapshot"
       payload: SessionSnapshot
+      reason: string
+    }
+  | {
+      type: "sessionEvent"
+      event: SessionEvent
+    }
+  | {
+      type: "deferredUpdate"
+      reason: string
+      payload: Pick<SessionSnapshot, "sessionStatus" | "permissions" | "questions" | "mcp" | "mcpResources" | "lsp" | "commands">
+    }
+  | {
+      type: "submitting"
+      value: boolean
     }
   | {
       type: "error"
@@ -136,6 +150,11 @@ export type ComposerPromptPart =
 export type WebviewMessage =
   | {
       type: "ready"
+    }
+  | {
+      type: "debugLog"
+      scope: "host-message" | "render"
+      message: string
     }
   | {
       type: "refresh"

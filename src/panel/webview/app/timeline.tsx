@@ -2,55 +2,86 @@ import React from "react"
 import { parsePatch } from "diff"
 import type { FilePart, MessageInfo, MessagePart, SessionMessage, TextPart } from "../../../core/sdk"
 import { TranscriptVisibilityContext } from "./contexts"
-import type { AppState } from "./state"
 
-type TimelineBlock =
+export type TimelineBlock =
   | { kind: "user-message"; key: string; message: SessionMessage; queued: boolean }
   | { kind: "assistant-part"; key: string; part: MessagePart }
   | { kind: "assistant-meta"; key: string; messages: SessionMessage[] }
   | { kind: "revert"; key: string; count: number; files: Array<{ filename: string; additions: number; deletions: number }> }
 
-export function Timeline({
-  state,
-  AgentBadge,
-  CompactionDivider,
-  EmptyState,
-  MarkdownBlock,
-  PartView,
-}: {
-  state: AppState
+type TimelineDerivationOptions = {
+  showThinking: boolean
+  showInternals: boolean
+  revertID?: string
+  revertDiff?: string
+}
+
+export type TimelineDerivationCache = {
+  assistantMetaBlocks: Map<string, Extract<TimelineBlock, { kind: "assistant-meta" }>>
+  assistantPartBlocks: Map<string, Extract<TimelineBlock, { kind: "assistant-part" }>>
+  revertBlocks: Map<string, Extract<TimelineBlock, { kind: "revert" }>>
+  userBlocks: Map<string, Extract<TimelineBlock, { kind: "user-message" }>>
+}
+
+export function createTimelineDerivationCache(): TimelineDerivationCache {
+  return {
+    assistantMetaBlocks: new Map(),
+    assistantPartBlocks: new Map(),
+    revertBlocks: new Map(),
+    userBlocks: new Map(),
+  }
+}
+
+type TimelineProps = {
+  bootstrapStatus: "idle" | "loading" | "ready" | "error"
+  bootstrapMessage?: string
+  messages: SessionMessage[]
+  revertDiff?: string
+  revertID?: string
   AgentBadge: ({ name }: { name: string }) => React.JSX.Element
   CompactionDivider: () => React.JSX.Element
   EmptyState: ({ title, text }: { title: string; text: string }) => React.JSX.Element
   MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
   PartView: ({ part, active, diffMode }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
-}) {
-  const revertID = state.snapshot.session?.revert?.messageID
-  const messages = state.snapshot.messages
+}
+
+export const Timeline = React.memo(function Timeline({
+  bootstrapStatus,
+  bootstrapMessage,
+  messages,
+  revertDiff,
+  revertID,
+  AgentBadge,
+  CompactionDivider,
+  EmptyState,
+  MarkdownBlock,
+  PartView,
+}: TimelineProps) {
   const [showThinking, setShowThinking] = React.useState(true)
   const [showInternals, setShowInternals] = React.useState(false)
   const [diffMode, setDiffMode] = React.useState<"unified" | "split">("unified")
+  const cacheRef = React.useRef<TimelineDerivationCache>(createTimelineDerivationCache())
 
-  if (state.bootstrap.status === "error") {
-    return <EmptyState title="Session unavailable" text={state.bootstrap.message || "The workspace runtime is not ready."} />
+  const blocks = React.useMemo(() => reconcileTimelineBlocks(cacheRef.current, messages, {
+    showThinking,
+    showInternals,
+    revertID,
+    revertDiff,
+  }), [messages, revertDiff, revertID, showInternals, showThinking])
+  const activeToolID = React.useMemo(() => latestActiveToolId(blocks.flatMap((block) => block.kind === "assistant-part" ? [block.part] : [])), [blocks])
+  const hasPatchDiff = React.useMemo(() => blocks.some((block) => block.kind === "assistant-part" && block.part.type === "tool" && block.part.tool === "apply_patch"), [blocks])
+
+  if (bootstrapStatus === "error") {
+    return <EmptyState title="Session unavailable" text={bootstrapMessage || "The workspace runtime is not ready."} />
   }
 
-  if (state.bootstrap.status !== "ready" && messages.length === 0) {
-    return <EmptyState title="Connecting to workspace" text={state.bootstrap.message || "Waiting for workspace runtime."} />
+  if (bootstrapStatus !== "ready" && messages.length === 0) {
+    return <EmptyState title="Connecting to workspace" text={bootstrapMessage || "Waiting for workspace runtime."} />
   }
 
   if (messages.length === 0) {
     return <EmptyState title="Start this session" text="Send a message below. Pending permission and question requests will appear in the lower dock." />
   }
-
-  const blocks = buildTimelineBlocks(messages, {
-    showThinking,
-    showInternals,
-    revertID,
-    revertDiff: state.snapshot.session?.revert?.diff,
-  })
-  const activeToolID = latestActiveToolId(blocks.flatMap((block) => block.kind === "assistant-part" ? [block.part] : []))
-  const hasPatchDiff = blocks.some((block) => block.kind === "assistant-part" && block.part.type === "tool" && block.part.tool === "apply_patch")
 
   return (
     <TranscriptVisibilityContext.Provider value={{ showThinking, showInternals }}>
@@ -74,13 +105,13 @@ export function Timeline({
           ) : null}
         </div>
         {blocks.map((block) => (
-          <TimelineBlockView
+          <MemoTimelineBlockView
             key={block.key}
             AgentBadge={AgentBadge}
             CompactionDivider={CompactionDivider}
             MarkdownBlock={MarkdownBlock}
             PartView={PartView}
-            activeToolID={activeToolID}
+            active={block.kind === "assistant-part" && block.part.type === "tool" && block.part.id === activeToolID}
             block={block}
             diffMode={diffMode}
           />
@@ -88,6 +119,16 @@ export function Timeline({
       </div>
     </TranscriptVisibilityContext.Provider>
   )
+})
+
+type TimelineBlockViewProps = {
+  AgentBadge: ({ name }: { name: string }) => React.JSX.Element
+  CompactionDivider: () => React.JSX.Element
+  MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
+  PartView: ({ part, active, diffMode }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
+  active: boolean
+  block: TimelineBlock
+  diffMode: "unified" | "split"
 }
 
 function TimelineBlockView({
@@ -95,18 +136,10 @@ function TimelineBlockView({
   CompactionDivider,
   MarkdownBlock,
   PartView,
-  activeToolID,
+  active,
   block,
   diffMode,
-}: {
-  AgentBadge: ({ name }: { name: string }) => React.JSX.Element
-  CompactionDivider: () => React.JSX.Element
-  MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
-  PartView: ({ part, active, diffMode }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
-  activeToolID: string
-  block: TimelineBlock
-  diffMode: "unified" | "split"
-}) {
+}: TimelineBlockViewProps) {
   if (block.kind === "user-message") {
     const userText = primaryUserText(block.message)
     const userFiles = userAttachments(block.message)
@@ -165,7 +198,79 @@ function TimelineBlockView({
   }
 
   const part = block.part
-  return <PartView part={part} active={part.type === "tool" && part.id === activeToolID} diffMode={diffMode} />
+  return <PartView part={part} active={active} diffMode={diffMode} />
+}
+
+const MemoTimelineBlockView = React.memo(TimelineBlockView, areTimelineBlockPropsEqual)
+
+function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: TimelineBlockViewProps) {
+  if (prev.AgentBadge !== next.AgentBadge
+    || prev.CompactionDivider !== next.CompactionDivider
+    || prev.MarkdownBlock !== next.MarkdownBlock
+    || prev.PartView !== next.PartView
+    || prev.active !== next.active
+    || prev.diffMode !== next.diffMode) {
+    return false
+  }
+
+  return sameTimelineBlock(prev.block, next.block)
+}
+
+function sameTimelineBlock(prev: TimelineBlock, next: TimelineBlock) {
+  if (prev.kind !== next.kind || prev.key !== next.key) {
+    return false
+  }
+
+  if (prev.kind === "user-message" && next.kind === "user-message") {
+    return prev.message === next.message && prev.queued === next.queued
+  }
+
+  if (prev.kind === "assistant-part" && next.kind === "assistant-part") {
+    return prev.part === next.part
+  }
+
+  if (prev.kind === "assistant-meta" && next.kind === "assistant-meta") {
+    return sameMessageList(prev.messages, next.messages)
+  }
+
+  if (prev.kind === "revert" && next.kind === "revert") {
+    return prev.count === next.count && sameRevertFiles(prev.files, next.files)
+  }
+
+  return false
+}
+
+function sameMessageList(prev: SessionMessage[], next: SessionMessage[]) {
+  if (prev.length !== next.length) {
+    return false
+  }
+
+  for (let index = 0; index < prev.length; index += 1) {
+    if (prev[index] !== next[index]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function sameRevertFiles(
+  prev: Array<{ filename: string; additions: number; deletions: number }>,
+  next: Array<{ filename: string; additions: number; deletions: number }>,
+) {
+  if (prev.length !== next.length) {
+    return false
+  }
+
+  for (let index = 0; index < prev.length; index += 1) {
+    const left = prev[index]
+    const right = next[index]
+    if (!left || !right || left.filename !== right.filename || left.additions !== right.additions || left.deletions !== right.deletions) {
+      return false
+    }
+  }
+
+  return true
 }
 
 function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { name: string }) => React.JSX.Element; messages: SessionMessage[] }) {
@@ -202,18 +307,19 @@ function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { 
   )
 }
 
-function buildTimelineBlocks(messages: SessionMessage[], options: { showThinking: boolean; showInternals: boolean; revertID?: string; revertDiff?: string }) {
+export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages: SessionMessage[], options: TimelineDerivationOptions) {
+  const nextAssistantMetaBlocks = new Map<string, Extract<TimelineBlock, { kind: "assistant-meta" }>>()
+  const nextAssistantPartBlocks = new Map<string, Extract<TimelineBlock, { kind: "assistant-part" }>>()
+  const nextRevertBlocks = new Map<string, Extract<TimelineBlock, { kind: "revert" }>>()
+  const nextUserBlocks = new Map<string, Extract<TimelineBlock, { kind: "user-message" }>>()
   const blocks: TimelineBlock[] = []
   let assistants: SessionMessage[] = []
   const pendingAssistantIndex = lastPendingAssistantIndex(messages)
 
   const flush = () => {
-    if (assistantTurnMeta(messagesFromAssistants(assistants))) {
-      blocks.push({
-        kind: "assistant-meta",
-        key: `meta:${assistants[0]?.info.id || assistants.length}`,
-        messages: assistants,
-      })
+    const meta = assistantMetaBlock(cache.assistantMetaBlocks, nextAssistantMetaBlocks, assistants)
+    if (meta) {
+      blocks.push(meta)
     }
     assistants = []
   }
@@ -221,35 +327,122 @@ function buildTimelineBlocks(messages: SessionMessage[], options: { showThinking
   for (const [index, message] of messages.entries()) {
     if (options.revertID && message.info.id === options.revertID) {
       flush()
-      blocks.push({
-        kind: "revert",
-        key: `revert:${message.info.id}`,
-        count: revertedUserCount(messages, options.revertID),
-        files: revertFiles(options.revertDiff),
-      })
+      blocks.push(revertBlock(cache.revertBlocks, nextRevertBlocks, message.info.id, revertedUserCount(messages, options.revertID), revertFiles(options.revertDiff)))
       break
     }
 
     if (message.info.role === "user") {
       flush()
-      blocks.push({
-        kind: "user-message",
-        key: `user:${message.info.id}`,
-        message,
-        queued: pendingAssistantIndex >= 0 && index > pendingAssistantIndex,
-      })
+      blocks.push(userBlock(cache.userBlocks, nextUserBlocks, message, pendingAssistantIndex >= 0 && index > pendingAssistantIndex))
       continue
     }
 
     const parts = message.parts.filter((part) => visibleAssistantPart(part, options))
     for (const part of parts) {
-      blocks.push({ kind: "assistant-part", key: `part:${part.id}`, part })
+      blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
     }
     assistants.push(message)
   }
 
   flush()
+  cache.assistantMetaBlocks = nextAssistantMetaBlocks
+  cache.assistantPartBlocks = nextAssistantPartBlocks
+  cache.revertBlocks = nextRevertBlocks
+  cache.userBlocks = nextUserBlocks
   return blocks
+}
+
+function userBlock(
+  cache: Map<string, Extract<TimelineBlock, { kind: "user-message" }>>,
+  nextCache: Map<string, Extract<TimelineBlock, { kind: "user-message" }>>,
+  message: SessionMessage,
+  queued: boolean,
+) {
+  const key = `user:${message.info.id}`
+  const prev = cache.get(key)
+  if (prev && prev.message === message && prev.queued === queued) {
+    nextCache.set(key, prev)
+    return prev
+  }
+
+  const next: Extract<TimelineBlock, { kind: "user-message" }> = {
+    kind: "user-message",
+    key,
+    message,
+    queued,
+  }
+  nextCache.set(key, next)
+  return next
+}
+
+function assistantPartBlock(
+  cache: Map<string, Extract<TimelineBlock, { kind: "assistant-part" }>>,
+  nextCache: Map<string, Extract<TimelineBlock, { kind: "assistant-part" }>>,
+  part: MessagePart,
+) {
+  const key = `part:${part.id}`
+  const prev = cache.get(key)
+  if (prev && prev.part === part) {
+    nextCache.set(key, prev)
+    return prev
+  }
+
+  const next: Extract<TimelineBlock, { kind: "assistant-part" }> = {
+    kind: "assistant-part",
+    key,
+    part,
+  }
+  nextCache.set(key, next)
+  return next
+}
+
+function assistantMetaBlock(
+  cache: Map<string, Extract<TimelineBlock, { kind: "assistant-meta" }>>,
+  nextCache: Map<string, Extract<TimelineBlock, { kind: "assistant-meta" }>>,
+  messages: SessionMessage[],
+) {
+  if (!assistantTurnMeta(messagesFromAssistants(messages))) {
+    return undefined
+  }
+
+  const key = `meta:${messages[0]?.info.id || messages.length}`
+  const prev = cache.get(key)
+  if (prev && sameMessageList(prev.messages, messages)) {
+    nextCache.set(key, prev)
+    return prev
+  }
+
+  const next: Extract<TimelineBlock, { kind: "assistant-meta" }> = {
+    kind: "assistant-meta",
+    key,
+    messages,
+  }
+  nextCache.set(key, next)
+  return next
+}
+
+function revertBlock(
+  cache: Map<string, Extract<TimelineBlock, { kind: "revert" }>>,
+  nextCache: Map<string, Extract<TimelineBlock, { kind: "revert" }>>,
+  messageID: string,
+  count: number,
+  files: Array<{ filename: string; additions: number; deletions: number }>,
+) {
+  const key = `revert:${messageID}`
+  const prev = cache.get(key)
+  if (prev && prev.count === count && sameRevertFiles(prev.files, files)) {
+    nextCache.set(key, prev)
+    return prev
+  }
+
+  const next: Extract<TimelineBlock, { kind: "revert" }> = {
+    kind: "revert",
+    key,
+    count,
+    files,
+  }
+  nextCache.set(key, next)
+  return next
 }
 
 function revertedUserCount(messages: SessionMessage[], revertID: string) {

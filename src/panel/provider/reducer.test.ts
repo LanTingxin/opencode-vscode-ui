@@ -1,34 +1,22 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
+
 import type { SessionSnapshot } from "../../bridge/types"
-import type { SessionEvent, SessionInfo } from "../../core/sdk"
 import { needsRefresh } from "./reducer"
 
-function session(id: string, options?: Partial<SessionInfo>): SessionInfo {
-  return {
-    id,
-    directory: "/workspace",
-    title: id,
-    time: {
-      created: 0,
-      updated: 0,
-      archived: options?.time?.archived,
-    },
-    ...options,
-  }
-}
-
-function snapshot(current: SessionInfo, relatedSessionIds: string[]): SessionSnapshot {
+function snapshot(parentID?: string): SessionSnapshot {
   return {
     status: "ready",
-    sessionRef: {
-      workspaceId: "file:///workspace",
-      dir: "/workspace",
-      sessionId: current.id,
-    },
     workspaceName: "workspace",
-    session: current,
-    message: "",
+    sessionRef: { workspaceId: "file:///workspace", dir: "/workspace", sessionId: parentID ? "child" : "root" },
+    session: {
+      id: parentID ? "child" : "root",
+      directory: "/workspace",
+      parentID,
+      title: parentID ? "child" : "root",
+      time: { created: 1, updated: 1 },
+    },
+    message: "ready",
     sessionStatus: { type: "idle" },
     messages: [],
     childMessages: {},
@@ -47,38 +35,58 @@ function snapshot(current: SessionInfo, relatedSessionIds: string[]): SessionSna
     mcpResources: {},
     lsp: [],
     commands: [],
-    relatedSessionIds,
+    relatedSessionIds: parentID ? ["child"] : ["root", "child"],
     agentMode: "build",
     navigation: {},
   }
 }
 
-function sessionEvent(info: SessionInfo): SessionEvent {
-  return {
-    type: "session.created",
-    properties: { info },
-  }
-}
-
-describe("needsRefresh", () => {
-  test("refreshes root panels when a grandchild is created under a known child", () => {
-    const payload = snapshot(session("root"), ["root", "child-a"])
-    const event = sessionEvent(session("grandchild-a", { parentID: "child-a" }))
-
-    assert.equal(needsRefresh(event, payload), true)
+describe("needsRefresh session tree events", () => {
+  test("root panel does not refresh for child session changes", () => {
+    assert.equal(needsRefresh({
+      type: "session.created",
+      properties: { info: { id: "child", parentID: "root" } },
+    } as never, snapshot()), false)
+    assert.equal(needsRefresh({
+      type: "session.updated",
+      properties: { info: { id: "child", parentID: "root" } },
+    } as never, snapshot()), false)
+    assert.equal(needsRefresh({
+      type: "session.deleted",
+      properties: { info: { id: "child" } },
+    } as never, snapshot()), false)
+    assert.equal(needsRefresh({
+      type: "session.updated",
+      properties: { info: { id: "outside", parentID: "root" } },
+    } as never, snapshot()), true)
   })
 
-  test("refreshes child panels when a sibling is created", () => {
-    const payload = snapshot(session("child-a", { parentID: "root" }), ["child-a"])
-    const event = sessionEvent(session("child-b", { parentID: "root" }))
-
-    assert.equal(needsRefresh(event, payload), true)
-  })
-
-  test("refreshes child panels when a descendant is created", () => {
-    const payload = snapshot(session("child-a", { parentID: "root" }), ["child-a"])
-    const event = sessionEvent(session("grandchild-a", { parentID: "child-a" }))
-
-    assert.equal(needsRefresh(event, payload), true)
+  test("child panel still refreshes for sibling and parent tree changes", () => {
+    assert.equal(needsRefresh({
+      type: "session.created",
+      properties: { info: { id: "sibling", parentID: "root" } },
+    } as never, snapshot("root")), true)
+    assert.equal(needsRefresh({
+      type: "session.created",
+      properties: { info: { id: "grandchild", parentID: "child" } },
+    } as never, {
+      ...snapshot("root"),
+      relatedSessionIds: ["child", "grandchild-parent"],
+    }), true)
+    assert.equal(needsRefresh({
+      type: "session.updated",
+      properties: { info: { id: "root" } },
+    } as never, snapshot("root")), true)
+    assert.equal(needsRefresh({
+      type: "session.updated",
+      properties: { info: { id: "grandchild", parentID: "grandchild-parent" } },
+    } as never, {
+      ...snapshot("root"),
+      relatedSessionIds: ["child", "grandchild-parent"],
+    }), true)
+    assert.equal(needsRefresh({
+      type: "session.deleted",
+      properties: { info: { id: "sibling", parentID: "root" } },
+    } as never, snapshot("root")), true)
   })
 })
