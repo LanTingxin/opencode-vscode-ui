@@ -74,6 +74,10 @@ function splitDiffRows(value: string) {
     let newLine = hunk.newStart
     for (let index = 0; index < hunk.lines.length; index += 1) {
       const line = hunk.lines[index] || ""
+      if (line.startsWith("\\ No newline at end of file")) {
+        rows.push({ left: line, right: line, leftType: "ctx", rightType: "ctx", leftMarker: "", rightMarker: "" })
+        continue
+      }
       if (line.startsWith("-")) {
         const next = hunk.lines[index + 1] || ""
         if (next.startsWith("+")) {
@@ -108,6 +112,10 @@ function parseUnifiedDiffRows(value: string) {
     let oldLine = hunk.oldStart
     let newLine = hunk.newStart
     for (const line of hunk.lines) {
+      if (line.startsWith("\\ No newline at end of file")) {
+        rows.push({ type: "ctx", text: line, marker: "" })
+        continue
+      }
       if (line.startsWith("-")) {
         rows.push({ type: "del", text: line.slice(1), oldLine, marker: "-" })
         oldLine += 1
@@ -140,9 +148,6 @@ function parseDiffHunks(value: string) {
       continue
     }
     if (!current) {
-      continue
-    }
-    if (line.startsWith("\\ No newline at end of file")) {
       continue
     }
     current.lines.push(line)

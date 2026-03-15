@@ -71,7 +71,12 @@ export function ToolApplyPatchPanel({
             <section key={`${item.path}:${item.type}:${item.summary}`} className="oc-patchItem">
               <OutputWindow
                 action={item.type}
-                title={<FileRefText value={item.path} display={item.path} />}
+                title={
+                  <>
+                    <FileRefText value={item.path} display={item.path} />
+                    {status !== "running" ? <ToolStatus state={part.state?.status} /> : null}
+                  </>
+                }
                 running={status === "running"}
                 lineCount={item.diff ? diffOutputLineCount(item.diff, diffMode) : normalizedLineCount(item.summary)}
                 className="oc-outputWindow-patch"

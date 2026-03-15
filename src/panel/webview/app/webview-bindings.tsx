@@ -11,7 +11,7 @@ import { MarkdownBlock as BaseMarkdownBlock } from "../renderers/MarkdownBlock"
 import { OutputWindow as BaseOutputWindow, normalizedLineCount } from "../renderers/OutputWindow"
 import { cleanReasoning, dividerText, extractUrls, fileLabel, isDividerPart, partMeta, partTitle, questionAnswerGroups, questionInfoList, retryText, stringList, textValue, todoMarker, uniqueStrings } from "../lib/part-utils"
 import { agentColorClass } from "../lib/session-meta"
-import { defaultToolExpanded, isMcpTool, lspRendersInline, patchFiles, toolChildSessionId, toolDetails, toolDiagnostics, toolEditDiff, toolFiles, toolLabel, toolTextBody, toolTodos, toolWriteContent } from "../lib/tool-meta"
+import { defaultToolExpanded, isMcpTool, lspRendersInline, patchFiles, toolChildSessionId, toolDetails, toolDiagnostics, toolEditDiff, toolFiles, toolLabel, toolTextBody, toolTodos, toolWriteDiff } from "../lib/tool-meta"
 import { ToolFilesPanel as BaseToolFilesPanel } from "../tools/ToolFilesPanel"
 import { ToolLinksPanel as BaseToolLinksPanel } from "../tools/ToolLinksPanel"
 import { renderInlineLspToolTitle, ToolLspPanel as BaseToolLspPanel } from "../tools/ToolLspPanel"
@@ -95,11 +95,11 @@ export function ToolFilesPanel({ part, active = false, diffMode = "unified" }: {
 }
 
 export function ToolWritePanel({ part, active = false }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean }) {
-  return <BaseToolWritePanel CodeBlock={CodeBlock} DiagnosticsList={DiagnosticsList} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} part={part} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolLabel={toolLabel} toolTextBody={toolTextBody} toolWriteContent={toolWriteContent} />
+  return <BaseToolWritePanel DiagnosticsList={DiagnosticsList} DiffWindowBody={DiffWindowBody} FileRefText={FileRefText} OutputWindow={OutputWindow} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} diffOutputLineCount={diffOutputLineCount} part={part} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolFiles={toolFiles} toolLabel={toolLabel} toolTextBody={toolTextBody} toolWriteDiff={toolWriteDiff} />
 }
 
 export function ToolEditPanel({ part, active = false, diffMode = "unified" }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean; diffMode?: "unified" | "split" }) {
-  return <BaseToolEditPanel DiagnosticsList={DiagnosticsList} DiffBlock={DiffBlock} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} diffMode={diffMode} part={part} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolEditDiff={toolEditDiff} toolLabel={toolLabel} toolTextBody={toolTextBody} />
+  return <BaseToolEditPanel DiagnosticsList={DiagnosticsList} DiffWindowBody={DiffWindowBody} FileRefText={FileRefText} OutputWindow={OutputWindow} ToolFallbackText={ToolFallbackText} ToolStatus={ToolStatus} active={active} defaultToolExpanded={defaultToolExpanded} diffMode={diffMode} diffOutputLineCount={diffOutputLineCount} part={part} toolDetails={toolDetails} toolDiagnostics={toolDiagnostics} toolEditDiff={toolEditDiff} toolFiles={toolFiles} toolLabel={toolLabel} toolTextBody={toolTextBody} />
 }
 
 export function ToolApplyPatchPanel({ part, active = false, diffMode = "unified" }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean; diffMode?: "unified" | "split" }) {

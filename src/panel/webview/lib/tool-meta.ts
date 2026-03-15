@@ -246,6 +246,33 @@ export function toolWriteContent(part: Extract<MessagePart, { type: "tool" }>) {
   return stringValue(input.content)
 }
 
+export function toolWriteDiff(part: Extract<MessagePart, { type: "tool" }>) {
+  const input = recordValue(part.state?.input)
+  const metadata = recordValue(part.state?.metadata)
+  const path = stringValue(input.filePath) || stringValue(input.path) || stringValue(metadata.filepath) || "untitled"
+  const content = toolWriteContent(part)
+  const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  const hasTrailingNewline = normalized.endsWith("\n")
+  const lines = normalized ? normalized.split("\n") : []
+  if (hasTrailingNewline) {
+    lines.pop()
+  }
+  const hunkSize = lines.length
+  const body = lines.map((line) => `+${line}`).join("\n")
+  const out = [
+    `--- /dev/null`,
+    `+++ b/${path}`,
+    `@@ -0,0 +1,${hunkSize} @@`,
+  ]
+  if (body) {
+    out.push(body)
+  }
+  if (normalized && !hasTrailingNewline) {
+    out.push("\\ No newline at end of file")
+  }
+  return out.join("\n")
+}
+
 export function toolEditDiff(part: Extract<MessagePart, { type: "tool" }>) {
   const metadata = recordValue(part.state?.metadata)
   return stringValue(metadata.diff)
