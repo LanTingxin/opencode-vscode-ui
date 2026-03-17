@@ -12,7 +12,6 @@ import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
 import { formatComposerFileContent, parseComposerFileQuery } from "../lib/composer-file-selection"
-import { consumePendingHostMessageTraces, formatHostMessageTrace, peekPendingHostMessageTraces, SLOW_RENDER_MS } from "../lib/host-message-trace"
 import { agentColorClass, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel, type StatusItem, type StatusTone } from "../lib/session-meta"
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
@@ -65,17 +64,6 @@ export function App() {
   const autocompleteDismissedRef = React.useRef<null | { trigger: ComposerAutocompleteState["trigger"]; query: string; start: number; end: number }>(null)
   const leaderTimerRef = React.useRef<number | null>(null)
   const leaderPendingRef = React.useRef(false)
-  const lastConsumedHostTraceIDRef = React.useRef(0)
-  const renderTraceRef = React.useRef<{ startedAt: number; traces: ReturnType<typeof peekPendingHostMessageTraces>; messageCount: number } | null>(null)
-  const pendingTraceLimit = state.hostTraceID
-  const pendingRenderTraces = pendingTraceLimit && pendingTraceLimit > lastConsumedHostTraceIDRef.current
-    ? peekPendingHostMessageTraces().filter((trace) => trace.id > lastConsumedHostTraceIDRef.current && trace.id <= pendingTraceLimit)
-    : []
-  renderTraceRef.current = {
-    startedAt: globalThis.performance?.now() ?? Date.now(),
-    traces: pendingRenderTraces,
-    messageCount: state.snapshot.messages.length,
-  }
   const onFileSearchResults = React.useCallback((payload: { requestID: string; query: string; results: ComposerPathResult[] }) => {
     if (!searchRef.current || payload.requestID !== searchRef.current.requestID) {
       return
@@ -287,29 +275,6 @@ export function App() {
   React.useEffect(() => {
     vscode.setState(persistedPanelState)
   }, [persistedPanelState])
-
-  React.useLayoutEffect(() => {
-    const trace = renderTraceRef.current
-    if (!trace || trace.traces.length === 0) {
-      return
-    }
-
-    consumePendingHostMessageTraces(trace.traces.map((item) => item.id))
-    lastConsumedHostTraceIDRef.current = trace.traces[trace.traces.length - 1]?.id ?? lastConsumedHostTraceIDRef.current
-
-    const duration = (globalThis.performance?.now() ?? Date.now()) - trace.startedAt
-    if (duration < SLOW_RENDER_MS) {
-      return
-    }
-
-    const lastMessage = state.snapshot.messages.at(-1)?.info.id || "-"
-    const traceIDs = trace.traces.map((item) => item.id).join(",")
-    vscode.postMessage({
-      type: "debugLog",
-      scope: "render",
-      message: `render=${duration.toFixed(2)}ms messages=${trace.messageCount}->${state.snapshot.messages.length} lastMessage=${lastMessage} traceIDs=${traceIDs} traces=${trace.traces.map((item) => formatHostMessageTrace(item)).join(" | ")}`,
-    })
-  })
 
   React.useEffect(() => {
     if (!latestUserSelection?.messageID) {

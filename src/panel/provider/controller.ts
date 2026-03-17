@@ -59,11 +59,6 @@ export class SessionPanelController implements vscode.Disposable {
           return
         }
 
-        if (message?.type === "debugLog") {
-          this.log(`[webview:${message.scope}] ${message.message}`)
-          return
-        }
-
         if (message?.type === "submit") {
           void submit(this.actionContext(), message.text, message.parts, message.agent, message.model, message.variant)
           return

@@ -154,11 +154,6 @@ export type WebviewMessage =
       type: "ready"
     }
   | {
-      type: "debugLog"
-      scope: "host-message" | "render"
-      message: string
-    }
-  | {
       type: "refresh"
     }
   | {

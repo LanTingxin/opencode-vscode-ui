@@ -105,7 +105,6 @@ export type AppState = {
   composerFavoriteModels: ComposerModelRef[]
   composerModelVariants: Record<string, string>
   composerHydratedMessageID?: string
-  hostTraceID?: number
   error: string
   form: FormState
 }
@@ -169,7 +168,6 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
     composerFavoriteModels: normalizeModelList(persisted?.composerFavoriteModels),
     composerModelVariants: sameSession ? normalizeVariantMap(persisted?.composerModelVariants) : {},
     composerHydratedMessageID: undefined,
-    hostTraceID: undefined,
     error: "",
     form: {
       selected: {},
