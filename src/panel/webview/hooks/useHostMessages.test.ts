@@ -323,4 +323,102 @@ describe("dispatchHostMessage", () => {
     assert.strictEqual(state.snapshot.messages[1]?.parts[0], previousAssistantPart)
     assert.equal(state.snapshot.session?.title, "session-1 renamed")
   })
+
+  test("logs anomaly when delta arrives before the message part exists", () => {
+    const fileRefStatus = new Map<string, boolean>()
+    let state = createInitialState({
+      workspaceId: "file:///workspace",
+      dir: "/workspace",
+      sessionId: "session-1",
+    })
+    const logs: string[] = []
+    const debugVsCode = {
+      postMessage: (message: { type: string; scope?: string; message?: string }) => {
+        if (message.type === "debugLog" && message.message) {
+          logs.push(message.message)
+        }
+      },
+      getState: () => undefined,
+      setState: () => {},
+    }
+
+    dispatchHostMessage({
+      type: "snapshot",
+      reason: "test:initial",
+      payload: {
+        status: "ready",
+        workspaceName: "workspace",
+        sessionRef: state.bootstrap.sessionRef,
+        session: {
+          id: "session-1",
+          directory: "/workspace",
+          title: "session-1",
+          time: { created: 0, updated: 0 },
+        },
+        message: "ready",
+        display: {
+          showInternals: false,
+          showThinking: true,
+          diffMode: "unified" as const,
+        },
+        sessionStatus: { type: "idle" as const },
+        messages: [],
+        childMessages: {},
+        childSessions: {},
+        submitting: false,
+        todos: [],
+        diff: [],
+        permissions: [],
+        questions: [],
+        agents: [],
+        defaultAgent: undefined,
+        providers: [],
+        providerDefault: undefined,
+        configuredModel: undefined,
+        mcp: {},
+        mcpResources: {},
+        lsp: [],
+        commands: [],
+        relatedSessionIds: ["session-1"],
+        agentMode: "build",
+        navigation: {},
+      },
+    } satisfies HostMessage, {
+      fileRefStatus,
+      onFileSearchResults: () => {},
+      onRestoreComposer: () => {},
+      onShellCommandSucceeded: () => {},
+      setPendingMcpActions: (() => {}) as Dispatch<SetStateAction<Record<string, boolean>>>,
+      setState: ((update: SetStateAction<AppState>) => {
+        state = applyStateUpdate(update, state)
+      }) as Dispatch<SetStateAction<AppState>>,
+      vscode: debugVsCode,
+    })
+
+    dispatchHostMessage({
+      type: "sessionEvent",
+      event: {
+        type: "message.part.delta",
+        properties: {
+          sessionID: "session-1",
+          messageID: "m2",
+          partID: "p2",
+          field: "text",
+          delta: "late",
+        },
+      },
+    } satisfies HostMessage, {
+      fileRefStatus,
+      onFileSearchResults: () => {},
+      onRestoreComposer: () => {},
+      onShellCommandSucceeded: () => {},
+      setPendingMcpActions: (() => {}) as Dispatch<SetStateAction<Record<string, boolean>>>,
+      setState: ((update: SetStateAction<AppState>) => {
+        state = applyStateUpdate(update, state)
+      }) as Dispatch<SetStateAction<AppState>>,
+      vscode: debugVsCode,
+    })
+
+    assert.equal(logs.some((line) => line.includes("anomaly message.part.delta missing-message session=session-1 message=m2 part=p2 field=text")), true)
+  })
 })

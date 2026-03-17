@@ -1,5 +1,6 @@
 import React from "react"
 import type { ComposerPathResult, HostMessage, SessionSnapshot } from "../../../bridge/types"
+import type { SessionEvent } from "../../../core/sdk"
 import { reduceSessionSnapshot } from "../../shared/session-reducer"
 import { summarizeSessionSnapshot } from "../../shared/session-summary"
 import { bootstrapFromSnapshot, normalizeSnapshotPayload, type AppState, type VsCodeApi } from "../app/state"
@@ -58,6 +59,7 @@ export function dispatchHostMessage(message: HostMessage, handlers: {
 
   if (message?.type === "sessionEvent") {
     handlers.setState((current) => {
+      logSessionEventAnomaly(message.event, asSessionSnapshot(current), handlers.vscode)
       const reduceStartedAt = timestamp()
       const nextSnapshotState = reduceSessionSnapshot(asSessionSnapshot(current), message.event)
       const reduceMs = timestamp() - reduceStartedAt
@@ -196,6 +198,74 @@ export function dispatchHostMessage(message: HostMessage, handlers: {
       return next
     })
   }
+}
+
+function logSessionEventAnomaly(event: SessionEvent, snapshot: SessionSnapshot, vscode: VsCodeApi) {
+  if (event.type === "message.part.updated") {
+    const props = event.properties as { part: { sessionID: string; messageID: string; id: string } }
+    if (!snapshot.relatedSessionIds.includes(props.part.sessionID)) {
+      return
+    }
+
+    if (!findMessage(snapshot, props.part.sessionID, props.part.messageID)) {
+      vscode.postMessage({
+        type: "debugLog",
+        scope: "host-message",
+        message: `anomaly message.part.updated missing-message session=${props.part.sessionID} message=${props.part.messageID} part=${props.part.id}`,
+      })
+    }
+    return
+  }
+
+  if (event.type !== "message.part.delta") {
+    return
+  }
+
+  const props = event.properties as {
+    sessionID: string
+    messageID: string
+    partID: string
+    field: string
+  }
+  if (!snapshot.relatedSessionIds.includes(props.sessionID)) {
+    return
+  }
+
+  const targetMessage = findMessage(snapshot, props.sessionID, props.messageID)
+  if (!targetMessage) {
+    vscode.postMessage({
+      type: "debugLog",
+      scope: "host-message",
+      message: `anomaly message.part.delta missing-message session=${props.sessionID} message=${props.messageID} part=${props.partID} field=${props.field}`,
+    })
+    return
+  }
+
+  const targetPart = targetMessage.parts.find((part) => part.id === props.partID)
+  if (!targetPart) {
+    vscode.postMessage({
+      type: "debugLog",
+      scope: "host-message",
+      message: `anomaly message.part.delta missing-part session=${props.sessionID} message=${props.messageID} part=${props.partID} field=${props.field}`,
+    })
+    return
+  }
+
+  const current = targetPart[props.field as keyof typeof targetPart]
+  if (typeof current !== "string") {
+    vscode.postMessage({
+      type: "debugLog",
+      scope: "host-message",
+      message: `anomaly message.part.delta non-string-field session=${props.sessionID} message=${props.messageID} part=${props.partID} field=${props.field}`,
+    })
+  }
+}
+
+function findMessage(snapshot: SessionSnapshot, sessionID: string, messageID: string) {
+  const messages = sessionID === snapshot.sessionRef.sessionId
+    ? snapshot.messages
+    : snapshot.childMessages[sessionID] ?? []
+  return messages.find((item) => item.info.id === messageID)
 }
 
 function asSessionSnapshot(state: AppState): SessionSnapshot {

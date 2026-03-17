@@ -11,6 +11,7 @@ type Harness = {
   pushes: Array<{ force: boolean | undefined; reason: string | undefined }>
   snapshots: Array<{ payload: SessionSnapshot; reason: string }>
   events: Array<Extract<HostMessage, { type: "sessionEvent" }>>
+  logs: string[]
 }
 
 function sessionInfo(id: string, parentID?: string): SessionInfo {
@@ -92,11 +93,13 @@ function createHarness(current: SessionSnapshot, incrementalReady = true): Harne
   const pushes: Harness["pushes"] = []
   const snapshots: Harness["snapshots"] = []
   const events: Harness["events"] = []
+  const logs: Harness["logs"] = []
   const controller = Object.create(SessionPanelController.prototype) as any
 
   controller.ready = true
   controller.incrementalReady = incrementalReady
   controller.current = current
+  controller.extensionUri = { path: "/extension", fsPath: "/extension", toString: () => "/extension" }
   controller.ref = current.sessionRef
   controller.panel = { title: panelTitle(current.session?.title || current.sessionRef.sessionId) }
   controller.deferredDirty = {
@@ -118,8 +121,14 @@ function createHarness(current: SessionSnapshot, incrementalReady = true): Harne
   controller.postEvent = async (hostMessage: Extract<HostMessage, { type: "sessionEvent" }>) => {
     events.push(hostMessage)
   }
+  controller.out = {
+    appendLine(message: string) {
+      logs.push(message)
+    },
+  }
+  controller.key = `${current.sessionRef.workspaceId}:${current.sessionRef.sessionId}`
 
-  return { controller, pushes, snapshots, events }
+  return { controller, pushes, snapshots, events, logs }
 }
 
 async function handle(controller: SessionPanelController, event: SessionEvent) {
@@ -294,6 +303,35 @@ describe("SessionPanelController.handle", () => {
     assert.deepEqual(snapshots, [])
     assert.deepEqual(events, [{ type: "sessionEvent", event }])
     assert.equal((controller as any).panel.title, panelTitle("session renamed"))
+  })
+
+  test("logs key transcript events for the active panel session", async () => {
+    const current = snapshot()
+    const { controller, logs } = createHarness(current)
+
+    await handle(controller, {
+      type: "message.part.updated",
+      properties: {
+        part: {
+          id: "m1-part",
+          sessionID: "root",
+          messageID: "m1",
+          type: "text",
+          text: "hello world",
+        },
+      },
+    } satisfies SessionEvent)
+
+    await handle(controller, {
+      type: "session.status",
+      properties: {
+        sessionID: "root",
+        status: { type: "busy" },
+      },
+    } satisfies SessionEvent)
+
+    assert.equal(logs.some((line) => line.includes("event message.part.updated session=root message=m1 part=m1-part partType=text")), true)
+    assert.equal(logs.some((line) => line.includes("event session.status session=root status=busy")), true)
   })
 })
 

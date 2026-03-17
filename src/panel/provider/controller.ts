@@ -304,6 +304,7 @@ export class SessionPanelController implements vscode.Disposable {
       return
     }
 
+    this.logRelevantEvent(event)
     this.markDeferredDirty(event)
 
     if (this.current && needsRefresh(event, this.current)) {
@@ -333,6 +334,15 @@ export class SessionPanelController implements vscode.Disposable {
 
   private log(message: string) {
     this.out.appendLine(`[panel ${this.key}] ${message}`)
+  }
+
+  private logRelevantEvent(event: SessionEvent) {
+    const summary = summarizePanelEvent(this.ref.sessionId, event)
+    if (!summary) {
+      return
+    }
+
+    this.log(summary)
   }
 
   private seedDeferredFields(snapshot: SessionSnapshot) {
@@ -411,4 +421,35 @@ function canPostIncrementalSessionEvent(event: SessionEvent) {
     || event.type === "question.asked"
     || event.type === "question.replied"
     || event.type === "question.rejected"
+}
+
+function summarizePanelEvent(sessionId: string, event: SessionEvent) {
+  if (event.type === "session.status") {
+    const props = event.properties as { sessionID: string; status: { type: string } }
+    if (props.sessionID !== sessionId) {
+      return undefined
+    }
+
+    return `event session.status session=${props.sessionID} status=${props.status?.type || "unknown"}`
+  }
+
+  if (event.type === "message.updated") {
+    const props = event.properties as { info: { id: string; sessionID: string; role: string } }
+    if (props.info.sessionID !== sessionId) {
+      return undefined
+    }
+
+    return `event message.updated session=${props.info.sessionID} message=${props.info.id} role=${props.info.role}`
+  }
+
+  if (event.type === "message.part.updated") {
+    const props = event.properties as { part: { sessionID: string; messageID: string; id: string; type: string } }
+    if (props.part.sessionID !== sessionId) {
+      return undefined
+    }
+
+    return `event message.part.updated session=${props.part.sessionID} message=${props.part.messageID} part=${props.part.id} partType=${props.part.type}`
+  }
+
+  return undefined
 }
