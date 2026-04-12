@@ -85,6 +85,7 @@ export function commands(
         return
       }
 
+      capabilities.clear(rt.workspaceId)
       await mgr.restart(rt.workspaceId)
       await sessions.refresh(rt.workspaceId, true)
     }),

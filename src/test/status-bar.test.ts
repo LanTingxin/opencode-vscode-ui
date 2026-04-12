@@ -1,9 +1,18 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 
-import { deriveStatusBarState } from "../core/status-bar"
+import { deriveStatusBarState, pickPreferredRuntime } from "../core/status-bar"
 
 describe("status bar", () => {
+  test("prefers the active editor workspace runtime before other available runtimes", () => {
+    const runtime = pickPreferredRuntime([
+      { workspaceId: "ws-1", state: "starting" },
+      { workspaceId: "ws-2", state: "ready" },
+    ], "ws-2")
+
+    assert.equal(runtime?.workspaceId, "ws-2")
+  })
+
   test("shows busy active session state first", () => {
     const state = deriveStatusBarState({
       activeSessionTitle: "Review auth flow",

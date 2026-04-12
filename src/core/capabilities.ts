@@ -85,6 +85,10 @@ export async function probeRuntimeCapabilities(rt: Pick<WorkspaceRuntime, "dir" 
     return next
   }
 
+  next.sessionRevert = hasSdkMethod(readSdkMember(sdk, "session"), "revert") && hasSdkMethod(readSdkMember(sdk, "session"), "unrevert")
+    ? "unknown"
+    : "unsupported"
+
   next.sessionSearch = await probeCapability(async () => {
     await sdk.session.list({
       directory: rt.dir,
@@ -119,4 +123,13 @@ async function probeCapability(run: () => Promise<unknown>): Promise<CapabilityS
   } catch (error) {
     return classifyCapabilityError(error)
   }
+}
+
+function readSdkMember(target: object, key: string) {
+  const value = Reflect.get(target, key)
+  return value && typeof value === "object" ? value as Record<string, unknown> : undefined
+}
+
+function hasSdkMethod(target: Record<string, unknown> | undefined, key: string) {
+  return !!target && typeof Reflect.get(target, key) === "function"
 }

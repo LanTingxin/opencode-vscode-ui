@@ -3,6 +3,11 @@ import type { RuntimeState } from "./server"
 import { WorkspaceManager } from "./workspace"
 import { SessionPanelManager } from "../panel/provider"
 
+type RuntimeChoice = {
+  workspaceId: string
+  state: RuntimeState
+}
+
 export function deriveStatusBarState(input: {
   activeSessionTitle?: string
   activeSessionBusy?: boolean
@@ -61,6 +66,9 @@ export class OpenCodeStatusBar implements vscode.Disposable {
       this.panels.onDidChangeActiveSession(() => {
         this.update()
       }),
+      vscode.window.onDidChangeActiveTextEditor(() => {
+        this.update()
+      }),
     )
 
     this.update()
@@ -94,15 +102,30 @@ export class OpenCodeStatusBar implements vscode.Disposable {
       })
     }
 
-    const runtime = preferredRuntime(this.mgr)
+    const runtime = pickPreferredRuntime(this.mgr.list(), activeEditorWorkspaceId())
     return deriveStatusBarState({
       runtimeState: runtime?.state,
     })
   }
 }
 
-function preferredRuntime(mgr: WorkspaceManager) {
-  return mgr.list().find((rt) => rt.state === "starting")
-    ?? mgr.list().find((rt) => rt.state === "ready")
-    ?? mgr.list()[0]
+export function pickPreferredRuntime(runtimes: RuntimeChoice[], activeWorkspaceId?: string) {
+  if (activeWorkspaceId) {
+    const activeRuntime = runtimes.find((rt) => rt.workspaceId === activeWorkspaceId)
+    if (activeRuntime) {
+      return activeRuntime
+    }
+  }
+
+  return runtimes[0]
+}
+
+function activeEditorWorkspaceId() {
+  const editor = vscode.window.activeTextEditor
+  if (!editor) {
+    return undefined
+  }
+
+  const folder = vscode.workspace.getWorkspaceFolder(editor.document.uri)
+  return folder?.uri.toString()
 }
