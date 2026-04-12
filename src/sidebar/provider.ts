@@ -2,9 +2,10 @@ import * as vscode from "vscode"
 import type { SessionInfo, SessionStatus } from "../core/sdk"
 import type { WorkspaceRuntime } from "../core/server"
 import { isMissingOpencodeError, missingOpencodeMessage } from "../core/runtime-errors"
+import { SessionTagStore } from "../core/session-tags"
 import { SessionStore } from "../core/session"
 import { WorkspaceManager } from "../core/workspace"
-import { ClearSearchItem, SessionItem, StatusItem, WorkspaceItem } from "./item"
+import { ClearSearchItem, ClearTagFilterItem, SessionItem, StatusItem, WorkspaceItem } from "./item"
 
 export type WorkspaceSearchState = {
   query: string
@@ -18,6 +19,8 @@ type WorkspaceChildrenInput = {
   sessions: SessionInfo[]
   statuses: Map<string, SessionStatus>
   search?: WorkspaceSearchState
+  tagFilter?: string
+  tags?: Record<string, string[]>
 }
 
 export function setWorkspaceSearchLoading(
@@ -73,6 +76,13 @@ export function getWorkspaceSearchQuery(
   return state.get(workspaceId)?.query
 }
 
+export function getWorkspaceTagFilter(
+  state: Map<string, string>,
+  workspaceId: string,
+) {
+  return state.get(workspaceId)
+}
+
 export function buildWorkspaceChildren(input: WorkspaceChildrenInput) {
   if (input.runtime.state === "starting") {
     return [new StatusItem(`Starting server on ${input.runtime.url}`)]
@@ -95,42 +105,54 @@ export function buildWorkspaceChildren(input: WorkspaceChildrenInput) {
   }
 
   if (input.search?.status === "loading") {
-    return [new ClearSearchItem(input.runtime), new StatusItem("Searching sessions...")]
+    return [
+      new ClearSearchItem(input.runtime),
+      ...(input.tagFilter ? [new ClearTagFilterItem(input.runtime, input.tagFilter)] : []),
+      new StatusItem("Searching sessions..."),
+    ]
   }
 
   if (input.search?.status === "error") {
-    return [new ClearSearchItem(input.runtime), new StatusItem(`Search error: ${input.search.error || "Unknown error"}`)]
+    return [
+      new ClearSearchItem(input.runtime),
+      ...(input.tagFilter ? [new ClearTagFilterItem(input.runtime, input.tagFilter)] : []),
+      new StatusItem(`Search error: ${input.search.error || "Unknown error"}`),
+    ]
   }
 
   if (input.search) {
-    const list = input.search.results.map((session) => new SessionItem(input.runtime, session, input.statuses.get(session.id)))
+    const list = filteredSessions(input.search.results, input.tagFilter, input.tags)
+      .map((session) => new SessionItem(input.runtime, session, input.statuses.get(session.id), input.tags?.[session.id] ?? []))
     return list.length
-      ? [new ClearSearchItem(input.runtime), ...list]
-      : [new ClearSearchItem(input.runtime), new StatusItem("No matching sessions")]
+      ? [new ClearSearchItem(input.runtime), ...(input.tagFilter ? [new ClearTagFilterItem(input.runtime, input.tagFilter)] : []), ...list]
+      : [new ClearSearchItem(input.runtime), ...(input.tagFilter ? [new ClearTagFilterItem(input.runtime, input.tagFilter)] : []), new StatusItem("No matching sessions")]
   }
 
-  const list = input.sessions.map((session) => new SessionItem(input.runtime, session, input.statuses.get(session.id)))
+  const list = filteredSessions(input.sessions, input.tagFilter, input.tags)
+    .map((session) => new SessionItem(input.runtime, session, input.statuses.get(session.id), input.tags?.[session.id] ?? []))
 
   if (input.runtime.sessionsErr) {
-    return [new StatusItem(`Session error: ${input.runtime.sessionsErr}`), ...list]
+    return [...(input.tagFilter ? [new ClearTagFilterItem(input.runtime, input.tagFilter)] : []), new StatusItem(`Session error: ${input.runtime.sessionsErr}`), ...list]
   }
 
   if (list.length) {
-    return list
+    return [...(input.tagFilter ? [new ClearTagFilterItem(input.runtime, input.tagFilter)] : []), ...list]
   }
 
-  return [new StatusItem("No sessions")]
+  return [...(input.tagFilter ? [new ClearTagFilterItem(input.runtime, input.tagFilter)] : []), new StatusItem("No sessions")]
 }
 
 export class SidebarProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private change = new vscode.EventEmitter<void>()
   private search = new Map<string, WorkspaceSearchState>()
+  private tagFilters = new Map<string, string>()
 
   readonly onDidChangeTreeData = this.change.event
 
   constructor(
     private mgr: WorkspaceManager,
     private sessions: SessionStore,
+    private tags: SessionTagStore,
   ) {
     this.mgr.onDidChange(() => {
       this.refresh()
@@ -150,7 +172,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<vscode.TreeItem>
       const list = this.mgr.list()
 
       if (list.length) {
-        return list.map((rt) => new WorkspaceItem(rt, this.search.has(rt.workspaceId)))
+        return list.map((rt) => new WorkspaceItem(rt, this.search.has(rt.workspaceId), this.tagFilters.has(rt.workspaceId)))
       }
 
       return [new StatusItem("No workspace folders open")]
@@ -163,6 +185,8 @@ export class SidebarProvider implements vscode.TreeDataProvider<vscode.TreeItem>
         sessions: this.sessions.list(rt.workspaceId),
         statuses: rt.sessionStatuses,
         search: this.search.get(rt.workspaceId),
+        tagFilter: this.tagFilters.get(rt.workspaceId),
+        tags: this.tags.tagsBySession(rt.workspaceId),
       })
     }
 
@@ -193,7 +217,33 @@ export class SidebarProvider implements vscode.TreeDataProvider<vscode.TreeItem>
     return getWorkspaceSearchQuery(this.search, workspaceId)
   }
 
+  filterByTag(workspaceId: string, tag: string) {
+    this.tagFilters.set(workspaceId, tag)
+    this.refresh()
+  }
+
+  clearTagFilter(workspaceId: string) {
+    this.tagFilters.delete(workspaceId)
+    this.refresh()
+  }
+
+  tagFilter(workspaceId: string) {
+    return getWorkspaceTagFilter(this.tagFilters, workspaceId)
+  }
+
   dispose() {
     this.change.dispose()
   }
+}
+
+function filteredSessions(
+  sessions: SessionInfo[],
+  tagFilter?: string,
+  tags?: Record<string, string[]>,
+) {
+  if (!tagFilter) {
+    return sessions
+  }
+
+  return sessions.filter((session) => (tags?.[session.id] ?? []).includes(tagFilter))
 }

@@ -37,6 +37,13 @@ body {
 
 .sv-todo {
   grid-template-columns: auto minmax(0, 1fr);
+  border: 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  text-align: left;
 }
 
 .sv-diff {
@@ -66,8 +73,22 @@ body {
   border-radius: 0;
 }
 
-.sv-todo:hover {
+.sv-todo:hover,
+.sv-todo.is-clickable:hover {
   background: color-mix(in srgb, var(--vscode-list-hoverBackground) 82%, transparent 18%);
+}
+
+.sv-todo:disabled {
+  cursor: default;
+}
+
+.sv-todo.is-clickable {
+  cursor: pointer;
+}
+
+.sv-todoBody {
+  min-width: 0;
+  display: grid;
 }
 
 .sv-todoPrefix,
@@ -118,6 +139,59 @@ body {
 .sv-todo-completed .sv-todoPrefix,
 .sv-todo-completed .sv-todoText {
   color: var(--vscode-descriptionForeground);
+}
+
+.sv-taskSummary {
+  display: grid;
+  gap: 8px;
+  padding: 6px 8px 8px;
+}
+
+.sv-taskSummaryCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.sv-taskFilters {
+  display: flex;
+  gap: 6px;
+}
+
+.sv-taskFilter {
+  border: 1px solid color-mix(in srgb, var(--vscode-input-border, var(--vscode-contrastBorder, transparent)) 80%, transparent 20%);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.sv-taskFilter.is-active {
+  background: color-mix(in srgb, var(--vscode-button-background) 24%, transparent 76%);
+  border-color: color-mix(in srgb, var(--vscode-button-background) 72%, transparent 28%);
+}
+
+.sv-taskSection {
+  display: grid;
+}
+
+.sv-taskSectionTitle {
+  padding: 8px 8px 4px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sv-todoMeta {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
 }
 
 .sv-empty {

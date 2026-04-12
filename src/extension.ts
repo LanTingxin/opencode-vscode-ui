@@ -5,6 +5,7 @@ import { commands } from "./core/commands"
 import { EventHub } from "./core/events"
 import { affectsHttpProxySetting, proxyRestartMessage } from "./core/settings"
 import { OpenCodeStatusBar } from "./core/status-bar"
+import { SessionTagStore } from "./core/session-tags"
 import { SessionStore } from "./core/session"
 import { TabManager } from "./core/tabs"
 import { WorkspaceManager } from "./core/workspace"
@@ -27,6 +28,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
   const panels = new SessionPanelManager(ctx.extensionUri, workspaceMgr, events, out)
   const tabs = new TabManager(panels)
   const focused = new FocusedSessionStore(workspaceMgr, panels, events, out)
+  const tags = new SessionTagStore(ctx.workspaceState)
   const capabilities = new CapabilityStore({
     probe: async (workspaceId) => {
       const rt = workspaceMgr.get(workspaceId)
@@ -39,7 +41,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
   })
   const statusBar = new OpenCodeStatusBar(workspaceMgr, panels)
 
-  const tree = new SidebarProvider(workspaceMgr, sessions)
+  const tree = new SidebarProvider(workspaceMgr, sessions, tags)
   const todoView = new SidebarViewProvider(ctx.extensionUri, "todo", focused)
   const diffView = new SidebarViewProvider(ctx.extensionUri, "diff", focused)
   const sessionView = new SessionViewProvider(ctx.extensionUri, workspaceMgr, events, focused, out)
@@ -54,7 +56,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
     new SessionPanelSerializer(panels),
   )
 
-  commands(ctx, workspaceMgr, sessions, out, tabs, panels, capabilities, tree)
+  commands(ctx, workspaceMgr, sessions, out, tabs, panels, capabilities, tags, tree)
 
   ctx.subscriptions.push(out, workspaceMgr, sessions, events, panels, focused, capabilities, statusBar, tree, todoView, diffView, sessionView, reg, todoReg, diffReg, sessionViewReg, serializer)
   out.appendLine("OpenCode UI activated")

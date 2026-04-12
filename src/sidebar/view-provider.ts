@@ -38,6 +38,14 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider, vscode.D
         }
 
         void openFile(ref, message.filePath)
+        return
+      }
+
+      if (message.type === "openSession") {
+        void vscode.commands.executeCommand("opencode-ui.openSessionById", {
+          workspaceId: message.workspaceId,
+          dir: message.dir,
+        }, message.sessionId)
       }
     }, undefined, this.bag)
   }
@@ -58,6 +66,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider, vscode.D
         status: state.status,
         mode: this.mode,
         sessionTitle: state.session?.title || state.session?.id?.slice(0, 8),
+        sessionRef: state.ref,
         todos: state.todos,
         diff: state.diff,
         error: state.error,

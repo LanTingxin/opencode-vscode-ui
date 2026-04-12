@@ -48,6 +48,9 @@
     "onCommand:opencode-ui.askExplorerFiles",
     "onCommand:opencode-ui.searchWorkspaceSessions",
     "onCommand:opencode-ui.clearWorkspaceSessionSearch",
+    "onCommand:opencode-ui.manageSessionTags",
+    "onCommand:opencode-ui.filterWorkspaceSessionsByTag",
+    "onCommand:opencode-ui.clearWorkspaceTagFilter",
     "onWebviewPanel:opencode-ui.session"
   ],
   "main": "./dist/extension.js",
@@ -209,6 +212,21 @@
         "command": "opencode-ui.clearWorkspaceSessionSearch",
         "title": "OpenCode: Clear Session Search",
         "icon": "$(close)"
+      },
+      {
+        "command": "opencode-ui.manageSessionTags",
+        "title": "OpenCode: Manage Session Tags",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "opencode-ui.filterWorkspaceSessionsByTag",
+        "title": "OpenCode: Filter Sessions By Tag",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "opencode-ui.clearWorkspaceTagFilter",
+        "title": "OpenCode: Clear Session Tag Filter",
+        "icon": "$(close)"
       }
     ],
     "configuration": {
@@ -284,32 +302,32 @@
       "view/item/context": [
         {
           "command": "opencode-ui.newSession",
-          "when": "view == opencode-ui.sessions && viewItem == workspace",
+          "when": "view == opencode-ui.sessions && (viewItem == workspace || viewItem == workspace-searching || viewItem == workspace-tag-filtered || viewItem == workspace-filtered)",
           "group": "inline@1"
         },
         {
           "command": "opencode-ui.searchWorkspaceSessions",
-          "when": "view == opencode-ui.sessions && viewItem == workspace",
+          "when": "view == opencode-ui.sessions && (viewItem == workspace || viewItem == workspace-searching || viewItem == workspace-tag-filtered || viewItem == workspace-filtered)",
           "group": "inline@2"
         },
         {
           "command": "opencode-ui.refreshWorkspaceSessions",
-          "when": "view == opencode-ui.sessions && viewItem == workspace",
+          "when": "view == opencode-ui.sessions && (viewItem == workspace || viewItem == workspace-searching || viewItem == workspace-tag-filtered || viewItem == workspace-filtered)",
           "group": "inline@3"
         },
         {
-          "command": "opencode-ui.searchWorkspaceSessions",
-          "when": "view == opencode-ui.sessions && viewItem == workspace-searching",
+          "command": "opencode-ui.filterWorkspaceSessionsByTag",
+          "when": "view == opencode-ui.sessions && (viewItem == workspace || viewItem == workspace-searching || viewItem == workspace-tag-filtered || viewItem == workspace-filtered)",
           "group": "inline@2"
         },
         {
           "command": "opencode-ui.clearWorkspaceSessionSearch",
-          "when": "view == opencode-ui.sessions && viewItem == workspace-searching",
+          "when": "view == opencode-ui.sessions && (viewItem == workspace-searching || viewItem == workspace-filtered)",
           "group": "inline@3"
         },
         {
-          "command": "opencode-ui.refreshWorkspaceSessions",
-          "when": "view == opencode-ui.sessions && viewItem == workspace-searching",
+          "command": "opencode-ui.clearWorkspaceTagFilter",
+          "when": "view == opencode-ui.sessions && (viewItem == workspace-tag-filtered || viewItem == workspace-filtered)",
           "group": "inline@4"
         },
         {
@@ -323,8 +341,18 @@
           "group": "inline@2"
         },
         {
+          "command": "opencode-ui.manageSessionTags",
+          "when": "view == opencode-ui.sessions && viewItem == session",
+          "group": "inline@3"
+        },
+        {
           "command": "opencode-ui.clearWorkspaceSessionSearch",
           "when": "view == opencode-ui.sessions && viewItem == clear-search",
+          "group": "inline@1"
+        },
+        {
+          "command": "opencode-ui.clearWorkspaceTagFilter",
+          "when": "view == opencode-ui.sessions && viewItem == clear-tag-filter",
           "group": "inline@1"
         }
       ]

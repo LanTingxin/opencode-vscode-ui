@@ -2,8 +2,9 @@ import * as vscode from "vscode"
 import type { WorkspaceRef } from "../bridge/types"
 import { openSettingsQuery } from "./settings"
 import { checkOpencodeAvailable, runtimeNotReadyMessage } from "./runtime-errors"
-import { ClearSearchItem, SessionItem, WorkspaceItem } from "../sidebar/item"
+import { ClearSearchItem, ClearTagFilterItem, SessionItem, WorkspaceItem } from "../sidebar/item"
 import type { WorkspaceRuntime } from "./server"
+import { parseSessionTagsInput, SessionTagStore } from "./session-tags"
 import { SessionStore } from "./session"
 import { TabManager } from "./tabs"
 import { WorkspaceManager } from "./workspace"
@@ -20,6 +21,7 @@ export function commands(
   tabs: TabManager,
   panels: SessionPanelManager,
   capabilities: CapabilityStore,
+  tags: SessionTagStore,
   tree: SidebarProvider,
 ) {
   ctx.subscriptions.push(
@@ -232,6 +234,66 @@ export function commands(
       }
 
       tree.clearSearch(workspaceId)
+    }),
+    vscode.commands.registerCommand("opencode-ui.manageSessionTags", async (item?: SessionItem) => {
+      if (!item) {
+        await vscode.window.showInformationMessage("Pick a session item first.")
+        return
+      }
+
+      const current = tags.tags(item.runtime.workspaceId, item.session.id)
+      const input = await vscode.window.showInputBox({
+        prompt: `Manage tags for ${item.session.title || item.session.id.slice(0, 8)}`,
+        placeHolder: "tag-a, tag-b",
+        value: current.join(", "),
+        ignoreFocusOut: true,
+      })
+
+      if (input === undefined) {
+        return
+      }
+
+      await tags.setTags(item.runtime.workspaceId, item.session.id, parseSessionTagsInput(input))
+      tree.refresh()
+    }),
+    vscode.commands.registerCommand("opencode-ui.filterWorkspaceSessionsByTag", async (item?: WorkspaceItem) => {
+      const rt = item?.runtime
+
+      if (!rt) {
+        await vscode.window.showInformationMessage("Pick a workspace item to filter its sessions.")
+        return
+      }
+
+      const available = tags.workspaceTags(rt.workspaceId)
+      if (available.length === 0) {
+        await vscode.window.showInformationMessage(`There are no local tags yet for ${rt.name}.`)
+        return
+      }
+
+      const choice = await vscode.window.showQuickPick(
+        available.map((tag) => ({ label: tag })),
+        {
+          title: `Filter sessions in ${rt.name}`,
+          placeHolder: "Choose a tag",
+          ignoreFocusOut: true,
+        },
+      )
+
+      if (!choice) {
+        return
+      }
+
+      tree.filterByTag(rt.workspaceId, choice.label)
+    }),
+    vscode.commands.registerCommand("opencode-ui.clearWorkspaceTagFilter", async (item?: WorkspaceItem | ClearTagFilterItem) => {
+      const workspaceId = item?.runtime.workspaceId
+
+      if (!workspaceId) {
+        await vscode.window.showInformationMessage("Pick a workspace tag filter to clear first.")
+        return
+      }
+
+      tree.clearTagFilter(workspaceId)
     }),
     vscode.commands.registerCommand("opencode-ui.statusBarAction", async () => {
       const active = panels.activeSession()

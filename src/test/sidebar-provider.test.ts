@@ -161,4 +161,42 @@ describe("sidebar session search", () => {
 
     assert.equal(getWorkspaceSearchQuery(state, "ws-1"), undefined)
   })
+
+  test("renders tag summary on session items", () => {
+    const items = buildWorkspaceChildren({
+      runtime: {
+        ...runtime(),
+      },
+      sessions: [session("s1", "Fix login")],
+      statuses: new Map(),
+      tags: {
+        s1: ["bug", "urgent", "backend"],
+      },
+    })
+
+    assert.equal(String(items[0]?.description).includes("bug"), true)
+  })
+
+  test("intersects workspace tag filters with text search results", () => {
+    const items = buildWorkspaceChildren({
+      runtime: {
+        ...runtime(),
+      },
+      sessions: [session("s1", "Fix login"), session("s2", "Fix billing")],
+      statuses: new Map(),
+      search: {
+        query: "fix",
+        status: "ready",
+        results: [session("s1", "Fix login"), session("s2", "Fix billing")],
+      },
+      tagFilter: "bug",
+      tags: {
+        s1: ["bug"],
+        s2: ["billing"],
+      },
+    })
+
+    assert.equal(items.filter((item) => item.contextValue === "session").length, 1)
+    assert.equal(items.find((item) => item.contextValue === "session")?.label, "Fix login")
+  })
 })

@@ -1,6 +1,8 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
-import type { SidebarHostMessage, SidebarViewMode, SidebarViewState, SidebarWebviewMessage } from "../view-types"
+import type { SidebarHostMessage, SidebarViewMode, SidebarViewState, SidebarWebviewMessage, TaskFilter } from "../view-types"
+import type { SessionPanelRef } from "../../bridge/types"
+import type { Todo } from "../../core/sdk"
 import "./styles.css"
 
 declare global {
@@ -13,10 +15,16 @@ type VsCodeApi = {
   postMessage(message: SidebarWebviewMessage): void
 }
 
-declare function acquireVsCodeApi(): VsCodeApi
+type GlobalWithVsCodeApi = typeof globalThis & {
+  acquireVsCodeApi?: () => VsCodeApi
+}
 
-const vscode = acquireVsCodeApi()
-const mode = window.__OPENCODE_SIDEBAR_MODE__ === "diff" ? "diff" : "todo"
+const vscodeGlobal = globalThis as GlobalWithVsCodeApi
+
+const vscode: VsCodeApi = typeof vscodeGlobal.acquireVsCodeApi === "function"
+  ? vscodeGlobal.acquireVsCodeApi()
+  : { postMessage() {} }
+const mode = typeof window !== "undefined" && window.__OPENCODE_SIDEBAR_MODE__ === "diff" ? "diff" : "todo"
 
 const initialState: SidebarViewState = {
   status: "idle",
@@ -52,20 +60,66 @@ function App() {
 }
 
 function TodoList({ state }: { state: SidebarViewState }) {
+  const [filter, setFilter] = React.useState<TaskFilter>("all")
+  const view = buildTaskPanelView({
+    todos: state.todos,
+    filter,
+  })
+
   if (state.todos.length === 0) {
     return <Empty title="No todos yet" text="Tasks from the focused session will appear here" />
   }
 
   return (
     <section className="sv-group">
-      <div className="sv-list">
-        {state.todos.map((item, index) => (
-          <div key={`${item.content}-${index}`} className={`sv-todo sv-todo-${item.status}`}>
-            <span className="sv-todoPrefix">{todoPrefix(item.status)}</span>
-            <span className="sv-todoText">{item.content || "Untitled task"}</span>
-          </div>
-        ))}
+      <div className="sv-taskSummary">
+        <div className="sv-taskSummaryCounts">
+          <span>{view.summary.total} total</span>
+          <span>{view.summary.open} open</span>
+          <span>{view.summary.inProgress} in progress</span>
+          <span>{view.summary.completed} completed</span>
+        </div>
+        <div className="sv-taskFilters" role="tablist" aria-label="Task filter">
+          {(["all", "open", "completed"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={`sv-taskFilter${filter === item ? " is-active" : ""}`}
+              onClick={() => setFilter(item)}
+            >
+              {taskFilterLabel(item)}
+            </button>
+          ))}
+        </div>
       </div>
+      {view.sections.length === 0 ? <Empty title="No matching tasks" text="Try a different filter" /> : null}
+      {view.sections.map((section) => (
+        <div key={section.id} className="sv-taskSection">
+          <div className="sv-taskSectionTitle">{section.label}</div>
+          <div className="sv-list">
+            {section.items.map((item, index) => (
+              <button
+                key={`${section.id}-${item.content}-${index}`}
+                type="button"
+                className={`sv-todo sv-todo-${item.status}${state.sessionRef ? " is-clickable" : ""}`}
+                onClick={() => {
+                  const message = buildTaskOpenMessage(state.sessionRef)
+                  if (message) {
+                    vscode.postMessage(message)
+                  }
+                }}
+                disabled={!state.sessionRef}
+              >
+                <span className="sv-todoPrefix">{todoPrefix(item.status)}</span>
+                <span className="sv-todoBody">
+                  <span className="sv-todoText">{item.content || "Untitled task"}</span>
+                  {state.sessionTitle ? <span className="sv-todoMeta">{state.sessionTitle}</span> : null}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </section>
   )
 }
@@ -110,4 +164,100 @@ function todoPrefix(status: string) {
   return "[ ]"
 }
 
-createRoot(document.getElementById("root")!).render(<App />)
+export function buildTaskPanelView(input: {
+  todos: Todo[]
+  filter?: TaskFilter
+}) {
+  const filter = input.filter ?? "all"
+  const filtered = input.todos.filter((item) => {
+    if (filter === "open") {
+      return item.status !== "completed"
+    }
+
+    if (filter === "completed") {
+      return item.status === "completed"
+    }
+
+    return true
+  })
+
+  const grouped = new Map<string, Todo[]>()
+  for (const item of filtered) {
+    const key = normalizedTaskStatus(item.status)
+    const list = grouped.get(key) ?? []
+    list.push(item)
+    grouped.set(key, list)
+  }
+
+  const sections = taskStatusOrder
+    .filter((status) => grouped.has(status))
+    .map((status) => ({
+      id: status,
+      label: taskStatusLabel(status),
+      items: grouped.get(status) ?? [],
+    }))
+
+  return {
+    summary: {
+      total: input.todos.length,
+      open: input.todos.filter((item) => normalizedTaskStatus(item.status) !== "completed").length,
+      completed: input.todos.filter((item) => normalizedTaskStatus(item.status) === "completed").length,
+      inProgress: input.todos.filter((item) => normalizedTaskStatus(item.status) === "in_progress").length,
+    },
+    sections,
+  }
+}
+
+export function buildTaskOpenMessage(ref?: SessionPanelRef): SidebarWebviewMessage | undefined {
+  if (!ref) {
+    return undefined
+  }
+
+  return {
+    type: "openSession",
+    workspaceId: ref.workspaceId,
+    dir: ref.dir,
+    sessionId: ref.sessionId,
+  }
+}
+
+const taskStatusOrder = ["in_progress", "pending", "completed"] as const
+
+function taskStatusLabel(status: string) {
+  if (status === "in_progress") {
+    return "In Progress"
+  }
+
+  if (status === "completed") {
+    return "Completed"
+  }
+
+  return "Open"
+}
+
+function taskFilterLabel(filter: TaskFilter) {
+  if (filter === "open") {
+    return "Open"
+  }
+
+  if (filter === "completed") {
+    return "Completed"
+  }
+
+  return "All"
+}
+
+function normalizedTaskStatus(status: string) {
+  if (status === "in_progress" || status === "completed") {
+    return status
+  }
+
+  return "pending"
+}
+
+if (typeof document !== "undefined") {
+  const root = document.getElementById("root")
+  if (root) {
+    createRoot(root).render(<App />)
+  }
+}

@@ -10,8 +10,9 @@ Stay in the editor, keep context intact, and manage OpenCode where the code alre
 
 - **Browse sessions by workspace folder** from the Activity Bar
 - **Search sessions within one workspace** directly from the sidebar
+- **Tag sessions locally** to organize active work in the sidebar
 - **Open every conversation in its own VS Code tab**
-- **Track todos and changed files beside the active session**
+- **Track grouped tasks and changed files beside the active session**
 - **Use it in local folders and Remote SSH workspaces**
 - **Catch missing `opencode` setup early** with built-in environment checks
 
@@ -21,7 +22,7 @@ Stay in the editor, keep context intact, and manage OpenCode where the code alre
 
 ### Sessions sidebar
 
-The sidebar gives you a workspace-first view of your OpenCode sessions so you can create, reopen, refresh, and manage conversations without leaving VS Code.
+The sidebar gives you a workspace-first view of your OpenCode sessions so you can create, reopen, refresh, tag, filter, and manage conversations without leaving VS Code.
 
 You can also search sessions for one workspace at a time from the workspace row, keeping the rest of the tree unchanged while you narrow results.
 
@@ -33,9 +34,9 @@ Each session opens in its own tab, making it easier to keep multiple threads org
 
 ![Open each session in a dedicated tab without leaving VS Code](docs/screenshots/session-tab.png)
 
-### Todos and changed files at a glance
+### Tasks and changed files at a glance
 
-Companion views help you track session-generated tasks and inspect which files changed during the conversation.
+Companion views help you triage focused-session tasks with grouped sections and filters, and inspect which files changed during the conversation.
 
 | Todo view | Modified files |
 | --- | --- |
@@ -44,10 +45,11 @@ Companion views help you track session-generated tasks and inspect which files c
 ## Highlights 🚀
 
 - One OpenCode runtime per workspace folder
-- Session browser with create, open, refresh, and delete actions
+- Session browser with create, open, refresh, tag, and delete actions
 - Workspace-scoped session search from the sidebar
+- Workspace-scoped session tag filtering from the sidebar
 - A dedicated panel for each workspace-session pair
-- Todo and modified file companion views
+- Task and modified file companion views
 - Built-in environment checks with clearer `opencode` setup feedback
 
 ## Remote SSH ready 🌐
