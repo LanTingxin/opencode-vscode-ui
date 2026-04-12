@@ -1,3 +1,5 @@
+import type { WorkspaceRuntime } from "./server"
+
 export type CapabilityState = "unknown" | "supported" | "unsupported"
 
 export type RuntimeCapabilities = {
@@ -67,5 +69,54 @@ export class CapabilityStore {
   clear(workspaceId: string) {
     this.cache.delete(workspaceId)
     this.inflight.delete(workspaceId)
+  }
+
+  dispose() {
+    this.cache.clear()
+    this.inflight.clear()
+  }
+}
+
+export async function probeRuntimeCapabilities(rt: Pick<WorkspaceRuntime, "dir" | "sdk" | "sessions">): Promise<RuntimeCapabilities> {
+  const next = createEmptyCapabilities()
+  const sdk = rt.sdk
+
+  if (!sdk) {
+    return next
+  }
+
+  next.sessionSearch = await probeCapability(async () => {
+    await sdk.session.list({
+      directory: rt.dir,
+      search: "__opencode_ui_probe__",
+      limit: 1,
+    })
+  })
+
+  next.experimentalResources = await probeCapability(async () => {
+    await sdk.experimental.resource.list({
+      directory: rt.dir,
+    })
+  })
+
+  const sessionID = rt.sessions.keys().next().value
+  if (sessionID) {
+    next.sessionChildren = await probeCapability(async () => {
+      await sdk.session.children({
+        sessionID,
+        directory: rt.dir,
+      })
+    })
+  }
+
+  return next
+}
+
+async function probeCapability(run: () => Promise<unknown>): Promise<CapabilityState> {
+  try {
+    await run()
+    return "supported"
+  } catch (error) {
+    return classifyCapabilityError(error)
   }
 }

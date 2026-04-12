@@ -1,8 +1,10 @@
 import * as vscode from "vscode"
 import { SESSION_PANEL_VIEW_TYPE } from "./bridge/types"
+import { CapabilityStore, createEmptyCapabilities, probeRuntimeCapabilities } from "./core/capabilities"
 import { commands } from "./core/commands"
 import { EventHub } from "./core/events"
 import { affectsHttpProxySetting, proxyRestartMessage } from "./core/settings"
+import { OpenCodeStatusBar } from "./core/status-bar"
 import { SessionStore } from "./core/session"
 import { TabManager } from "./core/tabs"
 import { WorkspaceManager } from "./core/workspace"
@@ -18,17 +20,29 @@ let mgr: WorkspaceManager | undefined
 export async function activate(ctx: vscode.ExtensionContext) {
   const out = vscode.window.createOutputChannel("OpenCode UI")
   out.appendLine(`OpenCode UI activating (remote=${vscode.env.remoteName || "local"}, uiKind=${vscode.UIKind[vscode.env.uiKind]})`)
-  mgr = new WorkspaceManager(out)
-  const events = new EventHub(mgr, out)
-  const sessions = new SessionStore(mgr, events, out)
-  const panels = new SessionPanelManager(ctx.extensionUri, mgr, events, out)
+  const workspaceMgr = new WorkspaceManager(out)
+  mgr = workspaceMgr
+  const events = new EventHub(workspaceMgr, out)
+  const sessions = new SessionStore(workspaceMgr, events, out)
+  const panels = new SessionPanelManager(ctx.extensionUri, workspaceMgr, events, out)
   const tabs = new TabManager(panels)
-  const focused = new FocusedSessionStore(mgr, panels, events, out)
+  const focused = new FocusedSessionStore(workspaceMgr, panels, events, out)
+  const capabilities = new CapabilityStore({
+    probe: async (workspaceId) => {
+      const rt = workspaceMgr.get(workspaceId)
+      if (!rt || rt.state !== "ready" || !rt.sdk) {
+        return createEmptyCapabilities()
+      }
 
-  const tree = new SidebarProvider(mgr, sessions)
+      return await probeRuntimeCapabilities(rt)
+    },
+  })
+  const statusBar = new OpenCodeStatusBar(workspaceMgr, panels)
+
+  const tree = new SidebarProvider(workspaceMgr, sessions)
   const todoView = new SidebarViewProvider(ctx.extensionUri, "todo", focused)
   const diffView = new SidebarViewProvider(ctx.extensionUri, "diff", focused)
-  const sessionView = new SessionViewProvider(ctx.extensionUri, mgr, events, focused, out)
+  const sessionView = new SessionViewProvider(ctx.extensionUri, workspaceMgr, events, focused, out)
   const reg = vscode.window.registerTreeDataProvider("opencode-ui.sessions", tree)
   const todoReg = vscode.window.registerWebviewViewProvider("opencode-ui.todo", todoView)
   const diffReg = vscode.window.registerWebviewViewProvider("opencode-ui.diff", diffView)
@@ -40,13 +54,13 @@ export async function activate(ctx: vscode.ExtensionContext) {
     new SessionPanelSerializer(panels),
   )
 
-  commands(ctx, mgr, sessions, out, tabs, panels)
+  commands(ctx, workspaceMgr, sessions, out, tabs, panels, capabilities)
 
-  ctx.subscriptions.push(out, mgr, sessions, events, panels, focused, tree, todoView, diffView, sessionView, reg, todoReg, diffReg, sessionViewReg, serializer)
+  ctx.subscriptions.push(out, workspaceMgr, sessions, events, panels, focused, capabilities, statusBar, tree, todoView, diffView, sessionView, reg, todoReg, diffReg, sessionViewReg, serializer)
   out.appendLine("OpenCode UI activated")
 
   const folders = vscode.workspace.workspaceFolders ?? []
-  await mgr.sync(folders)
+  await workspaceMgr.sync(folders)
   await sessions.refreshAll()
   await events.sync()
 

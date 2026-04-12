@@ -9,6 +9,7 @@ import { TabManager } from "./tabs"
 import { WorkspaceManager } from "./workspace"
 import { SessionPanelManager } from "../panel/provider"
 import { buildEditorSeed, buildExplorerSeed, type LaunchSeed } from "./launch-context"
+import { CapabilityStore } from "./capabilities"
 
 export function commands(
   ctx: vscode.ExtensionContext,
@@ -17,6 +18,7 @@ export function commands(
   out: vscode.OutputChannel,
   tabs: TabManager,
   panels: SessionPanelManager,
+  capabilities: CapabilityStore,
 ) {
   ctx.subscriptions.push(
     vscode.commands.registerCommand("opencode-ui.refresh", async () => {
@@ -172,7 +174,7 @@ export function commands(
         return
       }
 
-      await openSeededSession(seed, mgr, sessions, panels)
+      await openSeededSession(seed, mgr, sessions, panels, capabilities)
     }),
     vscode.commands.registerCommand("opencode-ui.askCurrentFile", async () => {
       const seed = seedFromActiveEditor("file")
@@ -181,7 +183,7 @@ export function commands(
         return
       }
 
-      await openSeededSession(seed, mgr, sessions, panels)
+      await openSeededSession(seed, mgr, sessions, panels, capabilities)
     }),
     vscode.commands.registerCommand("opencode-ui.askExplorerFiles", async (item?: vscode.Uri, items?: vscode.Uri[]) => {
       const seed = seedFromExplorerSelection(item, items)
@@ -190,7 +192,33 @@ export function commands(
         return
       }
 
-      await openSeededSession(seed, mgr, sessions, panels)
+      await openSeededSession(seed, mgr, sessions, panels, capabilities)
+    }),
+    vscode.commands.registerCommand("opencode-ui.statusBarAction", async () => {
+      const active = panels.activeSession()
+      if (active) {
+        await panels.open(active)
+        return
+      }
+
+      const rt = runtimeFromActiveEditor(mgr)
+      if (rt) {
+        if (rt.state !== "ready") {
+          await vscode.window.showErrorMessage(runtimeNotReadyMessage(rt))
+          return
+        }
+
+        void capabilities.getOrProbe(rt.workspaceId)
+        const session = await sessions.create(rt.workspaceId)
+        await panels.open({
+          workspaceId: rt.workspaceId,
+          dir: rt.dir,
+          sessionId: session.id,
+        }, vscode.ViewColumn.Beside)
+        return
+      }
+
+      await vscode.commands.executeCommand("workbench.view.extension.opencode-ui")
     }),
   )
 
@@ -277,6 +305,7 @@ async function openSeededSession(
   mgr: WorkspaceManager,
   sessions: SessionStore,
   panels: SessionPanelManager,
+  capabilities: CapabilityStore,
 ) {
   const rt = mgr.get(seed.workspaceId)
 
@@ -290,6 +319,7 @@ async function openSeededSession(
     return
   }
 
+  void capabilities.getOrProbe(rt.workspaceId)
   const session = await sessions.create(rt.workspaceId)
   await panels.openWithSeed({
     workspaceId: rt.workspaceId,
