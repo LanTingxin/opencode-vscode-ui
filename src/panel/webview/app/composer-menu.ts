@@ -6,6 +6,14 @@ import { formatComposerFileContent, formatComposerFileDisplay, parseComposerFile
 export function buildComposerMenuItems(state: AppState, files: ComposerPathResult[]): ComposerAutocompleteItem[] {
   const slashItems: ComposerAutocompleteItem[] = [
     {
+      id: "slash-new",
+      label: "new",
+      detail: "Start a new session in this workspace.",
+      keywords: ["session", "fresh", "conversation"],
+      trigger: "slash",
+      kind: "action",
+    },
+    {
       id: "slash-compact",
       label: "compact",
       detail: "Summarize this session immediately using the current model.",

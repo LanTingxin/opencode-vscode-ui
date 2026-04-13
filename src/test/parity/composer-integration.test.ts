@@ -190,7 +190,7 @@ describe("composer integration visibility", () => {
     assert.equal(result.trigger, "slash")
     assert.equal(result.hostResults.length, 0, "host search not triggered for slash")
     assert.ok(result.items.every((item) => item.kind === "action"), "only actions returned for /")
-    assert.deepEqual(result.items.map((item) => item.label), ["compact", "model", "refresh", "undo"], "built-in slash actions sort alphabetically")
+    assert.deepEqual(result.items.map((item) => item.label), ["compact", "model", "new", "refresh", "undo"], "built-in slash actions sort alphabetically")
   })
 
   test("recent files appear before workspace search results", () => {

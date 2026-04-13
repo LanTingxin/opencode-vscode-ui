@@ -16,9 +16,12 @@ import { agentColorClass, composerIdentity, composerMetrics, composerSelection, 
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
+import { resolveComposerSlashAction } from "./composer-actions"
+import { collectDroppedFilePaths, shouldHandleComposerFileDrop } from "./composer-drop"
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
 import { composerEnterIntent, composerTabIntent, cycleAgentName, isShortcutTarget, leaderAction, shouldEnterShellMode, shouldExitShellModeOnBackspace, type ComposerMode } from "./keyboard-shortcuts"
 import { buildModelPickerSections, ModelPicker } from "./model-picker"
+import { mergeRestoredComposerParts, restoredComposerCursor } from "./composer-seed"
 import { activeChildSessionId } from "./session-navigation"
 
 declare global {
@@ -247,10 +250,67 @@ export function App() {
   }, [activeAutocomplete, composerAutocomplete, restoreComposerCursor, setComposerState, state.composerParts])
 
   const onRestoreComposer = React.useCallback((payload: { parts: ComposerPromptPart[] }) => {
-    const parts = composerPartsFromPromptParts(payload.parts)
+    const parts = mergeRestoredComposerParts(state.composerParts, payload.parts)
     const result = setComposerState(parts, "")
-    restoreComposerCursor(result.draft, result.draft.length)
-  }, [restoreComposerCursor, setComposerState])
+    restoreComposerCursor(result.draft, restoredComposerCursor(parts))
+  }, [restoreComposerCursor, setComposerState, state.composerParts])
+
+  const onComposerDragOver = React.useCallback((event: React.DragEvent<HTMLElement>) => {
+    const mentions = droppedFileMentions(event.dataTransfer, state.bootstrap.sessionRef.dir)
+    if (!shouldHandleComposerFileDrop({
+      shiftKey: event.shiftKey,
+      filePaths: mentions.map((mention) => mention.path),
+    })) {
+      setComposerDrag(null)
+      return
+    }
+
+    event.preventDefault()
+    setComposerDrag("mention")
+  }, [state.bootstrap.sessionRef.dir])
+
+  const onComposerDragLeave = React.useCallback((event: React.DragEvent<HTMLElement>) => {
+    const related = event.relatedTarget
+    if (related instanceof Node && event.currentTarget.contains(related)) {
+      return
+    }
+
+    setComposerDrag(null)
+  }, [])
+
+  const onComposerDrop = React.useCallback((event: React.DragEvent<HTMLElement>) => {
+    const mentions = droppedFileMentions(event.dataTransfer, state.bootstrap.sessionRef.dir)
+    setComposerDrag(null)
+    if (!shouldHandleComposerFileDrop({
+      shiftKey: event.shiftKey,
+      filePaths: mentions.map((mention) => mention.path),
+    })) {
+      return
+    }
+
+    event.preventDefault()
+    const input = composerRef.current
+    if (!input) {
+      return
+    }
+
+    const selection = composerFocused
+      ? getSelectionOffsets(input)
+      : { start: state.draft.length, end: state.draft.length }
+
+    let parts = state.composerParts
+    let cursor = selection.start
+    let end = selection.end
+    for (const mention of mentions) {
+      const next = replaceRangeWithMention(parts, cursor, end, mention)
+      parts = next.parts
+      cursor = next.cursor
+      end = next.cursor
+    }
+
+    const result = setComposerState(parts, "")
+    restoreComposerCursor(result.draft, cursor)
+  }, [composerFocused, restoreComposerCursor, setComposerState, state.bootstrap.sessionRef.dir, state.composerParts, state.draft])
 
   useHostMessages({
     fileRefStatus,
@@ -340,62 +400,6 @@ export function App() {
     }
   }, [modelPickerOpen])
 
-  React.useEffect(() => {
-    const onDragOver = (event: DragEvent) => {
-      if (!supportsComposerDrop(event.dataTransfer)) {
-        return
-      }
-      event.preventDefault()
-      setComposerDrag("mention")
-    }
-
-    const onDragLeave = (event: DragEvent) => {
-      if (!event.relatedTarget) {
-        setComposerDrag(null)
-      }
-    }
-
-    const onDrop = (event: DragEvent) => {
-      const mentions = droppedFileMentions(event.dataTransfer, state.bootstrap.sessionRef.dir)
-      setComposerDrag(null)
-      if (mentions.length === 0) {
-        return
-      }
-
-      event.preventDefault()
-      const input = composerRef.current
-      if (!input) {
-        return
-      }
-
-      const selection = composerFocused
-        ? getSelectionOffsets(input)
-        : { start: state.draft.length, end: state.draft.length }
-
-      let parts = state.composerParts
-      let cursor = selection.start
-      let end = selection.end
-      for (const mention of mentions) {
-        const next = replaceRangeWithMention(parts, cursor, end, mention)
-        parts = next.parts
-        cursor = next.cursor
-        end = next.cursor
-      }
-
-      const result = setComposerState(parts, "")
-      restoreComposerCursor(result.draft, cursor)
-    }
-
-    document.addEventListener("dragover", onDragOver)
-    document.addEventListener("dragleave", onDragLeave)
-    document.addEventListener("drop", onDrop)
-    return () => {
-      document.removeEventListener("dragover", onDragOver)
-      document.removeEventListener("dragleave", onDragLeave)
-      document.removeEventListener("drop", onDrop)
-    }
-  }, [composerFocused, restoreComposerCursor, setComposerState, state.bootstrap.sessionRef.dir, state.composerParts, state.draft])
-
   React.useLayoutEffect(() => {
     const input = composerRef.current
     if (!input) {
@@ -461,17 +465,27 @@ export function App() {
       return
     }
 
-    // Check if draft is a slash command invocation: starts with "/" and first token matches a known server command
-    const slashMatch = draft.match(/^\/(\S+)(?:\s+([\s\S]*))?$/)
-    if (slashMatch) {
-      const cmdName = slashMatch[1]
-      const cmdArgs = (slashMatch[2] ?? "").trim()
-      const knownCmd = state.snapshot.commands.find((c) => c.name === cmdName && c.source !== "skill")
-      if (knownCmd) {
+    const slashAction = resolveComposerSlashAction(draft, state.snapshot.commands)
+    if (slashAction) {
+      if (slashAction.type === "newSession") {
+        setState((current) => ({
+          ...current,
+          draft: "",
+          composerParts: emptyComposerParts(),
+          composerMentions: [],
+          composerMentionAgentOverride: undefined,
+          imageAttachments: [],
+          error: "",
+        }))
+        vscode.postMessage({ type: "newSession" })
+        return
+      }
+
+      if (slashAction.type === "command") {
         vscode.postMessage({
           type: "runSlashCommand",
-          command: cmdName,
-          arguments: cmdArgs,
+          command: slashAction.command,
+          arguments: slashAction.arguments,
           agent: selection.agent,
           model: selection.model ? `${selection.model.providerID}/${selection.model.modelID}` : undefined,
           variant: selection.variant,
@@ -796,6 +810,13 @@ export function App() {
     }
 
     if (item.kind === "action") {
+      if (item.id === "slash-new") {
+        clearComposerDraft()
+        postNewSession()
+        composerAutocomplete.close()
+        return
+      }
+
       if (item.id === "slash-undo") {
         clearComposerDraft()
         postComposerAction("undoSession")
@@ -1011,7 +1032,12 @@ export function App() {
             {isChildSession ? <SessionNav navigation={state.snapshot.navigation} onNavigate={(sessionID) => vscode.postMessage({ type: "navigateSession", sessionID })} /> : null}
 
           {!blocked && !isChildSession ? (
-            <section className={`oc-composer${leaderPending ? " is-leaderPending" : ""}${composerMode === "shell" ? " is-shell" : ""}`}>
+            <section
+              className={`oc-composer${leaderPending ? " is-leaderPending" : ""}${composerMode === "shell" ? " is-shell" : ""}`}
+              onDragOver={onComposerDragOver}
+              onDragLeave={onComposerDragLeave}
+              onDrop={onComposerDrop}
+            >
               <div className="oc-composerBody">
                     {composerDrag ? <div className="oc-composerDropOverlay">Drop to @mention file</div> : null}
                     {state.imageAttachments.length > 0 ? (
@@ -1543,143 +1569,14 @@ function ComposerInfo({
   )
 }
 
-function supportsComposerDrop(data: DataTransfer | null) {
-  return droppedFileMentions(data, "").length > 0
-}
-
-function composerPartsFromPromptParts(parts: ComposerPromptPart[]): ComposerEditorPart[] {
-  const next: ComposerEditorPart[] = []
-
-  for (const part of parts) {
-    if (part.type === "text") {
-      next.push({ type: "text", content: part.text, start: 0, end: 0 })
-      continue
-    }
-
-    if (part.type === "file") {
-      const parsed = parseRestoredComposerFile(part)
-      next.push({
-        type: "file",
-        path: parsed.path,
-        kind: parsed.kind,
-        selection: parsed.selection,
-        content: part.source.value,
-        start: 0,
-        end: 0,
-      })
-      next.push({ type: "text", content: " ", start: 0, end: 0 })
-      continue
-    }
-
-    if (part.type === "resource") {
-      next.push({
-        type: "resource",
-        uri: part.uri,
-        name: part.name,
-        clientName: part.clientName,
-        mimeType: part.mimeType,
-        content: part.source.value,
-        start: 0,
-        end: 0,
-      })
-      next.push({ type: "text", content: " ", start: 0, end: 0 })
-      continue
-    }
-
-    if (part.type === "image") {
-      continue
-    }
-
-    next.push({
-      type: "agent",
-      name: part.name,
-      content: part.source?.value ?? `@${part.name}`,
-      start: 0,
-      end: 0,
-    })
-    next.push({ type: "text", content: " ", start: 0, end: 0 })
-  }
-
-  return ensureTextPart(next)
-}
-
-function parseRestoredComposerFile(part: Extract<ComposerPromptPart, { type: "file" }>) {
-  const raw = part.source.value.startsWith("@") ? part.source.value.slice(1) : part.source.value
-  const parsed = parseComposerFileQuery(raw)
-  return {
-    path: parsed.baseQuery || part.path,
-    selection: parsed.selection ?? part.selection,
-    kind: part.kind ?? ((parsed.baseQuery || part.path).endsWith("/") ? "directory" as const : "file" as const),
-  }
-}
-
 function droppedFileMentions(data: DataTransfer | null, workspaceDir: string) {
-  const paths = droppedFilePaths(data, workspaceDir)
+  const paths = collectDroppedFilePaths(data, workspaceDir)
   return paths.map((path) => ({
     type: "file" as const,
     path,
     kind: "file" as const,
     content: formatComposerFileContent(path),
   }))
-}
-
-function droppedFilePaths(data: DataTransfer | null, workspaceDir: string) {
-  if (!data) {
-    return []
-  }
-
-  const seen = new Set<string>()
-  const out: string[] = []
-  const add = (value: string) => {
-    const next = normalizeDroppedFilePath(value, workspaceDir)
-    if (!next || seen.has(next)) {
-      return
-    }
-    seen.add(next)
-    out.push(next)
-  }
-
-  const uriList = data.getData("text/uri-list")
-  uriList.split(/\r?\n/).map((item) => item.trim()).filter(Boolean).filter((item) => !item.startsWith("#")).forEach(add)
-
-  const text = data.getData("text/plain").trim()
-  if (text.startsWith("file:")) {
-    add(text)
-  }
-
-  for (const file of Array.from(data.files ?? [])) {
-    const value = (file as File & { path?: string }).path
-    if (value) {
-      add(value)
-    }
-  }
-
-  return out
-}
-
-function normalizeDroppedFilePath(value: string, workspaceDir: string) {
-  const path = value.startsWith("file:") ? fileUrlPath(value) : value
-  if (!path) {
-    return undefined
-  }
-
-  if (!workspaceDir) {
-    return path
-  }
-
-  return path === workspaceDir
-    ? path.split(/[\\/]/).pop() || path
-    : path.startsWith(`${workspaceDir}/`)
-      ? path.slice(workspaceDir.length + 1)
-      : path
-}
-
-function fileUrlPath(value: string) {
-  try {
-    return decodeURIComponent(new URL(value).pathname)
-  } catch {
-    return undefined
-  }
 }
 
 function ComposerRunningIndicator({ running }: { running: boolean }) {
