@@ -315,11 +315,12 @@ function reconcilePartList(next: SessionMessage["parts"], previous?: SessionMess
       changed = true
       return part
     }
-    if (deepEqual(existing, part)) {
+    const merged = reconcilePart(existing, part)
+    if (deepEqual(existing, merged)) {
       return existing
     }
     changed = true
-    return part
+    return merged
   })
 
   if (!changed && previous.length === reconciled.length && reconciled.every((part, index) => part === previous[index])) {
@@ -327,6 +328,20 @@ function reconcilePartList(next: SessionMessage["parts"], previous?: SessionMess
   }
 
   return reconciled
+}
+
+function reconcilePart(existing: SessionMessage["parts"][number], next: SessionMessage["parts"][number]) {
+  if (isStreamingTextPart(existing) && isStreamingTextPart(next) && existing.type === next.type && existing.text.startsWith(next.text)) {
+    return deepEqual(existing, { ...next, text: existing.text })
+      ? existing
+      : { ...next, text: existing.text }
+  }
+
+  return next
+}
+
+function isStreamingTextPart(part: SessionMessage["parts"][number]): part is Extract<SessionMessage["parts"][number], { type: "text" | "reasoning" }> {
+  return part.type === "text" || part.type === "reasoning"
 }
 
 function deepEqual(left: unknown, right: unknown): boolean {

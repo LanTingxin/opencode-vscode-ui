@@ -1,5 +1,7 @@
 # OpenCode UI Session Search Implementation Plan
 
+> Status: Completed after workspace-scoped session search shipped on 2026-04-12.
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add workspace-scoped session search to the Sessions tree so users can filter one workspace's sessions from the sidebar without affecting the default session cache or panel flows.

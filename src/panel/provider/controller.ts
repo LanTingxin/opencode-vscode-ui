@@ -330,7 +330,7 @@ export class SessionPanelController implements vscode.Disposable {
     this.markDeferredDirty(event)
 
     if (this.current && needsRefresh(event, this.current)) {
-      await this.push(true, `event:${event.type}:refresh`)
+      await this.push(true, refreshReason(event, this.current))
       return
     }
 
@@ -346,7 +346,7 @@ export class SessionPanelController implements vscode.Disposable {
     this.current = patch(next)
     this.panel.title = panelTitle(this.current.session?.title || this.ref.sessionId)
     this.panel.iconPath = panelIconPath(this.extensionUri)
-    if (this.incrementalReady && canPostIncrementalSessionEvent(event)) {
+    if (canPostIncrementalSessionEvent(event) && (this.incrementalReady || canPostDuringRefresh(event, this.pending))) {
       await this.postEvent({ type: "sessionEvent", event })
       return
     }
@@ -474,4 +474,31 @@ function summarizePanelEvent(sessionId: string, event: SessionEvent) {
   }
 
   return undefined
+}
+
+function canPostDuringRefresh(event: SessionEvent, pending: Promise<void> | undefined) {
+  return !!pending && isTranscriptEvent(event)
+}
+
+function isTranscriptEvent(event: SessionEvent) {
+  return event.type === "message.updated"
+    || event.type === "message.removed"
+    || event.type === "message.part.updated"
+    || event.type === "message.part.removed"
+    || event.type === "message.part.delta"
+}
+
+function refreshReason(event: SessionEvent, payload: SessionSnapshot) {
+  if (payload.session?.parentID) {
+    return `event:${event.type}:refresh:child-navigation`
+  }
+
+  if (event.type === "session.updated") {
+    const props = event.properties as { info?: { id: string; parentID?: string } }
+    if (props.info && !payload.relatedSessionIds.includes(props.info.id) && payload.relatedSessionIds.includes(props.info.parentID ?? "")) {
+      return `event:${event.type}:refresh:reparent-in`
+    }
+  }
+
+  return `event:${event.type}:refresh`
 }

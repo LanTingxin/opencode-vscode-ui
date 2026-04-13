@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 
 import type { HostMessage, SessionSnapshot } from "../../bridge/types"
-import type { PermissionRequest, SessionEvent, SessionInfo, SessionMessage } from "../../core/sdk"
+import type { PermissionRequest, QuestionRequest, SessionEvent, SessionInfo, SessionMessage } from "../../core/sdk"
 import { SessionPanelController } from "./controller"
 import { panelTitle } from "./utils"
 
@@ -160,7 +160,7 @@ describe("SessionPanelController.handle", () => {
     assert.equal(next.messages[0]?.parts[0]?.type === "text" ? next.messages[0].parts[0].text : undefined, "hello world")
   })
 
-  test("keeps status and permission events incremental and marks deferred state dirty", async () => {
+  test("keeps status, diff, permission, and question events incremental and marks deferred state dirty", async () => {
     const current = snapshot({ relatedSessionIds: ["root", "child"] })
     const statusHarness = createHarness(current)
     const statusEvent = {
@@ -176,6 +176,27 @@ describe("SessionPanelController.handle", () => {
     assert.equal(statusHarness.controller["deferredDirty"].sessionStatus, true)
     assert.deepEqual(statusHarness.events, [{ type: "sessionEvent", event: statusEvent }])
     assert.deepEqual((statusHarness.controller as any).current.sessionStatus, { type: "busy" })
+
+    const diffHarness = createHarness(current)
+    const diffEvent = {
+      type: "session.diff",
+      properties: {
+        sessionID: "root",
+        diff: [{
+          file: "src/app.ts",
+          before: "before",
+          after: "after",
+          additions: 1,
+          deletions: 1,
+          status: "modified" as const,
+        }],
+      },
+    } as const satisfies SessionEvent
+
+    await handle(diffHarness.controller, diffEvent)
+
+    assert.deepEqual(diffHarness.events, [{ type: "sessionEvent", event: diffEvent }])
+    assert.equal((diffHarness.controller as any).current.diff[0]?.file, "src/app.ts")
 
     const permissionHarness = createHarness(current)
     const permissionEvent = {
@@ -195,6 +216,26 @@ describe("SessionPanelController.handle", () => {
     assert.equal(permissionHarness.controller["deferredDirty"].permissions, true)
     assert.deepEqual(permissionHarness.events, [{ type: "sessionEvent", event: permissionEvent }])
     assert.equal((permissionHarness.controller as any).current.permissions[0]?.id, "perm-1")
+
+    const questionHarness = createHarness(current)
+    const questionEvent = {
+      type: "question.asked",
+      properties: {
+        id: "question-1",
+        sessionID: "child",
+        questions: [{
+          header: "Approve",
+          question: "Continue?",
+          options: [{ label: "Yes", description: "Continue the run." }],
+        }],
+      } satisfies QuestionRequest,
+    } as const satisfies SessionEvent
+
+    await handle(questionHarness.controller, questionEvent)
+
+    assert.equal(questionHarness.controller["deferredDirty"].questions, true)
+    assert.deepEqual(questionHarness.events, [{ type: "sessionEvent", event: questionEvent }])
+    assert.equal((questionHarness.controller as any).current.questions[0]?.id, "question-1")
   })
 
   test("keeps root panel subtree session updates incremental", async () => {
@@ -235,7 +276,7 @@ describe("SessionPanelController.handle", () => {
 
     assert.deepEqual(events, [])
     assert.deepEqual(snapshots, [])
-    assert.deepEqual(pushes, [{ force: true, reason: "event:session.created:refresh" }])
+    assert.deepEqual(pushes, [{ force: true, reason: "event:session.created:refresh:child-navigation" }])
   })
 
   test("refreshes root panels for reparent-in topology changes", async () => {
@@ -257,7 +298,64 @@ describe("SessionPanelController.handle", () => {
 
     assert.deepEqual(events, [])
     assert.deepEqual(snapshots, [])
-    assert.deepEqual(pushes, [{ force: true, reason: "event:session.updated:refresh" }])
+    assert.deepEqual(pushes, [{ force: true, reason: "event:session.updated:refresh:reparent-in" }])
+  })
+
+  test("keeps transcript events incremental while a refresh is in progress and transcript state is already hydrated", async () => {
+    const eventsUnderTest = [
+      {
+        type: "message.updated",
+        properties: {
+          info: {
+            id: "m2",
+            sessionID: "root",
+            role: "assistant" as const,
+            time: { created: 2 },
+          },
+        },
+      },
+      {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            id: "m1-part",
+            sessionID: "root",
+            messageID: "m1",
+            type: "text" as const,
+            text: "hello refreshed",
+          },
+        },
+      },
+      {
+        type: "message.part.removed",
+        properties: {
+          messageID: "m1",
+          partID: "m1-part",
+        },
+      },
+      {
+        type: "message.part.delta",
+        properties: {
+          sessionID: "root",
+          messageID: "m1",
+          partID: "m1-part",
+          field: "text",
+          delta: " world",
+        },
+      },
+    ] as const satisfies SessionEvent[]
+
+    for (const event of eventsUnderTest) {
+      const current = snapshot()
+      const { controller, pushes, snapshots, events } = createHarness(current, false)
+      ;(controller as any).pending = Promise.resolve()
+
+      await handle(controller, event)
+
+      assert.deepEqual(pushes, [], `unexpected refresh for ${event.type}`)
+      assert.deepEqual(snapshots, [], `unexpected snapshot fallback for ${event.type}`)
+      assert.deepEqual(events, [{ type: "sessionEvent", event }], `expected incremental event for ${event.type}`)
+    }
   })
 
   test("falls back to snapshot routing while incremental delivery is not ready", async () => {

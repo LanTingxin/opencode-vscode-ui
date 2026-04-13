@@ -1,5 +1,7 @@
 # OpenCode UI Session Organization Implementation Plan
 
+> Status: Completed after the focused task panel and local session tags shipped on 2026-04-13.
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Upgrade the focused-session Todo companion view into a stronger task panel and add local session tags with sidebar display and workspace-scoped tag filtering.
