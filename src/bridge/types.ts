@@ -219,7 +219,15 @@ export type WebviewMessage =
       }
     }
   | {
+      type: "messageAction"
+      action: "forkUserMessage" | "undoUserMessage"
+      messageID: string
+    }
+  | {
       type: "newSession"
+    }
+  | {
+      type: "newSessionInPlace"
     }
   | {
       type: "runSlashCommand"

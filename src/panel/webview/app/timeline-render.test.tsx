@@ -40,6 +40,9 @@ describe("Timeline user message rendering", () => {
         bootstrapStatus="ready"
         diffMode="unified"
         messages={[sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onUndoUserMessage={() => {}}
         showInternals={false}
         showThinking={true}
         AgentBadge={({ name }) => <span>{name}</span>}
@@ -52,5 +55,30 @@ describe("Timeline user message rendering", () => {
 
     assert.equal(html.includes("You"), false)
     assert.equal(html.includes("oc-entryHeader"), false)
+  })
+
+  test("renders a message action bar for user messages", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("oc-messageActions"), true)
+    assert.equal(html.includes("Copy"), true)
+    assert.equal(html.includes("Fork"), true)
+    assert.equal(html.includes("Undo"), true)
   })
 })

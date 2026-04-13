@@ -13,6 +13,8 @@ import { boot, panelIconPath, panelTitle } from "./utils"
 import { sessionPanelHtml } from "../html"
 
 export class SessionPanelController implements vscode.Disposable {
+  ref: SessionPanelRef
+  key: string
   private ready = false
   private incrementalReady = false
   private pending: Promise<void> | undefined
@@ -33,8 +35,8 @@ export class SessionPanelController implements vscode.Disposable {
 
   constructor(
     private extensionUri: vscode.Uri,
-    readonly ref: SessionPanelRef,
-    readonly key: string,
+    ref: SessionPanelRef,
+    key: string,
     readonly panel: vscode.WebviewPanel,
     private mgr: WorkspaceManager,
     private events: EventHub,
@@ -42,6 +44,8 @@ export class SessionPanelController implements vscode.Disposable {
     private onActive: (ref: SessionPanelRef | undefined) => void,
     private onDispose: (key: string) => void,
   ) {
+    this.ref = ref
+    this.key = key
     panel.webview.options = { enableScripts: true }
     panel.webview.html = sessionPanelHtml(panel.webview, this.extensionUri, ref)
     panel.title = panelTitle(ref.sessionId)
@@ -93,6 +97,11 @@ export class SessionPanelController implements vscode.Disposable {
           return
         }
 
+        if (message?.type === "newSessionInPlace") {
+          void vscode.commands.executeCommand("opencode-ui.newSessionInPlace", this.ref)
+          return
+        }
+
         if (message?.type === "openFile") {
           void openFile(this.ref, message.filePath, message.line)
           return
@@ -122,6 +131,18 @@ export class SessionPanelController implements vscode.Disposable {
 
         if (message?.type === "composerAction") {
           void runComposerAction(this.actionContext(), message.action, message.model)
+          return
+        }
+
+        if (message?.type === "messageAction") {
+          if (message.action === "undoUserMessage") {
+            void runComposerAction(this.actionContext(), "undoSession", undefined, message.messageID)
+            return
+          }
+
+          if (message.action === "forkUserMessage") {
+            void vscode.commands.executeCommand("opencode-ui.forkSessionMessage", this.ref, message.messageID)
+          }
           return
         }
 
@@ -191,9 +212,12 @@ export class SessionPanelController implements vscode.Disposable {
     }
 
     if (!this.pending) {
-      this.pending = this.refresh(reason || (force ? "push:forced" : "push:initial")).finally(() => {
-        this.pending = undefined
+      const pending = this.refresh(reason || (force ? "push:forced" : "push:initial")).finally(() => {
+        if (this.pending === pending) {
+          this.pending = undefined
+        }
       })
+      this.pending = pending
     }
 
     await this.pending
@@ -209,6 +233,26 @@ export class SessionPanelController implements vscode.Disposable {
     this.state.run += 1
     this.onDispose(this.key)
     vscode.Disposable.from(...this.bag).dispose()
+  }
+
+  async retarget(ref: SessionPanelRef, key: string) {
+    this.refreshSeq += 1
+    this.state.run += 1
+    this.state.pendingSubmitCount = 0
+    this.pending = undefined
+    this.pendingComposerParts = undefined
+    this.current = undefined
+    this.incrementalReady = false
+    this.deferredDirty = {
+      sessionStatus: false,
+      permissions: false,
+      questions: false,
+    }
+    this.ref = ref
+    this.key = key
+    this.panel.title = panelTitle(ref.sessionId)
+    this.panel.iconPath = panelIconPath(this.extensionUri)
+    await this.push(true, "retarget")
   }
 
   private async refresh(reason: string) {

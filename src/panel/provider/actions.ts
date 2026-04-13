@@ -3,7 +3,7 @@ import * as path from "node:path"
 import { URL } from "node:url"
 import { postToWebview } from "../../bridge/host"
 import type { ComposerPromptPart, SessionPanelRef } from "../../bridge/types"
-import type { MessageInfo, MessagePart, PermissionReply, PromptPartInput } from "../../core/sdk"
+import type { MessageInfo, PermissionReply, PromptPartInput, SessionMessage } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { text, textError, wait } from "./utils"
 import { friendlyShellSubmitError } from "./shell-errors"
@@ -185,7 +185,12 @@ export async function runShellCommand(ctx: ActionContext, command: string, agent
 }
 
 
-export async function runComposerAction(ctx: ActionContext, action: "refreshSession" | "compactSession" | "undoSession" | "redoSession" | "interruptSession", model?: MessageInfo["model"]) {
+export async function runComposerAction(
+  ctx: ActionContext,
+  action: "refreshSession" | "compactSession" | "undoSession" | "redoSession" | "interruptSession",
+  model?: MessageInfo["model"],
+  targetMessageID?: string,
+) {
   if (ctx.state.disposed) {
     return
   }
@@ -287,14 +292,16 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
           sessionID: ctx.ref.sessionId,
           directory: rt.dir,
         })).data ?? []
-        const msg = [...msgs].reverse().find((item) => item.info.role === "user" && (!revert || item.info.id < revert))
+        const msg = targetMessageID
+          ? msgs.find((item) => item.info.role === "user" && item.info.id === targetMessageID)
+          : [...msgs].reverse().find((item) => item.info.role === "user" && (!revert || item.info.id < revert))
         if (!msg) {
           return
         }
 
         await postToWebview(ctx.panel.webview, {
           type: "restoreComposer",
-          parts: undoRestoreParts(msg),
+          parts: restoredPromptPartsFromMessage(msg),
         })
 
         await rt.sdk.session.revert({
@@ -371,7 +378,7 @@ export async function runComposerAction(ctx: ActionContext, action: "refreshSess
   await fail(ctx.panel.webview, message)
 }
 
-function undoRestoreParts(message: { parts: MessagePart[] }): ComposerPromptPart[] {
+export function restoredPromptPartsFromMessage(message: Pick<SessionMessage, "parts">): ComposerPromptPart[] {
   const text = message.parts
     .flatMap((part) => part.type === "text" && !part.synthetic ? [{ type: "text" as const, text: part.text }] : [])
     .reduce((acc, part) => acc + part.text, "")

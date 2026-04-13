@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 
-import { runShellCommand, runSlashCommand, submit } from "./actions"
+import type { SessionMessage } from "../../core/sdk"
+import { restoredPromptPartsFromMessage, runComposerAction, runShellCommand, runSlashCommand, submit } from "./actions"
 
 async function withImmediateTimeout<T>(run: () => Promise<T>) {
   const original = globalThis.setTimeout
@@ -23,6 +24,11 @@ function createContext(overrides?: {
   promptAsync?: (input: unknown) => Promise<unknown>
   command?: (input: unknown) => Promise<unknown>
   shell?: (input: unknown) => Promise<unknown>
+  get?: (input: unknown) => Promise<{ data?: unknown }>
+  messages?: (input: unknown) => Promise<{ data?: unknown[] }>
+  status?: (input: unknown) => Promise<{ data?: Record<string, { type: string }> }>
+  revert?: (input: unknown) => Promise<unknown>
+  abort?: (input: unknown) => Promise<unknown>
 }): {
   ctx: Parameters<typeof submit>[0]
   posted: unknown[]
@@ -39,6 +45,11 @@ function createContext(overrides?: {
         promptAsync: overrides?.promptAsync ?? (async () => ({ data: undefined })),
         command: overrides?.command ?? (async () => ({ data: undefined })),
         shell: overrides?.shell ?? (async () => ({ data: undefined })),
+        get: overrides?.get ?? (async () => ({ data: undefined })),
+        messages: overrides?.messages ?? (async () => ({ data: [] })),
+        status: overrides?.status ?? (async () => ({ data: { "session-1": { type: "idle" } } })),
+        revert: overrides?.revert ?? (async () => ({ data: undefined })),
+        abort: overrides?.abort ?? (async () => ({ data: undefined })),
       },
     },
   }
@@ -172,5 +183,114 @@ describe("provider actions submitting", () => {
     assert.deepEqual(syncStates, [true, false])
     assert.equal(ctx.state.pendingSubmitCount, 0)
     assert.deepEqual(posted, [{ type: "error", message: "boom" }])
+  })
+
+  test("runComposerAction targeted undo restores the selected user message and reverts to its id", async () => {
+    let revertedPayload: unknown
+    const userMessage = {
+      info: {
+        id: "msg-user-2",
+        sessionID: "session-1",
+        role: "user",
+        time: { created: 2 },
+      },
+      parts: [{
+        id: "part-text-1",
+        sessionID: "session-1",
+        messageID: "msg-user-2",
+        type: "text",
+        text: "Please try again",
+      }],
+    } satisfies SessionMessage
+
+    const { ctx, posted, syncStates } = createContext({
+      get: async () => ({ data: { id: "session-1" } }),
+      messages: async () => ({
+        data: [{
+          info: {
+            id: "msg-user-1",
+            sessionID: "session-1",
+            role: "user",
+            time: { created: 1 },
+          },
+          parts: [],
+        }, userMessage],
+      }),
+      revert: async (input) => {
+        revertedPayload = input
+        return { data: undefined }
+      },
+    })
+
+    await withImmediateTimeout(async () => {
+      await runComposerAction(ctx, "undoSession", undefined, "msg-user-2")
+    })
+
+    assert.deepEqual(syncStates, [true, false])
+    assert.deepEqual(posted, [{
+      type: "restoreComposer",
+      parts: [{ type: "text", text: "Please try again" }],
+    }])
+    assert.deepEqual(revertedPayload, {
+      sessionID: "session-1",
+      directory: "/workspace",
+      messageID: "msg-user-2",
+    })
+  })
+})
+
+describe("restoredPromptPartsFromMessage", () => {
+  test("extracts visible text and file mentions from a user message", () => {
+    const message: SessionMessage = {
+      info: {
+        id: "msg-user-3",
+        sessionID: "session-1",
+        role: "user",
+        time: { created: 3 },
+      },
+      parts: [{
+        id: "part-text-1",
+        sessionID: "session-1",
+        messageID: "msg-user-3",
+        type: "text",
+        text: "Review this file",
+      }, {
+        id: "part-file-1",
+        sessionID: "session-1",
+        messageID: "msg-user-3",
+        type: "file",
+        mime: "text/plain",
+        url: "file:///workspace/src/app.ts",
+        source: {
+          type: "file",
+          path: "/workspace/src/app.ts",
+          text: {
+            value: "@src/app.ts#10-20",
+            start: 0,
+            end: 14,
+          },
+        },
+      }],
+    }
+
+    const parts = restoredPromptPartsFromMessage(message)
+
+    assert.deepEqual(parts, [
+      { type: "text", text: "Review this file" },
+      {
+        type: "file",
+        path: "src/app.ts",
+        kind: "file",
+        selection: {
+          startLine: 10,
+          endLine: 20,
+        },
+        source: {
+          value: "@src/app.ts#10-20",
+          start: 0,
+          end: 14,
+        },
+      },
+    ])
   })
 })

@@ -1,6 +1,6 @@
 import React from "react"
 import type { ComposerPathResult, ComposerPromptPart, SessionBootstrap } from "../../../bridge/types"
-import type { QuestionRequest } from "../../../core/sdk"
+import type { QuestionRequest, SessionMessage } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, WorkspaceDirContext } from "./contexts"
 import { answerKey, PermissionDock, QuestionDock, RetryStatus, SessionNav, SubagentNotice } from "./docks"
 import { createInitialState, persistableAppState, type AppState, type ComposerEditorPart, type ImageAttachment, type PersistedAppState, type VsCodeApi } from "./state"
@@ -578,7 +578,7 @@ export function App() {
   }, [])
 
   const postNewSession = React.useCallback(() => {
-    vscode.postMessage({ type: "newSession" })
+    vscode.postMessage({ type: "newSessionInPlace" })
   }, [])
 
   const openModelPicker = React.useCallback(() => {
@@ -658,6 +658,27 @@ export function App() {
   const postComposerAction = React.useCallback((action: "refreshSession" | "compactSession" | "undoSession" | "redoSession" | "interruptSession", model?: { providerID: string; modelID: string }) => {
     vscode.postMessage({ type: "composerAction", action, model })
   }, [])
+
+  const postMessageAction = React.useCallback((action: "forkUserMessage" | "undoUserMessage", messageID: string) => {
+    vscode.postMessage({ type: "messageAction", action, messageID })
+  }, [])
+
+  const copyUserMessage = React.useCallback((message: SessionMessage) => {
+    const value = visibleUserMessageText(message)
+    if (!value.trim()) {
+      return
+    }
+
+    void copyText(value)
+  }, [])
+
+  const forkUserMessage = React.useCallback((message: SessionMessage) => {
+    vscode.postMessage({ type: "messageAction", action: "forkUserMessage", messageID: message.info.id })
+  }, [])
+
+  const undoUserMessage = React.useCallback((message: SessionMessage) => {
+    postMessageAction("undoUserMessage", message.info.id)
+  }, [postMessageAction])
 
   const clearEscPending = React.useCallback(() => {
     escPendingRef.current = false
@@ -930,6 +951,9 @@ export function App() {
                     bootstrapMessage={state.bootstrap.message}
                     diffMode={state.snapshot.display.diffMode}
                     messages={state.snapshot.messages}
+                    onCopyUserMessage={copyUserMessage}
+                    onForkUserMessage={forkUserMessage}
+                    onUndoUserMessage={undoUserMessage}
                     revertID={state.snapshot.session?.revert?.messageID}
                     revertDiff={state.snapshot.session?.revert?.diff}
                     showInternals={state.snapshot.display.showInternals}
@@ -1396,6 +1420,29 @@ export function App() {
       </ChildMessagesContext.Provider>
     </WorkspaceDirContext.Provider>
   )
+}
+
+function visibleUserMessageText(message: SessionMessage) {
+  return message.parts
+    .flatMap((part) => part.type === "text" && !part.synthetic ? [part.text] : [])
+    .join("")
+}
+
+function copyText(value: string) {
+  const clipboard = window.navigator?.clipboard
+  if (clipboard?.writeText) {
+    return clipboard.writeText(value)
+  }
+
+  const input = document.createElement("textarea")
+  input.value = value
+  input.setAttribute("readonly", "")
+  input.className = "oc-copyScratchpad"
+  document.body.appendChild(input)
+  input.select()
+  document.execCommand("copy")
+  document.body.removeChild(input)
+  return Promise.resolve()
 }
 
 function normalizePersistedState(value: PersistedAppState | SessionBootstrap["sessionRef"] | null | undefined): PersistedAppState | undefined {

@@ -1,5 +1,6 @@
 import * as vscode from "vscode"
 import type { WorkspaceRef } from "../bridge/types"
+import type { SessionInfo, SessionStatus } from "./sdk"
 import { openSettingsQuery } from "./settings"
 import { checkOpencodeAvailable, runtimeNotReadyMessage } from "./runtime-errors"
 import { ClearSearchItem, ClearTagFilterItem, SessionItem, WorkspaceItem } from "../sidebar/item"
@@ -9,6 +10,7 @@ import { SessionStore } from "./session"
 import { TabManager } from "./tabs"
 import { WorkspaceManager } from "./workspace"
 import { SessionPanelManager } from "../panel/provider"
+import { restoredPromptPartsFromMessage } from "../panel/provider/actions"
 import { buildEditorSeed, buildExplorerSeed, type LaunchSeed } from "./launch-context"
 import { applySessionSearchCapabilityResult, CapabilityState, CapabilityStore, classifyCapabilityError, createEmptyCapabilities, type RuntimeCapabilities } from "./capabilities"
 import { SidebarProvider } from "../sidebar/provider"
@@ -78,8 +80,33 @@ export function commands(
         return
       }
 
-      const session = await sessions.create(rt.workspaceId)
-      await vscode.commands.executeCommand("opencode-ui.openSessionById", workspaceRef(rt), session.id)
+      const target = await acquireNewSessionTarget(rt, sessions, out)
+      await vscode.commands.executeCommand("opencode-ui.openSessionById", workspaceRef(rt), target.session.id, resolveNewSessionOpenColumn())
+      void cleanupStaleNewSessions(rt, target.stale, sessions, tabs, out)
+    }),
+    vscode.commands.registerCommand("opencode-ui.newSessionInPlace", async (current?: WorkspaceRef & { sessionId: string }) => {
+      const rt = current ? mgr.get(current.workspaceId) : firstRuntime(mgr)
+
+      if (!rt) {
+        await vscode.window.showInformationMessage("Open a workspace folder first.")
+        return
+      }
+
+      if (rt.state !== "ready") {
+        await vscode.window.showErrorMessage(runtimeNotReadyMessage(rt))
+        return
+      }
+
+      const target = await acquireNewSessionTarget(rt, sessions, out)
+      const nextRef = { ...workspaceRef(rt), sessionId: target.session.id }
+
+      if (current) {
+        await panels.retarget(current, nextRef)
+      } else {
+        await panels.open(nextRef)
+      }
+
+      void cleanupStaleNewSessions(rt, target.stale, sessions, tabs, out)
     }),
     vscode.commands.registerCommand("opencode-ui.restartWorkspaceServer", async (item?: WorkspaceItem) => {
       const rt = item?.runtime
@@ -111,7 +138,7 @@ export function commands(
 
       await tabs.openSession(workspaceRef(item.runtime), item.session)
     }),
-    vscode.commands.registerCommand("opencode-ui.openSessionById", async (workspace?: WorkspaceRef, sessionID?: string) => {
+    vscode.commands.registerCommand("opencode-ui.openSessionById", async (workspace?: WorkspaceRef, sessionID?: string, viewColumn?: vscode.ViewColumn) => {
       if (!workspace || !sessionID) {
         return
       }
@@ -133,7 +160,50 @@ export function commands(
         return
       }
 
-      await tabs.openSession(workspaceRef(rt), res.data)
+      await tabs.openSession(workspaceRef(rt), res.data, viewColumn)
+    }),
+    vscode.commands.registerCommand("opencode-ui.forkSessionMessage", async (current?: WorkspaceRef & { sessionId: string }, messageID?: string) => {
+      if (!current || !messageID) {
+        return
+      }
+
+      const rt = mgr.get(current.workspaceId)
+
+      if (!rt || rt.state !== "ready" || !rt.sdk) {
+        await vscode.window.showErrorMessage(runtimeNotReadyMessage(rt))
+        return
+      }
+
+      try {
+        const result = await rt.sdk.session.messages({
+          sessionID: current.sessionId,
+          directory: rt.dir,
+        })
+        const message = result.data?.find((item) => item.info.role === "user" && item.info.id === messageID)
+        if (!message) {
+          await vscode.window.showInformationMessage("The selected message is no longer available.")
+          return
+        }
+
+        const created = await rt.sdk.session.create({
+          directory: rt.dir,
+          parentID: current.sessionId,
+        })
+        const session = created.data
+        if (!session) {
+          throw new Error("session create returned no data")
+        }
+
+        void capabilities.getOrProbe(rt.workspaceId)
+        await panels.openWithSeed({
+          workspaceId: rt.workspaceId,
+          dir: rt.dir,
+          sessionId: session.id,
+        }, restoredPromptPartsFromMessage(message), resolveNewSessionOpenColumn())
+        void sessions.refresh(rt.workspaceId, true)
+      } catch (error) {
+        await vscode.window.showErrorMessage(`OpenCode fork failed for ${rt.name}: ${errorMessage(error)}`)
+      }
     }),
     vscode.commands.registerCommand("opencode-ui.deleteSession", async (item?: SessionItem) => {
       if (!item) {
@@ -168,9 +238,10 @@ export function commands(
         return
       }
 
-      const session = await sessions.create(rt.workspaceId)
-      const ref = { ...workspaceRef(rt), sessionId: session.id }
-      await panels.open(ref, vscode.ViewColumn.Beside)
+      const target = await acquireNewSessionTarget(rt, sessions, out)
+      const ref = { ...workspaceRef(rt), sessionId: target.session.id }
+      await panels.open(ref, resolveNewSessionOpenColumn())
+      void cleanupStaleNewSessions(rt, target.stale, sessions, tabs, out)
     }),
     vscode.commands.registerCommand("opencode-ui.askSelection", async () => {
       const seed = seedFromActiveEditor("selection")
@@ -310,12 +381,13 @@ export function commands(
         }
 
         void capabilities.getOrProbe(rt.workspaceId)
-        const session = await sessions.create(rt.workspaceId)
+        const target = await acquireNewSessionTarget(rt, sessions, out)
         await panels.open({
           workspaceId: rt.workspaceId,
           dir: rt.dir,
-          sessionId: session.id,
-        }, vscode.ViewColumn.Beside)
+          sessionId: target.session.id,
+        }, resolveNewSessionOpenColumn())
+        void cleanupStaleNewSessions(rt, target.stale, sessions, tabs, out)
         return
       }
 
@@ -481,6 +553,96 @@ function workspaceRef(runtime: { workspaceId: string; dir: string }): WorkspaceR
   }
 }
 
+async function acquireNewSessionTarget(
+  rt: WorkspaceRuntime,
+  sessions: SessionStore,
+  out: vscode.OutputChannel,
+) {
+  await sessions.refresh(rt.workspaceId, true)
+
+  const currentSessions = sessions.list(rt.workspaceId)
+  const emptySessionIds = await loadEmptyNewSessionIds(rt, currentSessions, out)
+  const existing = resolveReusableNewSession({
+    sessions: currentSessions,
+    emptySessionIds,
+    statuses: rt.sessionStatuses,
+  })
+
+  if (existing.keep) {
+    return {
+      session: existing.keep,
+      stale: existing.stale,
+    }
+  }
+
+  const created = await sessions.create(rt.workspaceId)
+  const refreshed = sessions.list(rt.workspaceId)
+  const allSessions = refreshed.some((item) => item.id === created.id)
+    ? refreshed
+    : [created, ...refreshed]
+
+  const next = resolveReusableNewSession({
+    sessions: allSessions,
+    emptySessionIds: new Set([...emptySessionIds, created.id]),
+    statuses: rt.sessionStatuses,
+    preferredSessionId: created.id,
+  })
+
+  return {
+    session: next.keep ?? created,
+    stale: next.stale,
+  }
+}
+
+async function cleanupStaleNewSessions(
+  rt: WorkspaceRuntime,
+  stale: SessionInfo[],
+  sessions: SessionStore,
+  tabs: TabManager,
+  out: vscode.OutputChannel,
+) {
+  for (const session of stale) {
+    try {
+      await sessions.delete(rt.workspaceId, session.id)
+      tabs.closeSession(workspaceRef(rt), session.id)
+    } catch (error) {
+      out.appendLine(`[commands] failed to remove stale new session ${session.id} for ${rt.name}: ${errorMessage(error)}`)
+    }
+  }
+}
+
+async function loadEmptyNewSessionIds(
+  rt: WorkspaceRuntime,
+  sessions: SessionInfo[],
+  out: vscode.OutputChannel,
+) {
+  if (!rt.sdk) {
+    return new Set<string>()
+  }
+
+  const candidates = sessions.filter((session) => isDefaultNewSessionTitle(session.title))
+  const checks = await Promise.all(candidates.map(async (session) => {
+    const status = rt.sessionStatuses.get(session.id)
+    if (status?.type && status.type !== "idle") {
+      return undefined
+    }
+
+    try {
+      const result = await rt.sdk!.session.messages({
+        sessionID: session.id,
+        directory: rt.dir,
+        limit: 1,
+      })
+      return (result.data?.length ?? 0) === 0 ? session.id : undefined
+    } catch (error) {
+      out.appendLine(`[commands] failed to inspect session ${session.id} for reuse: ${errorMessage(error)}`)
+      return undefined
+    }
+  }))
+
+  return new Set(checks.filter((sessionId): sessionId is string => !!sessionId))
+}
+
 async function openSeededSession(
   seed: LaunchSeed,
   mgr: WorkspaceManager,
@@ -518,7 +680,7 @@ async function openSeededSession(
     workspaceId: rt.workspaceId,
     dir: rt.dir,
     sessionId: session.id,
-  }, seed.parts, vscode.ViewColumn.Beside)
+  }, seed.parts, resolveNewSessionOpenColumn())
 }
 
 function errorMessage(error: unknown) {
@@ -548,4 +710,35 @@ export function resolveSeedSessionTarget(input: {
   }
 
   return undefined
+}
+
+export function resolveNewSessionOpenColumn() {
+  return vscode.ViewColumn.Beside
+}
+
+export function resolveReusableNewSession(input: {
+  sessions: SessionInfo[]
+  emptySessionIds: Set<string>
+  statuses: Map<string, SessionStatus>
+  preferredSessionId?: string
+}) {
+  const reusable = [...input.sessions]
+    .filter((session) => input.emptySessionIds.has(session.id))
+    .filter((session) => isDefaultNewSessionTitle(session.title))
+    .filter((session) => {
+      const status = input.statuses.get(session.id)
+      return !status?.type || status.type === "idle"
+    })
+    .sort((a, b) => b.time.updated - a.time.updated)
+
+  const keep = reusable.find((session) => session.id === input.preferredSessionId) ?? reusable[0]
+
+  return {
+    keep,
+    stale: keep ? reusable.filter((session) => session.id !== keep.id) : [],
+  }
+}
+
+function isDefaultNewSessionTitle(title: string) {
+  return title.trim().startsWith("New session - ")
 }

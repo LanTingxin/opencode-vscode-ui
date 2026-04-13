@@ -37,6 +37,9 @@ type TimelineProps = {
   bootstrapMessage?: string
   diffMode: "unified" | "split"
   messages: SessionMessage[]
+  onCopyUserMessage: (message: SessionMessage) => void
+  onForkUserMessage: (message: SessionMessage) => void
+  onUndoUserMessage: (message: SessionMessage) => void
   revertDiff?: string
   revertID?: string
   showInternals: boolean
@@ -53,6 +56,9 @@ export const Timeline = React.memo(function Timeline({
   bootstrapMessage,
   diffMode,
   messages,
+  onCopyUserMessage,
+  onForkUserMessage,
+  onUndoUserMessage,
   revertDiff,
   revertID,
   showInternals,
@@ -98,6 +104,9 @@ export const Timeline = React.memo(function Timeline({
             active={block.kind === "assistant-part" && block.part.type === "tool" && block.part.id === activeToolID}
             block={block}
             diffMode={diffMode}
+            onCopyUserMessage={onCopyUserMessage}
+            onForkUserMessage={onForkUserMessage}
+            onUndoUserMessage={onUndoUserMessage}
           />
         ))}
       </div>
@@ -113,6 +122,9 @@ type TimelineBlockViewProps = {
   active: boolean
   block: TimelineBlock
   diffMode: "unified" | "split"
+  onCopyUserMessage: (message: SessionMessage) => void
+  onForkUserMessage: (message: SessionMessage) => void
+  onUndoUserMessage: (message: SessionMessage) => void
 }
 
 function TimelineBlockView({
@@ -123,6 +135,9 @@ function TimelineBlockView({
   active,
   block,
   diffMode,
+  onCopyUserMessage,
+  onForkUserMessage,
+  onUndoUserMessage,
 }: TimelineBlockViewProps) {
   if (block.kind === "user-message") {
     const userText = primaryUserText(block.message)
@@ -153,6 +168,11 @@ function TimelineBlockView({
               ))}
             </div>
           ) : null}
+          <div className="oc-messageActions" aria-label="Message actions">
+            <button type="button" className="oc-messageActionBtn" onClick={() => onCopyUserMessage(block.message)}>Copy</button>
+            <button type="button" className="oc-messageActionBtn" onClick={() => onForkUserMessage(block.message)} disabled={block.queued}>Fork</button>
+            <button type="button" className="oc-messageActionBtn" onClick={() => onUndoUserMessage(block.message)} disabled={block.queued}>Undo</button>
+          </div>
         </section>
       </>
     )
@@ -194,7 +214,10 @@ function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: Timeline
     || prev.MarkdownBlock !== next.MarkdownBlock
     || prev.PartView !== next.PartView
     || prev.active !== next.active
-    || prev.diffMode !== next.diffMode) {
+    || prev.diffMode !== next.diffMode
+    || prev.onCopyUserMessage !== next.onCopyUserMessage
+    || prev.onForkUserMessage !== next.onForkUserMessage
+    || prev.onUndoUserMessage !== next.onUndoUserMessage) {
     return false
   }
 

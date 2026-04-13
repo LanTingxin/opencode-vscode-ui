@@ -52,6 +52,37 @@ export class SessionPanelManager implements vscode.Disposable {
     return controller.panel
   }
 
+  async retarget(currentRef: SessionPanelRef, nextRef: SessionPanelRef) {
+    const currentKey = panelKey(currentRef)
+    const nextKey = panelKey(nextRef)
+    const current = this.panels.get(currentKey)
+
+    if (!current) {
+      return this.open(nextRef)
+    }
+
+    if (currentKey === nextKey) {
+      this.touch(currentKey, current)
+      await current.reveal()
+      return current.panel
+    }
+
+    const existing = this.panels.get(nextKey)
+    if (existing && existing !== current) {
+      existing.panel.dispose()
+    }
+
+    this.panels.delete(currentKey)
+    await current.retarget(nextRef, nextKey)
+    this.panels.set(nextKey, current)
+
+    if (panelKey(this.currentRef) === currentKey) {
+      this.setActive(nextRef)
+    }
+
+    return current.panel
+  }
+
   async restore(panel: vscode.WebviewPanel, state: unknown) {
     const ref = reviveState(state)
 

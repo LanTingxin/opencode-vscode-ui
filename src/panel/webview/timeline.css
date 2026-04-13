@@ -70,6 +70,47 @@
   gap: 6px;
 }
 
+.oc-messageActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.oc-turnUser:hover .oc-messageActions,
+.oc-turnUser:focus-within .oc-messageActions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.oc-messageActionBtn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: color-mix(in srgb, var(--oc-surface-canvas) 74%, var(--oc-surface-block) 26%);
+  color: var(--oc-fg-muted);
+  font: inherit;
+  font-size: var(--oc-font-size-sm);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.oc-messageActionBtn:hover:not(:disabled),
+.oc-messageActionBtn:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, var(--oc-accent) 18%, var(--oc-surface-block) 82%);
+  color: var(--oc-fg);
+  outline: none;
+}
+
+.oc-messageActionBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .oc-part-text {
   padding: 6px 10px;
   border: 0;

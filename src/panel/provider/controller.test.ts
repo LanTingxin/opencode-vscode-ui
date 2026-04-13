@@ -434,6 +434,35 @@ describe("SessionPanelController.handle", () => {
 })
 
 describe("SessionPanelController.actionContext", () => {
+  test("retarget resets the controller to a different session in place", async () => {
+    const current = snapshot()
+    const { controller, pushes } = createHarness(current)
+    const raw = controller as any
+
+    raw.pending = Promise.resolve()
+    raw.pendingComposerParts = [{ type: "text", text: "stale draft" }]
+    raw.state.pendingSubmitCount = 2
+
+    await raw.retarget({
+      workspaceId: "file:///workspace",
+      dir: "/workspace",
+      sessionId: "new-session",
+    }, "file:///workspace:new-session")
+
+    assert.deepEqual(raw.ref, {
+      workspaceId: "file:///workspace",
+      dir: "/workspace",
+      sessionId: "new-session",
+    })
+    assert.equal(raw.key, "file:///workspace:new-session")
+    assert.equal(raw.current, undefined)
+    assert.equal(raw.pending, undefined)
+    assert.equal(raw.pendingComposerParts, undefined)
+    assert.equal(raw.state.pendingSubmitCount, 0)
+    assert.equal(raw.panel.title, panelTitle("new-session"))
+    assert.deepEqual(pushes, [{ force: true, reason: "retarget" }])
+  })
+
   test("posts restoreComposer after the webview becomes ready", async () => {
     const current = snapshot()
     const { controller } = createHarness(current)
