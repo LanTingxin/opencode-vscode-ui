@@ -12,10 +12,9 @@ export function panelKey(ref?: SessionPanelRef) {
 }
 
 export function panelTitle(title: string) {
-  const prefix = "OC:"
   const clean = (title || "session").trim() || "session"
   const maxTitleLength = 24
-  return `${prefix}${clean.length > maxTitleLength ? `${clean.slice(0, maxTitleLength - 1)}…` : clean}`
+  return clean.length > maxTitleLength ? `${clean.slice(0, maxTitleLength - 1)}…` : clean
 }
 
 export function panelIconPath(extensionUri: vscode.Uri): vscode.IconPath {

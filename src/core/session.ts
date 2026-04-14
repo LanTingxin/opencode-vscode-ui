@@ -1,5 +1,6 @@
 import * as vscode from "vscode"
 import { EventHub } from "./events"
+import { DEFAULT_NEW_SESSION_TITLE } from "./session-titles"
 import type { WorkspaceRuntime } from "./server"
 import { shouldTrackSession, syncTrackedSession } from "./session-list"
 import type { SessionEvent, SessionInfo, SessionStatus } from "./sdk"
@@ -99,7 +100,7 @@ export class SessionStore implements vscode.Disposable {
     }
 
     try {
-      const res = await rt.sdk.session.create({ directory: rt.dir })
+      const res = await rt.sdk.session.create({ directory: rt.dir, title: DEFAULT_NEW_SESSION_TITLE })
       const item = res.data
 
       if (!item) {

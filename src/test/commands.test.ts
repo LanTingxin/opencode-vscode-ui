@@ -105,6 +105,21 @@ describe("resolveReusableNewSession", () => {
     assert.deepEqual(target.stale.map((item) => item.id), [newest.id])
   })
 
+  test("treats the compact New session title as a reusable default session", () => {
+    const newest = session("session-newest", 30, "New session")
+    const renamed = session("session-renamed", 10, "Refactor task")
+    const statuses = new Map<string, SessionStatus>()
+
+    const target = resolveReusableNewSession({
+      sessions: [renamed, newest],
+      emptySessionIds: new Set([newest.id, renamed.id]),
+      statuses,
+    })
+
+    assert.equal(target.keep?.id, newest.id)
+    assert.deepEqual(target.stale, [])
+  })
+
   test("ignores sessions that are busy, have messages, or no longer use the default new-session title", () => {
     const busy = session("session-busy", 30)
     const withMessages = session("session-with-messages", 20)

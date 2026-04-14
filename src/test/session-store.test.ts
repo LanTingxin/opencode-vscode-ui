@@ -11,6 +11,7 @@ type Runtime = {
   state: "ready"
   sdk?: {
     session: {
+      create?(input: { directory: string; title: string }): Promise<{ data?: SessionInfo }>
       list(input: { directory: string; roots: true }): Promise<{ data?: SessionInfo[] }>
       status(input: { directory: string }): Promise<{ data?: Record<string, SessionStatus> }>
     }
@@ -116,6 +117,36 @@ function deferred<T>() {
 }
 
 describe("SessionStore child session filtering", () => {
+  test("creates sessions with the compact default title", async () => {
+    const harness = createHarness()
+    const created = info("created", 2)
+    let input: { directory: string; title: string } | undefined
+
+    harness.rt.sdk = {
+      session: {
+        create: async (next) => {
+          input = next
+          return {
+            data: {
+              ...created,
+              title: "New session",
+            },
+          }
+        },
+        list: async () => ({ data: [created] }),
+        status: async () => ({ data: { [created.id]: { type: "idle" } } }),
+      },
+    }
+
+    const result = await harness.store.create(harness.rt.workspaceId)
+
+    assert.deepEqual(input, {
+      directory: "/workspace",
+      title: "New session",
+    })
+    assert.equal(result.title, "New session")
+  })
+
   test("ignores child session create and status events in sidebar state", () => {
     const harness = createHarness()
     const child = info("child", 2, "root")

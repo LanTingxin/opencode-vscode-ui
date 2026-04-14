@@ -7,6 +7,7 @@ import { ClearSearchItem, ClearTagFilterItem, SessionItem, WorkspaceItem } from 
 import type { WorkspaceRuntime } from "./server"
 import { parseSessionTagsInput, SessionTagStore } from "./session-tags"
 import { SessionStore } from "./session"
+import { isDefaultNewSessionTitle } from "./session-titles"
 import { TabManager } from "./tabs"
 import { WorkspaceManager } from "./workspace"
 import { SessionPanelManager } from "../panel/provider"
@@ -746,8 +747,4 @@ export function resolveReusableNewSession(input: {
     keep,
     stale: keep ? reusable.filter((session) => session.id !== keep.id) : [],
   }
-}
-
-function isDefaultNewSessionTitle(title: string) {
-  return title.trim().startsWith("New session - ")
 }

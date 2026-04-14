@@ -4,6 +4,7 @@ import type { HostMessage, SessionPanelRef, SessionSnapshot, WebviewMessage } fr
 import { affectsDisplaySettings } from "../core/settings"
 import { EventHub } from "../core/events"
 import type { SessionEvent } from "../core/sdk"
+import { DEFAULT_NEW_SESSION_TITLE } from "../core/session-titles"
 import { WorkspaceManager } from "../core/workspace"
 import { FocusedSessionStore } from "./focused"
 import { sessionPanelHtml } from "../panel/html"
@@ -134,7 +135,7 @@ export class SessionViewProvider implements vscode.WebviewViewProvider, vscode.D
       if (sessions.length > 0) {
         sessionId = sessions[0].id
       } else {
-        const created = await rt.sdk.session.create({ directory: rt.dir })
+        const created = await rt.sdk.session.create({ directory: rt.dir, title: DEFAULT_NEW_SESSION_TITLE })
         if (this.currentRef || this.state.disposed || !created.data) {
           return
         }

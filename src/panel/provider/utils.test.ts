@@ -2,6 +2,13 @@ import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 
 import { friendlyShellSubmitError } from "./shell-errors"
+import { panelTitle } from "./utils"
+
+describe("panelTitle", () => {
+  test("renders session titles without the OC prefix", () => {
+    assert.equal(panelTitle("New session"), "New session")
+  })
+})
 
 describe("friendlyShellSubmitError", () => {
   test("maps busy UnknownError to a friendly message", () => {
