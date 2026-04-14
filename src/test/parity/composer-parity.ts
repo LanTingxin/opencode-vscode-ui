@@ -11,7 +11,7 @@ import { parseComposerFileQuery } from "../../panel/webview/lib/composer-file-se
 type ResourceMap = Record<string, McpResource>
 
 export type ComposerParityResult = {
-  trigger: "slash" | "mention" | null
+  trigger: "slash" | "skill" | "mention" | null
   query?: string
   items: Array<{
     id: string
@@ -44,7 +44,7 @@ export type ComposerParityFixture = {
   }
   acceptIndex?: number
   expected: {
-    trigger: "slash" | "mention" | null
+    trigger: "slash" | "skill" | "mention" | null
     query?: string
     items: Array<{
       id: string

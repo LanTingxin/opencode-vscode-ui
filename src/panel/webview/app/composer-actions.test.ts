@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 
-import { resolveComposerSlashAction } from "./composer-actions"
+import { isCompletedSlashCommand, resolveComposerSlashAction } from "./composer-actions"
 
 describe("resolveComposerSlashAction", () => {
   test("routes /new to a local new-session action", () => {
@@ -10,6 +10,12 @@ describe("resolveComposerSlashAction", () => {
     })
     assert.deepEqual(resolveComposerSlashAction("  /new  ", []), {
       type: "newSession",
+    })
+  })
+
+  test("routes /skills to the local skill-picker action", () => {
+    assert.deepEqual(resolveComposerSlashAction("/skills", []), {
+      type: "openSkillPicker",
     })
   })
 
@@ -26,7 +32,40 @@ describe("resolveComposerSlashAction", () => {
     })
   })
 
+  test("routes skill slash commands through the host command path", () => {
+    assert.deepEqual(resolveComposerSlashAction("/using-superpowers", [{
+      name: "using-superpowers",
+      description: "Load the superpowers workflow",
+      hints: [],
+      source: "skill",
+    }]), {
+      type: "command",
+      command: "using-superpowers",
+      arguments: "",
+    })
+  })
+
   test("ignores unknown slash commands", () => {
     assert.equal(resolveComposerSlashAction("/missing", []), undefined)
+  })
+})
+
+describe("isCompletedSlashCommand", () => {
+  test("treats skill commands as completed slash commands", () => {
+    assert.equal(isCompletedSlashCommand("/using-superpowers ", [{
+      name: "using-superpowers",
+      description: "Load the superpowers workflow",
+      hints: [],
+      source: "skill",
+    }]), true)
+  })
+
+  test("does not treat local skills action as a completed slash command", () => {
+    assert.equal(isCompletedSlashCommand("/skills", [{
+      name: "using-superpowers",
+      description: "Load the superpowers workflow",
+      hints: [],
+      source: "skill",
+    }]), false)
   })
 })

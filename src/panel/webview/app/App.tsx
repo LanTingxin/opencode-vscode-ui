@@ -7,7 +7,7 @@ import { createInitialState, persistableAppState, type AppState, type ComposerEd
 import { Timeline } from "./timeline"
 import { AgentBadge, CompactionDivider, EmptyState, MarkdownBlock, PartView, WebviewBindingsProvider } from "./webview-bindings"
 import { ensureComposerCursorVisible, resizeComposer, useComposerResize } from "../hooks/useComposer"
-import { matchAutocomplete, useComposerAutocomplete, type ComposerAutocompleteItem, type ComposerAutocompleteState } from "../hooks/useComposerAutocomplete"
+import { filterItems, matchAutocomplete, useComposerAutocomplete, type ComposerAutocompleteItem, type ComposerAutocompleteState } from "../hooks/useComposerAutocomplete"
 import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
@@ -16,7 +16,7 @@ import { agentColorClass, composerIdentity, composerMetrics, composerSelection, 
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
-import { resolveComposerSlashAction } from "./composer-actions"
+import { isCompletedSlashCommand, resolveComposerSlashAction } from "./composer-actions"
 import { collectDroppedFilePaths, shouldHandleComposerFileDrop } from "./composer-drop"
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
 import { composerEnterIntent, composerTabIntent, cycleAgentName, isShortcutTarget, leaderAction, shouldEnterShellMode, shouldExitShellModeOnBackspace, type ComposerMode } from "./keyboard-shortcuts"
@@ -58,6 +58,8 @@ export function App() {
   const [composerDrag, setComposerDrag] = React.useState<null | "mention">(null)
   const [modelPickerOpen, setModelPickerOpen] = React.useState(false)
   const [previewImage, setPreviewImage] = React.useState<ImageAttachment | null>(null)
+  const [skillPickerOpen, setSkillPickerOpen] = React.useState(false)
+  const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = React.useState(0)
   const timelineRef = React.useRef<HTMLDivElement | null>(null)
   const composerRef = React.useRef<HTMLDivElement | null>(null)
   const modelPickerRef = React.useRef<HTMLDivElement | null>(null)
@@ -80,8 +82,34 @@ export function App() {
   }, [])
   const composerMenuItems = React.useMemo(() => buildComposerMenuItems(state, fileResults), [fileResults, state])
   const composerAutocomplete = useComposerAutocomplete(composerMenuItems)
-  const activeAutocomplete = composerMode === "shell" ? null : composerAutocomplete.state
-  const activeAutocompleteItem = composerMode === "shell" ? undefined : composerAutocomplete.currentItem
+  const skillPickerItems = React.useMemo(() => filterItems(composerMenuItems, "skill", state.draft), [composerMenuItems, state.draft])
+  React.useEffect(() => {
+    setSkillPickerSelectedIndex((current) => skillPickerItems.length === 0 ? 0 : Math.min(current, skillPickerItems.length - 1))
+  }, [skillPickerItems])
+  const skillPickerAutocomplete = React.useMemo<ComposerAutocompleteState | null>(() => {
+    if (!skillPickerOpen) {
+      return null
+    }
+
+    const selectedIndex = skillPickerItems.length === 0 ? 0 : Math.min(skillPickerSelectedIndex, skillPickerItems.length - 1)
+    return {
+      trigger: "skill",
+      query: state.draft,
+      start: 0,
+      end: state.draft.length,
+      items: skillPickerItems,
+      selectedIndex,
+    }
+  }, [skillPickerItems, skillPickerOpen, skillPickerSelectedIndex, state.draft])
+  const suppressSlashAutocomplete = React.useMemo(() => isCompletedSlashCommand(state.draft, state.snapshot.commands), [state.draft, state.snapshot.commands])
+  const activeAutocomplete = composerMode === "shell" || !composerFocused
+    ? null
+    : skillPickerOpen
+      ? skillPickerAutocomplete
+      : suppressSlashAutocomplete && composerAutocomplete.state?.trigger === "slash"
+        ? null
+      : composerAutocomplete.state
+  const activeAutocompleteItem = activeAutocomplete?.items[activeAutocomplete.selectedIndex]
   const currentSelection = React.useMemo(() => composerSelection({
     ...state.snapshot,
     composerAgentOverride: state.composerAgentOverride,
@@ -169,6 +197,12 @@ export function App() {
       return
     }
 
+    if (skillPickerOpen) {
+      autocompleteDismissedRef.current = null
+      composerAutocomplete.close()
+      return
+    }
+
     const next = matchAutocomplete(value, start, end)
 
     // Upstream only reevaluates autocomplete after content changes. In the webview we
@@ -185,7 +219,7 @@ export function App() {
 
     autocompleteDismissedRef.current = null
     composerAutocomplete.sync(value, start, end)
-  }, [composerAutocomplete, composerMode])
+  }, [composerAutocomplete, composerMode, skillPickerOpen])
 
   const enterShellMode = React.useCallback(() => {
     autocompleteDismissedRef.current = null
@@ -232,6 +266,11 @@ export function App() {
   }, [syncComposerInput])
 
   const closeComposerAutocomplete = React.useCallback(() => {
+    if (skillPickerOpen) {
+      closeSkillPicker()
+      return
+    }
+
     const autocomplete = activeAutocomplete
     if (!autocomplete) {
       return
@@ -247,7 +286,7 @@ export function App() {
 
     autocompleteDismissedRef.current = autocomplete
     composerAutocomplete.close()
-  }, [activeAutocomplete, composerAutocomplete, restoreComposerCursor, setComposerState, state.composerParts])
+  }, [activeAutocomplete, closeSkillPicker, composerAutocomplete, restoreComposerCursor, setComposerState, skillPickerOpen, state.composerParts])
 
   const onRestoreComposer = React.useCallback((payload: { parts: ComposerPromptPart[] }) => {
     const parts = mergeRestoredComposerParts(state.composerParts, payload.parts)
@@ -481,6 +520,11 @@ export function App() {
         return
       }
 
+      if (slashAction.type === "openSkillPicker") {
+        openSkillPicker()
+        return
+      }
+
       if (slashAction.type === "command") {
         vscode.postMessage({
           type: "runSlashCommand",
@@ -532,7 +576,7 @@ export function App() {
       imageAttachments: [],
       error: "",
     }))
-  }, [blocked, composerMode, currentSelection, exitShellMode, state.composerParts, state.imageAttachments, state.snapshot.commands])
+  }, [blocked, composerMode, currentSelection, exitShellMode, openSkillPicker, state.composerParts, state.imageAttachments, state.snapshot.commands])
 
   const composerPlaceholder = composerMode === "shell"
     ? "Enter shell command to run in this workspace."
@@ -552,6 +596,34 @@ export function App() {
       error: "",
     }))
   }, [])
+
+  function openSkillPicker() {
+    autocompleteDismissedRef.current = null
+    composerAutocomplete.close()
+    setSkillPickerSelectedIndex(0)
+    setSkillPickerOpen(true)
+    const result = setComposerState(emptyComposerParts(), "")
+    restoreComposerCursor(result.draft, 0)
+  }
+
+  function closeSkillPicker() {
+    autocompleteDismissedRef.current = null
+    setSkillPickerOpen(false)
+    setSkillPickerSelectedIndex(0)
+    const result = setComposerState(emptyComposerParts(), "")
+    restoreComposerCursor(result.draft, 0)
+  }
+
+  function moveSkillPicker(delta: number) {
+    setSkillPickerSelectedIndex((current) => {
+      if (skillPickerItems.length === 0) {
+        return 0
+      }
+
+      const size = skillPickerItems.length
+      return (current + delta + size) % size
+    })
+  }
 
   const clearLeaderPending = React.useCallback(() => {
     leaderPendingRef.current = false
@@ -838,6 +910,11 @@ export function App() {
         return
       }
 
+      if (item.id === "slash-skills") {
+        openSkillPicker()
+        return
+      }
+
       if (item.id === "slash-undo") {
         clearComposerDraft()
         postComposerAction("undoSession")
@@ -889,7 +966,14 @@ export function App() {
     }
 
     if (item.kind === "command") {
-      const cmdDraft = `/${item.label} `
+      const cmdDraft = item.trigger === "skill"
+        ? `/${item.label} `
+        : `/${item.label} `
+      if (item.trigger === "skill") {
+        autocompleteDismissedRef.current = matchAutocomplete(cmdDraft, cmdDraft.length, cmdDraft.length)
+        setSkillPickerOpen(false)
+        setSkillPickerSelectedIndex(0)
+      }
       const next = replaceRangeWithText(emptyComposerParts(), 0, 0, cmdDraft)
       const result = setComposerState(next.parts, "")
       composerAutocomplete.close()
@@ -919,7 +1003,7 @@ export function App() {
       composerAutocomplete.close()
       restoreComposerCursor(result.draft, next.cursor)
     }
-  }, [clearComposerDraft, composerAutocomplete, composerMode, currentSelection.model, openModelPicker, postComposerAction, restoreComposerCursor, setComposerState, state.composerParts, state.snapshot])
+  }, [clearComposerDraft, composerAutocomplete, composerMode, currentSelection.model, openModelPicker, openSkillPicker, postComposerAction, restoreComposerCursor, setComposerState, state.composerParts, state.snapshot])
 
   const sendQuestionReply = React.useCallback((request: QuestionRequest) => {
     const answers = request.questions.map((_item, index) => {
@@ -1266,13 +1350,21 @@ export function App() {
                       if (activeAutocomplete) {
                         if (event.key === "ArrowDown") {
                           event.preventDefault()
-                          composerAutocomplete.move(1)
+                          if (skillPickerOpen) {
+                            moveSkillPicker(1)
+                          } else {
+                            composerAutocomplete.move(1)
+                          }
                           return
                         }
 
                         if (event.key === "ArrowUp") {
                           event.preventDefault()
-                          composerAutocomplete.move(-1)
+                          if (skillPickerOpen) {
+                            moveSkillPicker(-1)
+                          } else {
+                            composerAutocomplete.move(-1)
+                          }
                           return
                         }
 
@@ -1483,7 +1575,7 @@ function ComposerAutocompletePopup({ state, fileSearch, onSelect }: { state: Com
   return (
     <div className="oc-composerAutocomplete" role="listbox" aria-label={`${state.trigger} suggestions`}>
       <div className="oc-composerAutocompleteHeader">
-        <span className="oc-composerAutocompleteTrigger">{state.trigger === "slash" ? "/" : "@"}</span>
+        <span className="oc-composerAutocompleteTrigger">{state.trigger === "mention" ? "@" : "/"}</span>
         <span>{popupHeaderText(state, fileSearch)}</span>
       </div>
       <div className="oc-composerAutocompleteList">
@@ -1535,6 +1627,10 @@ function popupHeaderText(state: ComposerAutocompleteState, fileSearch: { status:
     return state.query ? `Filter: ${state.query}` : "Start typing to filter"
   }
 
+  if (state.trigger === "skill") {
+    return state.query ? `Skill filter: ${state.query}` : "Search skills"
+  }
+
   const query = parseComposerFileQuery(state.query).baseQuery.trim()
   if (!state.query) {
     return "Agents, resources, and project paths"
@@ -1550,6 +1646,10 @@ function popupHeaderText(state: ComposerAutocompleteState, fileSearch: { status:
 function popupEmptyText(state: ComposerAutocompleteState, fileSearch: { status: "idle" | "searching" | "done"; query: string }) {
   if (state.trigger === "slash") {
     return state.query ? `No slash actions match \"${state.query}\"` : "Start typing to filter"
+  }
+
+  if (state.trigger === "skill") {
+    return state.query ? `No skills match \"${state.query}\"` : "Type a skill name"
   }
 
   const query = parseComposerFileQuery(state.query).baseQuery.trim()

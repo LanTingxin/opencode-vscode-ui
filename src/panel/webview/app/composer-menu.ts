@@ -30,6 +30,14 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
       kind: "action",
     },
     {
+      id: "slash-skills",
+      label: "skills",
+      detail: "Open the skill picker and insert a skill command.",
+      keywords: ["skill", "picker", "workflow"],
+      trigger: "slash",
+      kind: "action",
+    },
+    {
       id: "slash-undo",
       label: "undo",
       detail: "Revert the previous user turn immediately.",
@@ -83,6 +91,17 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
       }
     })
 
+  const skillItems: ComposerAutocompleteItem[] = state.snapshot.commands
+    .filter((cmd) => cmd.source === "skill")
+    .map((cmd) => ({
+      id: `skill:${cmd.name}`,
+      label: cmd.name,
+      detail: cmd.description ?? "",
+      keywords: [cmd.agent ?? "", ...cmd.hints].filter(Boolean),
+      trigger: "skill" as const,
+      kind: "command" as const,
+    }))
+
   const agentItems = state.snapshot.agents
     .filter((agent) => !agent.hidden && agent.mode !== "primary")
     .map((agent) => ({
@@ -135,7 +154,7 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
     },
   }))
 
-  return [...slashItems, ...commandItems, ...agentItems, ...fileItems, ...resourceItems]
+  return [...slashItems, ...commandItems, ...skillItems, ...agentItems, ...fileItems, ...resourceItems]
 }
 
 export function mentionForQuery(mention: Extract<NonNullable<ComposerAutocompleteItem["mention"]>, { type: "file" }>, query: string): Extract<NonNullable<ComposerAutocompleteItem["mention"]>, { type: "file" }> {

@@ -2,7 +2,7 @@ import type { ComposerPathKind } from "../../../bridge/types"
 import React from "react"
 import { parseComposerFileQuery } from "../lib/composer-file-selection"
 
-export type ComposerAutocompleteTrigger = "slash" | "mention"
+export type ComposerAutocompleteTrigger = "slash" | "skill" | "mention"
 
 export type ComposerAutocompleteItem = {
   id: string
@@ -205,7 +205,7 @@ export function filterItems(items: ComposerAutocompleteItem[], trigger: Composer
   const source = items.filter((item) => item.trigger === trigger)
   const normalized = query.trim().toLowerCase()
 
-  if (trigger === "slash") {
+  if (trigger === "slash" || trigger === "skill") {
     if (!normalized) {
       return source
         .map((item) => ({ ...item, match: undefined }))

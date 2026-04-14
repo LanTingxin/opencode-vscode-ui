@@ -190,7 +190,7 @@ describe("composer integration visibility", () => {
     assert.equal(result.trigger, "slash")
     assert.equal(result.hostResults.length, 0, "host search not triggered for slash")
     assert.ok(result.items.every((item) => item.kind === "action"), "only actions returned for /")
-    assert.deepEqual(result.items.map((item) => item.label), ["compact", "model", "new", "refresh", "undo"], "built-in slash actions sort alphabetically")
+    assert.deepEqual(result.items.map((item) => item.label), ["compact", "model", "new", "refresh", "skills", "undo"], "built-in slash actions sort alphabetically")
   })
 
   test("recent files appear before workspace search results", () => {
@@ -297,6 +297,36 @@ describe("composer integration visibility", () => {
     assert.ok(labels.includes("review"), "non-skill command is present")
     assert.ok(labels.includes("init"), "non-skill command is present")
     assert.ok(labels.includes("debug"), "mcp command is present")
+  })
+
+  test("/skills stays in slash autocomplete as a local skills action", () => {
+    const result = runComposerIntegration({
+      name: "skills action",
+      draft: "/skills",
+      cursor: 7,
+      commands: serverCommands,
+      host: { workspace: [] },
+    })
+
+    assert.equal(result.trigger, "slash")
+    assert.deepEqual(result.items.map((item) => item.label), ["skills"])
+    assert.ok(result.items.every((item) => item.kind === "action"), "slash skills entry stays a local action")
+    assert.ok(result.hostResults.length === 0, "host search not triggered for skills")
+  })
+
+  test("/skills query does not enter skill results directly", () => {
+    const result = runComposerIntegration({
+      name: "skills query still slash",
+      draft: "/skills sum",
+      cursor: 11,
+      commands: [
+        ...serverCommands,
+        { name: "using-superpowers", description: "load the superpowers workflow", source: "skill" as const, hints: [] },
+      ],
+      host: { workspace: [] },
+    })
+
+    assert.equal(result.trigger, null)
   })
 
   test("/ with server commands shows mcp label in detail", () => {

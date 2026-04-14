@@ -5,6 +5,9 @@ export type ComposerSlashAction =
       type: "newSession"
     }
   | {
+      type: "openSkillPicker"
+    }
+  | {
       type: "command"
       command: string
       arguments: string
@@ -23,7 +26,11 @@ export function resolveComposerSlashAction(draft: string, commands: CommandInfo[
     return { type: "newSession" }
   }
 
-  const known = commands.find((item) => item.name === command && item.source !== "skill")
+  if (command === "skills" && !args) {
+    return { type: "openSkillPicker" }
+  }
+
+  const known = commands.find((item) => item.name === command)
   if (!known) {
     return undefined
   }
@@ -33,4 +40,14 @@ export function resolveComposerSlashAction(draft: string, commands: CommandInfo[
     command,
     arguments: args,
   }
+}
+
+export function isCompletedSlashCommand(draft: string, commands: CommandInfo[]) {
+  const slashMatch = draft.match(/^\/(\S+)\s+$/) ?? draft.trim().match(/^\/(\S+)$/)
+  if (!slashMatch) {
+    return false
+  }
+
+  const command = slashMatch[1] ?? ""
+  return commands.some((item) => item.name === command)
 }
