@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 
 import type { Todo } from "../core/sdk"
-import { buildTaskOpenMessage, buildTaskPanelView } from "../sidebar/webview/index"
+import { buildDiffPanelView, buildTaskOpenMessage, buildTaskPanelView } from "../sidebar/webview/index"
 
 function todo(content: string, status: string, priority = "medium"): Todo {
   return {
@@ -80,5 +80,29 @@ describe("task panel view", () => {
       dir: "/workspace",
       sessionId: "root",
     })
+  })
+
+  test("builds workspace summary metadata for the diff companion view", () => {
+    const view = buildDiffPanelView({
+      branch: "feature/auth",
+      workspaceFileSummary: {
+        added: 2,
+        deleted: 1,
+        modified: 3,
+      },
+      diff: [{
+        file: "src/app.ts",
+        patch: "@@",
+        additions: 3,
+        deletions: 1,
+        status: "modified",
+      }],
+    })
+
+    assert.equal(view.summary?.branch, "feature/auth")
+    assert.equal(view.summary?.counts.added, 2)
+    assert.equal(view.summary?.counts.deleted, 1)
+    assert.equal(view.summary?.counts.modified, 3)
+    assert.equal(view.items[0]?.file, "src/app.ts")
   })
 })

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import type { AgentInfo, ProviderInfo, SessionMessage } from "../../../core/sdk"
-import { composerIdentity, composerSelection, cycleModelVariant, lastUserSelection, pushRecentModel, toggleFavoriteModel } from "./session-meta"
+import type { AgentInfo, FormatterStatus, ProviderInfo, SessionMessage } from "../../../core/sdk"
+import { composerIdentity, composerSelection, cycleModelVariant, lastUserSelection, overallFormatterStatus, pushRecentModel, statusItemForMcp, toggleFavoriteModel } from "./session-meta"
 
 const providers: ProviderInfo[] = [{
   id: "p1",
@@ -262,5 +262,30 @@ describe("session meta composer state", () => {
     assert.equal(cycleModelVariant(providers, { providerID: "p1", modelID: "m1" }, undefined), "fast")
     assert.equal(cycleModelVariant(providers, { providerID: "p1", modelID: "m1" }, "fast"), "deep")
     assert.equal(cycleModelVariant(providers, { providerID: "p1", modelID: "m1" }, "deep"), undefined)
+  })
+
+  test("statusItemForMcp maps needs_auth to an explicit authenticate action", () => {
+    assert.deepEqual(statusItemForMcp("docs", { status: "needs_auth" }), {
+      name: "docs",
+      tone: "orange",
+      value: "Needs authentication",
+      action: "authenticate",
+      actionLabel: "Authenticate docs",
+    })
+  })
+
+  test("overallFormatterStatus collapses formatter results into a single badge tone and item list", () => {
+    const formatters: FormatterStatus[] = [
+      { name: "prettier", extensions: [".ts", ".tsx"], enabled: true },
+      { name: "rustfmt", extensions: [".rs"], enabled: false },
+    ]
+
+    assert.deepEqual(overallFormatterStatus(formatters), {
+      tone: "orange",
+      items: [
+        { name: "prettier", tone: "green", value: ".ts, .tsx" },
+        { name: "rustfmt", tone: "gray", value: "Disabled" },
+      ],
+    })
   })
 })

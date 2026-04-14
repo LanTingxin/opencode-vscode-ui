@@ -9,7 +9,7 @@ import { FocusedSessionStore } from "./focused"
 import { sessionPanelHtml } from "../panel/html"
 import { buildSessionSnapshot, patch } from "../panel/provider/snapshot"
 import { needsRefresh, reduce } from "../panel/provider/reducer"
-import { rejectQuestion, replyPermission, replyQuestion, runComposerAction, runShellCommand, runSlashCommand, submit, toggleMcp, type PanelActionState } from "../panel/provider/actions"
+import { providerAuthAction, rejectQuestion, replyPermission, replyQuestion, runComposerAction, runMcpAction, runShellCommand, runSlashCommand, submit, type PanelActionState } from "../panel/provider/actions"
 import { openFile, resolveFileRefs, searchFiles } from "../panel/provider/files"
 import { boot } from "../panel/provider/utils"
 
@@ -225,8 +225,13 @@ export class SessionViewProvider implements vscode.WebviewViewProvider, vscode.D
       return
     }
 
-    if (message?.type === "toggleMcp") {
-      void toggleMcp(this.actionContext(), message.name, message.action)
+    if (message?.type === "providerAuthAction") {
+      void providerAuthAction(this.actionContext(), message.providerID)
+      return
+    }
+
+    if (message?.type === "mcpAction") {
+      void runMcpAction(this.actionContext(), message.name, message.action)
       return
     }
 

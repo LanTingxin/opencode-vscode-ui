@@ -51,6 +51,7 @@ mock.module("vscode", () => ({
   workspace: {
     workspaceFolders: [],
     onDidChangeWorkspaceFolders: () => new Disposable(),
+    onDidChangeConfiguration: () => new Disposable(),
     getConfiguration: () => ({
       get: <T>(_key: string, fallback: T) => fallback,
     }),
@@ -67,6 +68,9 @@ mock.module("vscode", () => ({
     remoteName: undefined,
     uiKind: 1,
     openExternal: async () => true,
+    clipboard: {
+      writeText: async () => undefined,
+    },
   },
   UIKind: {
     1: "Desktop",

@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import type { SessionPanelRef } from "../bridge/types"
 import { EventHub } from "../core/events"
-import type { FileDiff, SessionEvent, SessionInfo, Todo } from "../core/sdk"
+import type { Client, FileDiff, SessionEvent, SessionInfo, Todo, WorkspaceFileStatus } from "../core/sdk"
 import { WorkspaceManager } from "../core/workspace"
 import { SessionPanelManager } from "../panel/provider"
 
@@ -11,6 +11,14 @@ export type FocusedSessionState = {
   session?: SessionInfo
   todos: Todo[]
   diff: FileDiff[]
+  branch?: string
+  defaultBranch?: string
+  workspaceFileStatus: WorkspaceFileStatus[]
+  workspaceFileSummary?: {
+    added: number
+    deleted: number
+    modified: number
+  }
   error?: string
 }
 
@@ -18,6 +26,7 @@ const idleState: FocusedSessionState = {
   status: "idle",
   todos: [],
   diff: [],
+  workspaceFileStatus: [],
 }
 
 export class FocusedSessionStore implements vscode.Disposable {
@@ -62,6 +71,7 @@ export class FocusedSessionStore implements vscode.Disposable {
           session: this.state.session,
           todos: [],
           diff: [],
+          workspaceFileStatus: [],
         })
       }
     })
@@ -90,6 +100,7 @@ export class FocusedSessionStore implements vscode.Disposable {
       session: this.state.session?.id === ref.sessionId ? this.state.session : undefined,
       todos: [],
       diff: [],
+      workspaceFileStatus: [],
     })
 
     const rt = this.mgr.get(ref.workspaceId)
@@ -100,25 +111,19 @@ export class FocusedSessionStore implements vscode.Disposable {
         session: this.state.session?.id === ref.sessionId ? this.state.session : undefined,
         todos: [],
         diff: [],
+        workspaceFileStatus: [],
       })
       return
     }
 
     try {
-      const [sessionRes, todoRes, diffRes] = await Promise.all([
-        rt.sdk.session.get({
-          sessionID: ref.sessionId,
-          directory: ref.dir,
-        }),
-        rt.sdk.session.todo({
-          sessionID: ref.sessionId,
-          directory: ref.dir,
-        }),
-        rt.sdk.session.diff({
-          sessionID: ref.sessionId,
-          directory: ref.dir,
-        }),
-      ])
+      const loaded = await loadFocusedSessionState({
+        ref,
+        runtime: {
+          dir: rt.dir,
+          sdk: rt.sdk,
+        },
+      })
 
       if (run !== this.run || !sameRef(this.state.ref, ref)) {
         return
@@ -127,9 +132,7 @@ export class FocusedSessionStore implements vscode.Disposable {
       this.set({
         status: "ready",
         ref,
-        session: sessionRes.data,
-        todos: todoRes.data ?? [],
-        diff: diffRes.data ?? [],
+        ...loaded,
       })
     } catch (err) {
       const message = text(err)
@@ -142,6 +145,7 @@ export class FocusedSessionStore implements vscode.Disposable {
         ref,
         todos: [],
         diff: [],
+        workspaceFileStatus: [],
         error: message,
       })
     }
@@ -205,6 +209,7 @@ export class FocusedSessionStore implements vscode.Disposable {
         status: "idle",
         todos: [],
         diff: [],
+        workspaceFileStatus: [],
       })
     }
   }
@@ -217,6 +222,67 @@ export class FocusedSessionStore implements vscode.Disposable {
   private log(message: string) {
     this.out.appendLine(`[focused-session] ${message}`)
   }
+}
+
+export async function loadFocusedSessionState(input: {
+  ref: SessionPanelRef
+  runtime: {
+    dir: string
+    sdk: Client
+  }
+}) {
+  const [sessionRes, todoRes, diffRes, vcsRes, fileStatusRes] = await Promise.all([
+    input.runtime.sdk.session.get({
+      sessionID: input.ref.sessionId,
+      directory: input.ref.dir,
+    }),
+    input.runtime.sdk.session.todo({
+      sessionID: input.ref.sessionId,
+      directory: input.ref.dir,
+    }),
+    input.runtime.sdk.session.diff({
+      sessionID: input.ref.sessionId,
+      directory: input.ref.dir,
+    }),
+    input.runtime.sdk.vcs.get({
+      directory: input.ref.dir,
+    }),
+    input.runtime.sdk.file.status({
+      directory: input.ref.dir,
+    }),
+  ])
+
+  const workspaceFileStatus = fileStatusRes.data ?? []
+  return {
+    session: sessionRes.data,
+    todos: todoRes.data ?? [],
+    diff: diffRes.data ?? [],
+    branch: vcsRes.data?.branch,
+    defaultBranch: vcsRes.data?.default_branch,
+    workspaceFileStatus,
+    workspaceFileSummary: summarizeWorkspaceFileStatus(workspaceFileStatus),
+  }
+}
+
+function summarizeWorkspaceFileStatus(files: WorkspaceFileStatus[]) {
+  if (files.length === 0) {
+    return undefined
+  }
+
+  return files.reduce((summary, item) => {
+    if (item.status === "added") {
+      summary.added += 1
+    } else if (item.status === "deleted") {
+      summary.deleted += 1
+    } else {
+      summary.modified += 1
+    }
+    return summary
+  }, {
+    added: 0,
+    deleted: 0,
+    modified: 0,
+  })
 }
 
 function sameRef(a?: SessionPanelRef, b?: SessionPanelRef) {

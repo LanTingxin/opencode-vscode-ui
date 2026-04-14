@@ -71,7 +71,51 @@ export async function submit(ctx: ActionContext, textValue: string, parts?: Comp
   }
 }
 
-export async function toggleMcp(ctx: ActionContext, name: string, action: "connect" | "disconnect" | "reconnect") {
+export async function providerAuthAction(ctx: ActionContext, providerID: string) {
+  if (!providerID || ctx.state.disposed) {
+    return
+  }
+
+  const rt = ctx.mgr.get(ctx.ref.workspaceId)
+  if (!rt || rt.state !== "ready" || !rt.sdk) {
+    await fail(ctx.panel.webview, "Workspace server is not ready.")
+    return
+  }
+
+  try {
+    const auth = await rt.sdk.provider.auth({
+      directory: rt.dir,
+    })
+    const methods = Array.isArray(auth.data?.[providerID]) ? auth.data[providerID] : []
+    const oauthIndex = methods.findIndex((method) => method.type === "oauth")
+    if (oauthIndex < 0) {
+      await vscode.commands.executeCommand("opencode-ui.openProviderDocs")
+      return
+    }
+
+    const result = await rt.sdk.provider.oauth.authorize({
+      providerID,
+      directory: rt.dir,
+      method: oauthIndex,
+    })
+    const authz = result.data
+    if (!authz?.url) {
+      await vscode.commands.executeCommand("opencode-ui.openProviderDocs")
+      return
+    }
+
+    await vscode.env.openExternal(vscode.Uri.parse(authz.url))
+    if (authz.method === "code" && authz.instructions.trim()) {
+      await vscode.window.showInformationMessage(authz.instructions)
+    }
+  } catch (err) {
+    const message = `Failed to authenticate provider ${providerID}: ${text(err)}`
+    ctx.log(message)
+    await vscode.window.showErrorMessage(message)
+  }
+}
+
+export async function runMcpAction(ctx: ActionContext, name: string, action: "connect" | "disconnect" | "reconnect" | "authenticate" | "removeAuth") {
   if (!name || ctx.state.disposed) {
     return
   }
@@ -84,6 +128,10 @@ export async function toggleMcp(ctx: ActionContext, name: string, action: "conne
   try {
     if (action === "disconnect") {
       await rt.sdk.mcp.disconnect({ name, directory: rt.dir })
+    } else if (action === "authenticate") {
+      await rt.sdk.mcp.auth.authenticate({ name, directory: rt.dir })
+    } else if (action === "removeAuth") {
+      await rt.sdk.mcp.auth.remove({ name, directory: rt.dir })
     } else {
       await rt.sdk.mcp.connect({ name, directory: rt.dir })
     }

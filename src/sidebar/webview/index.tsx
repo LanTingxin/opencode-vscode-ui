@@ -125,14 +125,30 @@ function TodoList({ state }: { state: SidebarViewState }) {
 }
 
 function DiffList({ state }: { state: SidebarViewState }) {
-  if (state.diff.length === 0) {
+  const view = buildDiffPanelView({
+    branch: state.branch,
+    workspaceFileSummary: state.workspaceFileSummary,
+    diff: state.diff,
+  })
+
+  if (view.items.length === 0) {
     return <Empty title="No modified files" text="Files changed by the focused session will appear here" />
   }
 
   return (
     <section className="sv-group">
+      {view.summary ? (
+        <div className="sv-taskSummary">
+          <div className="sv-taskSummaryCounts">
+            {view.summary.branch ? <span>{view.summary.branch}</span> : null}
+            <span>{view.summary.counts.added} added</span>
+            <span>{view.summary.counts.modified} modified</span>
+            <span>{view.summary.counts.deleted} deleted</span>
+          </div>
+        </div>
+      ) : null}
       <div className="sv-list">
-        {state.diff.map((item) => (
+        {view.items.map((item) => (
           <button key={item.file} type="button" className="sv-diff" onClick={() => vscode.postMessage({ type: "openFile", filePath: item.file })}>
             <span className="sv-add">{item.additions ? `+${item.additions}` : ""}</span>
             <span className="sv-sep">/</span>
@@ -218,6 +234,24 @@ export function buildTaskOpenMessage(ref?: SessionPanelRef): SidebarWebviewMessa
     workspaceId: ref.workspaceId,
     dir: ref.dir,
     sessionId: ref.sessionId,
+  }
+}
+
+export function buildDiffPanelView(input: {
+  branch?: string
+  workspaceFileSummary?: {
+    added: number
+    deleted: number
+    modified: number
+  }
+  diff: SidebarViewState["diff"]
+}) {
+  return {
+    summary: input.workspaceFileSummary ? {
+      branch: input.branch,
+      counts: input.workspaceFileSummary,
+    } : undefined,
+    items: input.diff,
   }
 }
 

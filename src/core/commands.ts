@@ -15,6 +15,41 @@ import { buildEditorSeed, buildExplorerSeed, type LaunchSeed } from "./launch-co
 import { applySessionSearchCapabilityResult, CapabilityState, CapabilityStore, classifyCapabilityError, createEmptyCapabilities, type RuntimeCapabilities } from "./capabilities"
 import { SidebarProvider } from "../sidebar/provider"
 
+type SessionActionRuntime = Pick<WorkspaceRuntime, "workspaceId" | "dir" | "name" | "state"> & {
+  sdk?: {
+    session: {
+      update?(input: {
+        sessionID: string
+        directory: string
+        title?: string
+        time?: {
+          archived?: number
+        }
+      }): Promise<{ data?: SessionInfo }>
+      share?(input: {
+        sessionID: string
+        directory: string
+      }): Promise<{ data?: SessionInfo }>
+      unshare?(input: {
+        sessionID: string
+        directory: string
+      }): Promise<{ data?: SessionInfo }>
+    }
+  }
+}
+
+export type SessionActionTarget = {
+  runtime: SessionActionRuntime
+  session: SessionInfo
+}
+
+type SessionActionInput = {
+  target: SessionActionTarget
+  sessions: Pick<SessionStore, "refresh">
+  showInformationMessage: (message: string) => Thenable<unknown>
+  showErrorMessage: (message: string) => Thenable<unknown>
+}
+
 export function commands(
   ctx: vscode.ExtensionContext,
   mgr: WorkspaceManager,
@@ -193,25 +228,60 @@ export function commands(
         await vscode.window.showErrorMessage(`OpenCode fork failed for ${rt.name}: ${errorMessage(error)}`)
       }
     }),
-    vscode.commands.registerCommand("opencode-ui.deleteSession", async (item?: SessionItem) => {
-      if (!item) {
-        await vscode.window.showInformationMessage("Pick a session item first.")
+    vscode.commands.registerCommand("opencode-ui.renameSession", async (item?: SessionItem) => {
+      const target = await resolveSessionActionTarget(item, mgr)
+      if (!target) {
         return
       }
 
-      const label = displaySessionTitle(item.session.title, item.session.id.slice(0, 8))
-      const confirmed = await vscode.window.showWarningMessage(
-        `Delete session "${label}"? This permanently removes its messages and history.`,
-        { modal: true },
-        "Delete Session",
-      )
-
-      if (confirmed !== "Delete Session") {
+      await renameSession({
+        target,
+        sessions,
+        showInputBox: (options) => vscode.window.showInputBox(options),
+        showInformationMessage: (message) => vscode.window.showInformationMessage(message),
+        showErrorMessage: (message) => vscode.window.showErrorMessage(message),
+      })
+    }),
+    vscode.commands.registerCommand("opencode-ui.archiveSession", async (item?: SessionItem) => {
+      const target = await resolveSessionActionTarget(item, mgr)
+      if (!target) {
         return
       }
 
-      await sessions.delete(item.runtime.workspaceId, item.session.id)
-      tabs.closeSession(workspaceRef(item.runtime), item.session.id)
+      await archiveSession({
+        target,
+        sessions,
+        showWarningMessage: (message, options, ...items) => vscode.window.showWarningMessage(message, options, ...items),
+        showInformationMessage: (message) => vscode.window.showInformationMessage(message),
+        showErrorMessage: (message) => vscode.window.showErrorMessage(message),
+      })
+    }),
+    vscode.commands.registerCommand("opencode-ui.shareSession", async (item?: SessionItem) => {
+      const target = await resolveSessionActionTarget(item, mgr)
+      if (!target) {
+        return
+      }
+
+      await shareSession({
+        target,
+        sessions,
+        copyText: (value) => vscode.env.clipboard.writeText(value),
+        showInformationMessage: (message) => vscode.window.showInformationMessage(message),
+        showErrorMessage: (message) => vscode.window.showErrorMessage(message),
+      })
+    }),
+    vscode.commands.registerCommand("opencode-ui.unshareSession", async (item?: SessionItem) => {
+      const target = await resolveSessionActionTarget(item, mgr)
+      if (!target) {
+        return
+      }
+
+      await unshareSession({
+        target,
+        sessions,
+        showInformationMessage: (message) => vscode.window.showInformationMessage(message),
+        showErrorMessage: (message) => vscode.window.showErrorMessage(message),
+      })
     }),
     vscode.commands.registerCommand("opencode-ui.quickNewSession", async () => {
       const rt = runtimeFromActiveEditor(mgr) ?? firstRuntime(mgr)
@@ -515,6 +585,119 @@ export async function runWorkspaceSessionSearch(input: WorkspaceSessionSearchInp
   }
 }
 
+export async function renameSession(input: SessionActionInput & {
+  showInputBox: (options: vscode.InputBoxOptions) => Thenable<string | undefined>
+}) {
+  if (!isSessionActionReady(input.target, input.showErrorMessage)) {
+    return
+  }
+
+  const label = displaySessionTitle(input.target.session.title, input.target.session.id.slice(0, 8))
+  const title = await input.showInputBox({
+    prompt: `Rename session "${label}"`,
+    placeHolder: "Session title",
+    value: input.target.session.title,
+    ignoreFocusOut: true,
+  })
+
+  const next = title?.trim()
+  if (!next || next === input.target.session.title) {
+    return
+  }
+
+  try {
+    await input.target.runtime.sdk!.session.update!({
+      sessionID: input.target.session.id,
+      directory: input.target.runtime.dir,
+      title: next,
+    })
+    await input.sessions.refresh(input.target.runtime.workspaceId, true)
+  } catch (error) {
+    await input.showErrorMessage(`OpenCode rename failed for ${input.target.runtime.name}: ${errorMessage(error)}`)
+  }
+}
+
+export async function archiveSession(input: SessionActionInput & {
+  showWarningMessage: (
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: string[]
+  ) => Thenable<string | undefined>
+  now?: () => number
+}) {
+  if (!isSessionActionReady(input.target, input.showErrorMessage)) {
+    return
+  }
+
+  const label = displaySessionTitle(input.target.session.title, input.target.session.id.slice(0, 8))
+  const confirmed = await input.showWarningMessage(
+    `Archive session "${label}"? It will disappear from the default session list.`,
+    { modal: true },
+    "Archive Session",
+  )
+
+  if (confirmed !== "Archive Session") {
+    return
+  }
+
+  try {
+    await input.target.runtime.sdk!.session.update!({
+      sessionID: input.target.session.id,
+      directory: input.target.runtime.dir,
+      time: {
+        archived: (input.now ?? Date.now)(),
+      },
+    })
+    await input.sessions.refresh(input.target.runtime.workspaceId, true)
+    await input.showInformationMessage(`Archived session "${label}".`)
+  } catch (error) {
+    await input.showErrorMessage(`OpenCode archive failed for ${input.target.runtime.name}: ${errorMessage(error)}`)
+  }
+}
+
+export async function shareSession(input: SessionActionInput & {
+  copyText: (value: string) => Thenable<void>
+}) {
+  if (!isSessionActionReady(input.target, input.showErrorMessage)) {
+    return
+  }
+
+  try {
+    const result = await input.target.runtime.sdk!.session.share!({
+      sessionID: input.target.session.id,
+      directory: input.target.runtime.dir,
+    })
+    const url = result.data?.share?.url
+    if (!url) {
+      await input.showErrorMessage(`OpenCode share failed for ${input.target.runtime.name}: Missing share URL.`)
+      return
+    }
+
+    await input.copyText(url)
+    await input.sessions.refresh(input.target.runtime.workspaceId, true)
+    await input.showInformationMessage("Share link copied to the clipboard.")
+  } catch (error) {
+    await input.showErrorMessage(`OpenCode share failed for ${input.target.runtime.name}: ${errorMessage(error)}`)
+  }
+}
+
+export async function unshareSession(input: SessionActionInput) {
+  if (!isSessionActionReady(input.target, input.showErrorMessage)) {
+    return
+  }
+
+  try {
+    await input.target.runtime.sdk!.session.unshare!({
+      sessionID: input.target.session.id,
+      directory: input.target.runtime.dir,
+    })
+    await input.sessions.refresh(input.target.runtime.workspaceId, true)
+    await input.showInformationMessage("Session unshared.")
+  } catch (error) {
+    await input.showErrorMessage(`OpenCode unshare failed for ${input.target.runtime.name}: ${errorMessage(error)}`)
+  }
+}
+
 function firstRuntime(mgr: WorkspaceManager): WorkspaceRuntime | undefined {
   const folder = vscode.workspace.workspaceFolders?.[0]
   return folder ? mgr.get(folder.uri.toString()) : undefined
@@ -539,6 +722,24 @@ function workspaceRef(runtime: { workspaceId: string; dir: string }): WorkspaceR
     workspaceId: runtime.workspaceId,
     dir: runtime.dir,
   }
+}
+
+async function resolveSessionActionTarget(item: SessionItem | undefined, mgr: WorkspaceManager) {
+  if (!item) {
+    await vscode.window.showInformationMessage("Pick a session item first.")
+    return undefined
+  }
+
+  const rt = mgr.get(item.runtime.workspaceId)
+  if (!rt || rt.state !== "ready" || !rt.sdk) {
+    await vscode.window.showErrorMessage(runtimeNotReadyMessage(rt))
+    return undefined
+  }
+
+  return {
+    runtime: rt,
+    session: item.session,
+  } satisfies SessionActionTarget
 }
 
 async function acquireNewSessionTarget(
@@ -677,6 +878,18 @@ function errorMessage(error: unknown) {
   }
 
   return String(error)
+}
+
+function isSessionActionReady(
+  target: SessionActionTarget,
+  showErrorMessage: (message: string) => Thenable<unknown>,
+) {
+  if (target.runtime.state === "ready" && target.runtime.sdk) {
+    return true
+  }
+
+  void showErrorMessage(runtimeNotReadyMessage(target.runtime as WorkspaceRuntime))
+  return false
 }
 
 export function resolveSeedSessionTarget(input: {

@@ -40,9 +40,9 @@ export class SessionItem extends vscode.TreeItem {
     super(label, vscode.TreeItemCollapsibleState.None)
     this.label = label
     this.id = `${runtime.workspaceId}:${session.id}`
-    this.description = buildSessionDescription(session.id, tags)
+    this.description = buildSessionDescription(session, tags)
     this.tooltip = buildSessionTooltip(runtime.dir, session, tags)
-    this.contextValue = "session"
+    this.contextValue = session.share?.url ? "session-shared" : "session"
     this.iconPath = status?.type === "busy"
       ? new vscode.ThemeIcon("loading~spin")
       : new vscode.ThemeIcon("comment-discussion")
@@ -138,14 +138,18 @@ function workspaceContextValue(searchActive: boolean, tagFilterActive: boolean) 
   return "workspace"
 }
 
-function buildSessionDescription(sessionId: string, tags: string[]) {
-  const base = sessionId.slice(0, 8)
+function buildSessionDescription(session: SessionInfo, tags: string[]) {
+  const base = session.id.slice(0, 8)
+  const shared = session.share?.url ? "shared" : ""
   const summary = tagSummary(tags)
-  return summary ? `${base} ${summary}` : base
+  return [base, shared, summary].filter(Boolean).join(" ")
 }
 
 function buildSessionTooltip(runtimeDir: string, session: SessionInfo, tags: string[]) {
   const lines = [`${displaySessionTitle(session.title, session.id)}`, session.id, runtimeDir]
+  if (session.share?.url) {
+    lines.push(`Shared: ${session.share.url}`)
+  }
   if (tags.length > 0) {
     lines.push(`Tags: ${tags.join(", ")}`)
   }

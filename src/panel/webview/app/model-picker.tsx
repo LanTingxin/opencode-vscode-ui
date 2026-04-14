@@ -1,5 +1,5 @@
 import React from "react"
-import type { ProviderInfo } from "../../../core/sdk"
+import type { ProviderAuthMethod, ProviderInfo } from "../../../core/sdk"
 import type { ComposerModelRef } from "./state"
 import { isValidModelRef, modelKey, modelVariants, providerById, providerModelById, sameModelRef } from "../lib/session-meta"
 
@@ -18,6 +18,12 @@ export type ModelPickerSection = {
   id: string
   label: string
   items: ModelPickerItem[]
+}
+
+export type ModelPickerRecoveryAction = {
+  providerID: string
+  label: string
+  actionLabel: string
 }
 
 type FilteredModelPickerSection = ModelPickerSection & {
@@ -90,19 +96,44 @@ export function buildModelPickerSections({
   return sections
 }
 
+export function buildModelPickerRecoveryActions({
+  providers,
+  providerAuth,
+}: {
+  providers: ProviderInfo[]
+  providerAuth: Record<string, ProviderAuthMethod[]>
+}): ModelPickerRecoveryAction[] {
+  return providers.flatMap((provider) => {
+    const oauth = (providerAuth[provider.id] ?? []).find((method) => method.type === "oauth")
+    if (!oauth) {
+      return []
+    }
+
+    return [{
+      providerID: provider.id,
+      label: provider.name || provider.id,
+      actionLabel: oauth.label || `Connect ${provider.name || provider.id}`,
+    }]
+  })
+}
+
 export function ModelPicker({
   sections,
+  recoveryActions = [],
   currentAgent,
   onClose,
   onOpenProviderDocs,
+  onStartProviderAuth,
   onSelect,
   onToggleFavorite,
   onCycleVariant,
 }: {
   sections: ModelPickerSection[]
+  recoveryActions?: ModelPickerRecoveryAction[]
   currentAgent?: string
   onClose: () => void
   onOpenProviderDocs: () => void
+  onStartProviderAuth?: (providerID: string) => void
   onSelect: (model: ComposerModelRef) => void
   onToggleFavorite: (model: ComposerModelRef) => void
   onCycleVariant: (model: ComposerModelRef) => void
@@ -227,7 +258,12 @@ export function ModelPicker({
           <span className="oc-modelPickerMeta">No models available</span>
         </div>
         <div className="oc-modelPickerEmptyActions">
-          <div className="oc-modelPickerEmptyText">Configure a provider to start switching models in this session.</div>
+          <div className="oc-modelPickerEmptyText">Configure or connect a provider to start switching models in this session.</div>
+          {recoveryActions.map((action) => (
+            <button key={action.providerID} type="button" className="oc-modelPickerAction" onClick={() => onStartProviderAuth?.(action.providerID)}>
+              {action.actionLabel}
+            </button>
+          ))}
           <button type="button" className="oc-modelPickerAction" onClick={onOpenProviderDocs}>Open provider docs</button>
         </div>
       </div>
