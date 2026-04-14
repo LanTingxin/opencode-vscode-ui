@@ -14,6 +14,7 @@ import { SessionPanelSerializer } from "./panel/serializer"
 import { FocusedSessionStore } from "./sidebar/focused"
 import { SessionItem } from "./sidebar/item"
 import { SidebarProvider } from "./sidebar/provider"
+import { syncTreeSelectionToActiveSession } from "./sidebar/tree-sync"
 import { SidebarViewProvider } from "./sidebar/view-provider"
 import { SessionViewProvider } from "./sidebar/session-view-provider"
 
@@ -62,19 +63,21 @@ export async function activate(ctx: vscode.ExtensionContext) {
     })
   })
   const treeActiveSyncReg = panels.onDidChangeActiveSession((ref) => {
-    if (!ref) {
+    void syncTreeSelectionToActiveSession({
+      ref,
+      tree,
+      treeView,
+    })
+  })
+  const treeVisibilityReg = treeView.onDidChangeVisibility(({ visible }) => {
+    if (!visible) {
       return
     }
 
-    const item = tree.findSessionItem(ref.workspaceId, ref.sessionId)
-    if (!item) {
-      return
-    }
-
-    void treeView.reveal(item, {
-      select: true,
-      focus: false,
-      expand: true,
+    void syncTreeSelectionToActiveSession({
+      ref: panels.activeSession(),
+      tree,
+      treeView,
     })
   })
   const todoReg = vscode.window.registerWebviewViewProvider("opencode-ui.todo", todoView)
@@ -89,7 +92,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 
   commands(ctx, workspaceMgr, sessions, out, tabs, panels, capabilities, tags, tree)
 
-  ctx.subscriptions.push(out, workspaceMgr, sessions, events, panels, focused, capabilities, statusBar, tree, todoView, diffView, sessionView, treeView, treeSelectionReg, treeActiveSyncReg, todoReg, diffReg, sessionViewReg, serializer)
+  ctx.subscriptions.push(out, workspaceMgr, sessions, events, panels, focused, capabilities, statusBar, tree, todoView, diffView, sessionView, treeView, treeSelectionReg, treeActiveSyncReg, treeVisibilityReg, todoReg, diffReg, sessionViewReg, serializer)
   out.appendLine("OpenCode UI activated")
 
   const folders = vscode.workspace.workspaceFolders ?? []

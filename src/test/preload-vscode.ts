@@ -36,7 +36,9 @@ mock.module("vscode", () => ({
     createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
     registerTreeDataProvider: () => new Disposable(),
     createTreeView: () => ({
+      visible: true,
       onDidChangeSelection: () => new Disposable(),
+      onDidChangeVisibility: () => new Disposable(),
       reveal: async () => undefined,
       dispose() {},
     }),
