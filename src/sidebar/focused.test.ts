@@ -5,8 +5,8 @@ import type { SessionPanelRef } from "../bridge/types"
 import { FocusedSessionStore, loadFocusedSessionState } from "./focused"
 
 describe("focused session store", () => {
-  test("focused-session load aggregates per-message diffs for the selected session", async () => {
-    const diffCalls: string[] = []
+  test("focused-session load uses the selected session diff only", async () => {
+    const diffCalls: Array<{ messageID?: string }> = []
     const state = await loadFocusedSessionState({
       ref: {
         workspaceId: "ws-1",
@@ -58,50 +58,18 @@ describe("focused session store", () => {
               ],
             }),
             diff: async ({ messageID }: { messageID?: string }) => {
-              diffCalls.push(messageID ?? "none")
-              if (messageID === "m-user-1") {
-                return {
-                  data: [
-                    {
-                      file: "src/app.ts",
-                      patch: "@@",
-                      additions: 3,
-                      deletions: 1,
-                      status: "modified" as const,
-                    },
-                    {
-                      file: "src/new.ts",
-                      patch: "@@",
-                      additions: 5,
-                      deletions: 0,
-                      status: "added" as const,
-                    },
-                  ],
-                }
+              diffCalls.push({ messageID })
+              return {
+                data: [
+                  {
+                    file: "src/current.ts",
+                    patch: "@@",
+                    additions: 4,
+                    deletions: 1,
+                    status: "modified" as const,
+                  },
+                ],
               }
-
-              if (messageID === "m-user-2") {
-                return {
-                  data: [
-                    {
-                      file: "src/app.ts",
-                      patch: "@@",
-                      additions: 7,
-                      deletions: 2,
-                      status: "modified" as const,
-                    },
-                    {
-                      file: "src/old.ts",
-                      patch: "@@",
-                      additions: 0,
-                      deletions: 4,
-                      status: "deleted" as const,
-                    },
-                  ],
-                }
-              }
-
-              return { data: [] }
             },
           },
           vcs: {
@@ -120,13 +88,13 @@ describe("focused session store", () => {
 
     assert.equal(state.branch, "feature/auth")
     assert.equal(state.defaultBranch, "main")
-    assert.deepEqual(diffCalls, ["m-user-1", "m-user-2"])
-    assert.deepEqual(state.diff.map((item) => item.file), ["src/app.ts", "src/new.ts", "src/old.ts"])
+    assert.deepEqual(diffCalls, [{ messageID: undefined }])
+    assert.deepEqual(state.diff.map((item) => item.file), ["src/current.ts"])
     assert.deepEqual(state.diff[0], {
-      file: "src/app.ts",
+      file: "src/current.ts",
       patch: "@@",
-      additions: 7,
-      deletions: 2,
+      additions: 4,
+      deletions: 1,
       status: "modified",
     })
     assert.equal("workspaceFileSummary" in state, false)

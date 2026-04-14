@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import type { SessionPanelRef } from "../bridge/types"
 import { EventHub } from "../core/events"
-import type { Client, FileDiff, SessionEvent, SessionInfo, SessionMessage, Todo } from "../core/sdk"
+import type { Client, FileDiff, SessionEvent, SessionInfo, Todo } from "../core/sdk"
 import { WorkspaceManager } from "../core/workspace"
 import { SessionPanelManager } from "../panel/provider"
 
@@ -254,7 +254,7 @@ export async function loadFocusedSessionState(input: {
     sdk: Client
   }
 }) {
-  const [sessionRes, todoRes, messagesRes, vcsRes] = await Promise.all([
+  const [sessionRes, todoRes, diffRes, vcsRes] = await Promise.all([
     input.runtime.sdk.session.get({
       sessionID: input.ref.sessionId,
       directory: input.ref.dir,
@@ -263,60 +263,22 @@ export async function loadFocusedSessionState(input: {
       sessionID: input.ref.sessionId,
       directory: input.ref.dir,
     }),
-    input.runtime.sdk.session.messages({
+    input.runtime.sdk.session.diff({
       sessionID: input.ref.sessionId,
       directory: input.ref.dir,
-      limit: 200,
     }),
     input.runtime.sdk.vcs.get({
       directory: input.ref.dir,
     }),
   ])
 
-  const diff = await loadSessionDiff({
-    sdk: input.runtime.sdk,
-    dir: input.ref.dir,
-    sessionId: input.ref.sessionId,
-    messages: messagesRes.data ?? [],
-  })
-
   return {
     session: sessionRes.data,
     todos: todoRes.data ?? [],
-    diff,
+    diff: diffRes.data ?? [],
     branch: vcsRes.data?.branch,
     defaultBranch: vcsRes.data?.default_branch,
   }
-}
-
-async function loadSessionDiff(input: {
-  sdk: Client
-  dir: string
-  sessionId: string
-  messages: SessionMessage[]
-}) {
-  const userMessages = input.messages.filter((message) => message.info.role === "user")
-  if (userMessages.length === 0) {
-    return []
-  }
-
-  const results = await Promise.all(userMessages.map(async (message) => {
-    const res = await input.sdk.session.diff({
-      sessionID: input.sessionId,
-      directory: input.dir,
-      messageID: message.info.id,
-    })
-    return res.data ?? []
-  }))
-
-  const merged = new Map<string, FileDiff>()
-  for (const list of results) {
-    for (const item of list) {
-      merged.set(item.file, item)
-    }
-  }
-
-  return [...merged.values()].sort((a, b) => a.file.localeCompare(b.file))
 }
 
 function sameRef(a?: SessionPanelRef, b?: SessionPanelRef) {
