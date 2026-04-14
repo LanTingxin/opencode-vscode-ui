@@ -614,7 +614,7 @@ export type Client = {
 }
 
 export function createClientAdapter(client: OfficialOpencodeClient): Client {
-  const adapted = { ...client } as unknown as Client
+  const adapted = Object.create(client) as Client
 
   if (client.find) {
     adapted.find = {

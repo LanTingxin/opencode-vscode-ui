@@ -48,6 +48,7 @@ function createHarness() {
 
   let listener: ((item: { workspaceId: string; event: SessionEvent }) => void) | undefined
   let invalidations = 0
+  const changeListeners: Array<() => void> = []
 
   const mgr = {
     get(id: string) {
@@ -58,8 +59,17 @@ function createHarness() {
     },
     invalidate() {
       invalidations += 1
+      if (invalidations > 6) {
+        return
+      }
+      setTimeout(() => {
+        for (const next of changeListeners) {
+          next()
+        }
+      }, 0)
     },
-    onDidChange() {
+    onDidChange(next: () => void) {
+      changeListeners.push(next)
       return { dispose() {} }
     },
   }
@@ -273,5 +283,31 @@ describe("SessionStore child session filtering", () => {
 
     assert.deepEqual(harness.store.list(harness.rt.workspaceId).map((item) => item.id), [])
     assert.equal(harness.rt.sessionStatuses.has(opened.id), false)
+  })
+
+  test("does not auto-retry failed refreshes after invalidate while sessions are in error", async () => {
+    const harness = createHarness()
+    let listCalls = 0
+
+    harness.rt.sessions.clear()
+    harness.rt.sessionStatuses.clear()
+    harness.rt.sessionsState = "idle"
+    harness.rt.sdk = {
+      session: {
+        list: async () => {
+          listCalls += 1
+          throw new Error("boom")
+        },
+        status: async () => ({ data: {} }),
+      },
+    }
+
+    await harness.store.refresh(harness.rt.workspaceId, true)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    assert.equal(harness.rt.sessionsState, "error")
+    assert.equal(listCalls, 1)
   })
 })

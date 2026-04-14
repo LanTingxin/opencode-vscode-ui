@@ -219,7 +219,7 @@ export class SessionStore implements vscode.Disposable {
     await Promise.all(
       this.mgr
         .list()
-        .filter((rt) => rt.state === "ready" && rt.sdk && !this.seen.has(rt.workspaceId) && rt.sessionsState !== "loading")
+        .filter((rt) => rt.state === "ready" && rt.sdk && !this.seen.has(rt.workspaceId) && rt.sessionsState === "idle")
         .map((rt) => this.refresh(rt.workspaceId, true)),
     )
   }

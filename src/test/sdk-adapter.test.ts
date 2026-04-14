@@ -43,6 +43,21 @@ describe("sdk adapter", () => {
     assert.equal(result.stream, stream)
   })
 
+  test("preserves other sdk namespaces like session methods", async () => {
+    const listResult = { data: [] }
+    class GetterBackedClient {
+      get session() {
+        return {
+          list: async () => listResult,
+        }
+      }
+    }
+    const sdk = createClientAdapter(new GetterBackedClient() as unknown as Parameters<typeof createClientAdapter>[0])
+
+    assert.equal(typeof sdk.session?.list, "function")
+    assert.equal(await sdk.session.list({ directory: "/workspace", roots: true }), listResult)
+  })
+
   test("exports local semantic aliases backed by official v2 shapes", () => {
     const session: SessionInfo = {
       id: "session-1",
