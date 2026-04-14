@@ -1,4 +1,4 @@
-import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, PromptFilePartInput, PromptSource, ProviderInfo, QuestionRequest, SessionEvent, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
+import type { AgentInfo, CommandInfo, FileDiff, FormatterStatus, LspStatus, McpResource, McpStatus, PermissionRequest, PromptFilePartInput, PromptSource, ProviderAuthMethod, ProviderInfo, QuestionRequest, SessionEvent, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
 import type { DisplaySettings } from "../core/settings"
 
 export const SESSION_PANEL_VIEW_TYPE = "opencode-ui.session"
@@ -36,6 +36,7 @@ export type SessionSnapshot = SessionBootstrap & {
   agents: AgentInfo[]
   defaultAgent?: string
   providers: ProviderInfo[]
+  providerAuth?: Record<string, ProviderAuthMethod[]>
   providerDefault?: Record<string, string>
   configuredModel?: {
     providerID: string
@@ -44,6 +45,7 @@ export type SessionSnapshot = SessionBootstrap & {
   mcp: Record<string, McpStatus>
   mcpResources: Record<string, McpResource>
   lsp: LspStatus[]
+  formatter?: FormatterStatus[]
   commands: CommandInfo[]
   relatedSessionIds: string[]
   agentMode: "build" | "plan"
@@ -88,7 +90,7 @@ export type HostMessage =
   | {
       type: "deferredUpdate"
       reason: string
-      payload: Pick<SessionSnapshot, "sessionStatus" | "permissions" | "questions" | "mcp" | "mcpResources" | "lsp" | "commands">
+      payload: Pick<SessionSnapshot, "sessionStatus" | "permissions" | "questions" | "providerAuth" | "mcp" | "mcpResources" | "lsp" | "formatter" | "commands">
     }
   | {
       type: "submitting"
@@ -206,9 +208,13 @@ export type WebviewMessage =
       }>
     }
   | {
-      type: "toggleMcp"
+      type: "mcpAction"
       name: string
-      action: "connect" | "disconnect" | "reconnect"
+      action: "connect" | "disconnect" | "reconnect" | "authenticate" | "removeAuth"
+    }
+  | {
+      type: "providerAuthAction"
+      providerID: string
     }
   | {
       type: "composerAction"

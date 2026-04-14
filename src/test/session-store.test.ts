@@ -35,6 +35,17 @@ function info(id: string, updated: number, parentID?: string): SessionInfo {
   }
 }
 
+function archivedInfo(id: string, updated: number): SessionInfo {
+  return {
+    ...info(id, updated),
+    time: {
+      created: updated,
+      updated,
+      archived: updated,
+    },
+  }
+}
+
 function createHarness() {
   const root = info("root", 1)
   let rt: Runtime = {
@@ -313,6 +324,34 @@ describe("SessionStore child session filtering", () => {
 
     assert.deepEqual(harness.store.list(harness.rt.workspaceId).map((item) => item.id), [])
     assert.equal(harness.rt.sessionStatuses.has(opened.id), false)
+  })
+
+  test("refresh filters archived root sessions out of the sidebar list", async () => {
+    const harness = createHarness()
+    const active = info("active", 4)
+    const archived = archivedInfo("archived", 5)
+
+    harness.rt.sessions.clear()
+    harness.rt.sessionStatuses.clear()
+    harness.rt.sessionsState = "idle"
+    harness.rt.sdk = {
+      session: {
+        list: async () => ({
+          data: [active, archived],
+        }),
+        status: async () => ({
+          data: {
+            [active.id]: { type: "idle" },
+            [archived.id]: { type: "idle" },
+          },
+        }),
+      },
+    }
+
+    await harness.store.refresh(harness.rt.workspaceId, true)
+
+    assert.deepEqual(harness.store.list(harness.rt.workspaceId).map((item) => item.id), [active.id])
+    assert.equal(harness.rt.sessionStatuses.has(archived.id), false)
   })
 
   test("does not auto-retry failed refreshes after invalidate while sessions are in error", async () => {

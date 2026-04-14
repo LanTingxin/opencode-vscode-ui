@@ -1,6 +1,6 @@
 import type { ComposerFileSelection, ComposerPathKind, SessionBootstrap, SessionSnapshot } from "../../../bridge/types"
 import type { DisplaySettings } from "../../../core/settings"
-import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, MessageInfo, PermissionRequest, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
+import type { AgentInfo, CommandInfo, FileDiff, FormatterStatus, LspStatus, McpResource, McpStatus, MessageInfo, PermissionRequest, ProviderAuthMethod, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 
 export type VsCodeApi = {
   postMessage(message: unknown): void
@@ -84,6 +84,7 @@ export type AppState = {
     agents: AgentInfo[]
     defaultAgent?: string
     providers: ProviderInfo[]
+    providerAuth: Record<string, ProviderAuthMethod[]>
     providerDefault?: Record<string, string>
     configuredModel?: {
       providerID: string
@@ -92,6 +93,7 @@ export type AppState = {
     mcp: Record<string, McpStatus>
     mcpResources: Record<string, McpResource>
     lsp: LspStatus[]
+    formatter: FormatterStatus[]
     commands: CommandInfo[]
     relatedSessionIds: string[]
     agentMode: "build" | "plan"
@@ -156,11 +158,13 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
       agents: [],
       defaultAgent: undefined,
       providers: [],
+      providerAuth: {},
       providerDefault: undefined,
       configuredModel: undefined,
       mcp: {},
       mcpResources: {},
       lsp: [],
+      formatter: [],
       commands: [],
       relatedSessionIds: [],
       agentMode: "build",
@@ -237,11 +241,13 @@ export function normalizeSnapshotPayload(payload: SessionSnapshot, previous?: Ap
     agents: Array.isArray(payload.agents) ? payload.agents : [],
     defaultAgent: payload.defaultAgent,
     providers: Array.isArray(payload.providers) ? payload.providers : [],
+    providerAuth: recordValue(payload.providerAuth) as Record<string, ProviderAuthMethod[]>,
     providerDefault: payload.providerDefault,
     configuredModel: payload.configuredModel,
     mcp: recordValue(payload.mcp) as Record<string, McpStatus>,
     mcpResources: recordValue(payload.mcpResources) as Record<string, McpResource>,
     lsp: Array.isArray(payload.lsp) ? payload.lsp : [],
+    formatter: Array.isArray(payload.formatter) ? payload.formatter : [],
     commands: Array.isArray(payload.commands) ? payload.commands : [],
     relatedSessionIds: Array.isArray(payload.relatedSessionIds) ? payload.relatedSessionIds : [],
     agentMode: payload.agentMode === "plan" ? "plan" : "build",

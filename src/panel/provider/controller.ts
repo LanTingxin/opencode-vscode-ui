@@ -5,7 +5,7 @@ import { affectsDisplaySettings } from "../../core/settings"
 import { EventHub } from "../../core/events"
 import type { SessionEvent } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
-import { rejectQuestion, replyPermission, replyQuestion, runComposerAction, runShellCommand, runSlashCommand, submit, toggleMcp, type PanelActionState } from "./actions"
+import { providerAuthAction, rejectQuestion, replyPermission, replyQuestion, runComposerAction, runMcpAction, runShellCommand, runSlashCommand, submit, type PanelActionState } from "./actions"
 import { openFile, resolveFileRefs, searchFiles } from "./files"
 import { needsRefresh, reduce } from "./reducer"
 import { buildSessionSnapshot, patch } from "./snapshot"
@@ -124,8 +124,13 @@ export class SessionPanelController implements vscode.Disposable {
           return
         }
 
-        if (message?.type === "toggleMcp") {
-          void toggleMcp(this.actionContext(), message.name, message.action)
+        if (message?.type === "providerAuthAction") {
+          void providerAuthAction(this.actionContext(), message.providerID)
+          return
+        }
+
+        if (message?.type === "mcpAction") {
+          void runMcpAction(this.actionContext(), message.name, message.action)
           return
         }
 

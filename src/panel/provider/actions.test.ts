@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
+import * as vscode from "vscode"
 
 import type { SessionMessage } from "../../core/sdk"
-import { restoredPromptPartsFromMessage, runComposerAction, runShellCommand, runSlashCommand, submit } from "./actions"
+import { providerAuthAction, restoredPromptPartsFromMessage, runComposerAction, runMcpAction, runShellCommand, runSlashCommand, submit } from "./actions"
 
 async function withImmediateTimeout<T>(run: () => Promise<T>) {
   const original = globalThis.setTimeout
@@ -29,6 +30,12 @@ function createContext(overrides?: {
   status?: (input: unknown) => Promise<{ data?: Record<string, { type: string }> }>
   revert?: (input: unknown) => Promise<unknown>
   abort?: (input: unknown) => Promise<unknown>
+  providerAuth?: (input: unknown) => Promise<{ data?: Record<string, Array<{ type: "oauth" | "api"; label: string }>> }>
+  providerAuthorize?: (input: unknown) => Promise<{ data?: { url: string; method: "auto" | "code"; instructions: string } }>
+  mcpConnect?: (input: unknown) => Promise<unknown>
+  mcpDisconnect?: (input: unknown) => Promise<unknown>
+  mcpAuthenticate?: (input: unknown) => Promise<unknown>
+  mcpRemoveAuth?: (input: unknown) => Promise<unknown>
 }): {
   ctx: Parameters<typeof submit>[0]
   posted: unknown[]
@@ -50,6 +57,20 @@ function createContext(overrides?: {
         status: overrides?.status ?? (async () => ({ data: { "session-1": { type: "idle" } } })),
         revert: overrides?.revert ?? (async () => ({ data: undefined })),
         abort: overrides?.abort ?? (async () => ({ data: undefined })),
+      },
+      provider: {
+        auth: overrides?.providerAuth ?? (async () => ({ data: {} })),
+        oauth: {
+          authorize: overrides?.providerAuthorize ?? (async () => ({ data: undefined })),
+        },
+      },
+      mcp: {
+        connect: overrides?.mcpConnect ?? (async () => ({ data: undefined })),
+        disconnect: overrides?.mcpDisconnect ?? (async () => ({ data: undefined })),
+        auth: {
+          authenticate: overrides?.mcpAuthenticate ?? (async () => ({ data: undefined })),
+          remove: overrides?.mcpRemoveAuth ?? (async () => ({ data: undefined })),
+        },
       },
     },
   }
@@ -270,6 +291,78 @@ describe("provider actions submitting", () => {
       directory: "/workspace",
       messageID: "msg-user-2",
     })
+  })
+
+  test("providerAuthAction requests provider auth metadata and opens the OAuth URL for auth-capable providers", async () => {
+    let authPayload: unknown
+    let authorizePayload: unknown
+    let opened: string | undefined
+    let info: string | undefined
+    const originalOpenExternal = vscode.env.openExternal
+    const originalShowInformationMessage = vscode.window.showInformationMessage
+    ;(vscode.env as any).openExternal = async (uri: { toString(): string }) => {
+      opened = uri.toString()
+      return true
+    }
+    ;(vscode.window as any).showInformationMessage = async (message: string) => {
+      info = message
+      return undefined
+    }
+
+    try {
+      const { ctx } = createContext({
+        providerAuth: async (input) => {
+          authPayload = input
+          return {
+            data: {
+              openai: [{ type: "oauth", label: "Connect OpenAI" }],
+            },
+          }
+        },
+        providerAuthorize: async (input) => {
+          authorizePayload = input
+          return {
+            data: {
+              url: "https://auth.example/openai",
+              method: "code",
+              instructions: "Paste the returned code to finish connecting.",
+            },
+          }
+        },
+      })
+
+      await providerAuthAction(ctx, "openai")
+
+      assert.deepEqual(authPayload, { directory: "/workspace" })
+      assert.deepEqual(authorizePayload, {
+        providerID: "openai",
+        directory: "/workspace",
+        method: 0,
+      })
+      assert.equal(opened, "https://auth.example/openai")
+      assert.match(info ?? "", /Paste the returned code/i)
+    } finally {
+      ;(vscode.env as any).openExternal = originalOpenExternal
+      ;(vscode.window as any).showInformationMessage = originalShowInformationMessage
+    }
+  })
+
+  test("runMcpAction uses auth-specific MCP actions for authenticate requests", async () => {
+    let authenticatePayload: unknown
+    const { ctx, posted } = createContext({
+      mcpAuthenticate: async (input) => {
+        authenticatePayload = input
+        return { data: undefined }
+      },
+    })
+
+    await runMcpAction(ctx, "docs", "authenticate")
+
+    assert.deepEqual(authenticatePayload, {
+      name: "docs",
+      directory: "/workspace",
+    })
+    assert.deepEqual(posted, [{ type: "mcpActionFinished", name: "docs" }])
   })
 })
 

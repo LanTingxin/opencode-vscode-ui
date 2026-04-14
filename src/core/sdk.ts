@@ -1,7 +1,12 @@
 import type {
+  File as OfficialWorkspaceFileStatus,
+  FormatterStatus as OfficialFormatterStatus,
   OpencodeClient as OfficialOpencodeClient,
+  ProviderAuthAuthorization as OfficialProviderAuthAuthorization,
+  ProviderAuthMethod as OfficialProviderAuthMethod,
   Session as OfficialSessionInfo,
   SessionStatus as OfficialSessionStatus,
+  VcsInfo as OfficialVcsInfo,
 } from "@opencode-ai/sdk/v2/client" with { "resolution-mode": "import" }
 
 export type SessionInfo = Omit<OfficialSessionInfo, "slug" | "projectID" | "version"> & {
@@ -78,6 +83,16 @@ export type ProviderInfo = {
   name?: string
   models?: Record<string, ProviderModel>
 }
+
+export type ProviderAuthMethod = OfficialProviderAuthMethod
+
+export type ProviderAuthAuthorization = OfficialProviderAuthAuthorization
+
+export type VcsInfo = OfficialVcsInfo
+
+export type WorkspaceFileStatus = OfficialWorkspaceFileStatus
+
+export type FormatterStatus = OfficialFormatterStatus
 
 export type ProviderList = {
   all?: ProviderInfo[]

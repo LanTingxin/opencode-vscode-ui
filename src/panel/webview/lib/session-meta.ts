@@ -1,5 +1,5 @@
 import type { SessionBootstrap } from "../../../bridge/types"
-import type { AgentInfo, LspStatus, McpStatus, MessageInfo, ProviderInfo, SessionMessage, SessionStatus } from "../../../core/sdk"
+import type { AgentInfo, FormatterStatus, LspStatus, McpStatus, MessageInfo, ProviderInfo, SessionMessage, SessionStatus } from "../../../core/sdk"
 import { displaySessionTitle } from "../../../core/session-titles"
 
 export type ModelRef = NonNullable<MessageInfo["model"]>
@@ -10,7 +10,7 @@ export type StatusItem = {
   name: string
   tone: StatusTone
   value: string
-  action?: "connect" | "disconnect" | "reconnect"
+  action?: "connect" | "disconnect" | "reconnect" | "authenticate" | "removeAuth"
   actionLabel?: string
 }
 
@@ -283,6 +283,27 @@ export function overallLspStatus(statuses: LspStatus[]) {
   return { tone: "orange" as const, items }
 }
 
+export function overallFormatterStatus(statuses: FormatterStatus[]) {
+  const items = statuses.map((status) => ({
+    name: status.name,
+    tone: status.enabled ? "green" as const : "gray" as const,
+    value: status.enabled ? status.extensions.join(", ") || "Enabled" : "Disabled",
+  }))
+
+  if (items.length === 0) {
+    return { tone: "gray" as const, items: [] }
+  }
+
+  const enabled = items.filter((item) => item.tone === "green").length
+  if (enabled === items.length) {
+    return { tone: "green" as const, items }
+  }
+  if (enabled === 0) {
+    return { tone: "gray" as const, items }
+  }
+  return { tone: "orange" as const, items }
+}
+
 export function statusItemForMcp(name: string, status: McpStatus): StatusItem {
   if (status.status === "connected") {
     return { name, tone: "green", value: "Connected", action: "disconnect", actionLabel: `Disconnect ${name}` }
@@ -291,7 +312,7 @@ export function statusItemForMcp(name: string, status: McpStatus): StatusItem {
     return { name, tone: "gray", value: "Disabled", action: "connect", actionLabel: `Connect ${name}` }
   }
   if (status.status === "needs_auth") {
-    return { name, tone: "orange", value: "Needs authentication", action: "reconnect", actionLabel: `Reconnect ${name}` }
+    return { name, tone: "orange", value: "Needs authentication", action: "authenticate", actionLabel: `Authenticate ${name}` }
   }
   if (status.status === "needs_client_registration") {
     return { name, tone: "red", value: status.error || "Client registration required", action: "reconnect", actionLabel: `Reconnect ${name}` }

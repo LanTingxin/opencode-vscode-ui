@@ -4,7 +4,7 @@ import * as vscode from "vscode"
 
 import type { SessionPanelRef } from "../bridge/types"
 import type { SessionInfo, SessionStatus } from "../core/sdk"
-import { forkSessionMessage, resolveNewSessionOpenColumn, resolveReusableNewSession, resolveSeedSessionTarget } from "../core/commands"
+import { forkSessionMessage, renameSession, resolveNewSessionOpenColumn, resolveReusableNewSession, resolveSeedSessionTarget } from "../core/commands"
 
 function session(id: string, updated: number, title = `New session - ${id}`): SessionInfo {
   return {
@@ -196,5 +196,53 @@ describe("forkSessionMessage", () => {
       messageID: "msg-1",
     })
     assert.equal(result?.id, "session-fork")
+  })
+})
+
+describe("renameSession", () => {
+  test("prompts with the current title, updates the session title, and refreshes workspace sessions", async () => {
+    let inputOptions: vscode.InputBoxOptions | undefined
+    let updated: unknown
+    let refreshed: unknown
+
+    await renameSession({
+      target: {
+        runtime: {
+          workspaceId: "file:///workspace-a",
+          dir: "/workspace-a",
+          name: "workspace-a",
+          state: "ready",
+          sdk: {
+            session: {
+              update: async (input: unknown) => {
+                updated = input
+                return { data: {} }
+              },
+            },
+          },
+        } as any,
+        session: session("session-rename", 1, "Current title"),
+      },
+      sessions: {
+        refresh: async (...args: unknown[]) => {
+          refreshed = args
+        },
+      } as any,
+      showInputBox: async (options) => {
+        inputOptions = options
+        return "Renamed session"
+      },
+      showErrorMessage: async () => undefined,
+      showInformationMessage: async () => undefined,
+    })
+
+    assert.equal(inputOptions?.value, "Current title")
+    assert.match(inputOptions?.prompt ?? "", /Current title/)
+    assert.deepEqual(updated, {
+      sessionID: "session-rename",
+      directory: "/workspace-a",
+      title: "Renamed session",
+    })
+    assert.deepEqual(refreshed, ["file:///workspace-a", true])
   })
 })

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { ProviderInfo } from "../../../core/sdk"
-import { buildModelPickerSections } from "./model-picker"
+import { buildModelPickerRecoveryActions, buildModelPickerSections } from "./model-picker"
 
 const providers: ProviderInfo[] = [
   {
@@ -37,5 +37,24 @@ describe("model picker sections", () => {
     assert.deepEqual(sections[2].items.map((item) => item.id), ["p2/m3"])
     assert.equal(sections[1].items[0].variant, "fast")
     assert.equal(sections[1].items[0].selected, true)
+  })
+
+  test("exposes provider auth recovery actions when no models are available but OAuth-capable providers exist", () => {
+    const recovery = buildModelPickerRecoveryActions({
+      providers: [{
+        id: "openai",
+        name: "OpenAI",
+        models: {},
+      }],
+      providerAuth: {
+        openai: [{ type: "oauth", label: "Connect OpenAI" }],
+      },
+    })
+
+    assert.deepEqual(recovery, [{
+      providerID: "openai",
+      label: "OpenAI",
+      actionLabel: "Connect OpenAI",
+    }])
   })
 })

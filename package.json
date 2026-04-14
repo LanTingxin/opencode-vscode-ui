@@ -36,7 +36,10 @@
     "onCommand:opencode-ui.refresh",
     "onCommand:opencode-ui.newSession",
     "onCommand:opencode-ui.openSession",
-    "onCommand:opencode-ui.deleteSession",
+    "onCommand:opencode-ui.renameSession",
+    "onCommand:opencode-ui.archiveSession",
+    "onCommand:opencode-ui.shareSession",
+    "onCommand:opencode-ui.unshareSession",
     "onCommand:opencode-ui.openOutput",
     "onCommand:opencode-ui.openSettings",
     "onCommand:opencode-ui.checkEnvironment",
@@ -172,9 +175,24 @@
         "icon": "$(arrow-right)"
       },
       {
-        "command": "opencode-ui.deleteSession",
-        "title": "OpenCode: Delete Session",
-        "icon": "$(close)"
+        "command": "opencode-ui.renameSession",
+        "title": "OpenCode: Rename Session",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "opencode-ui.archiveSession",
+        "title": "OpenCode: Archive Session",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "opencode-ui.shareSession",
+        "title": "OpenCode: Share Session",
+        "icon": "$(link)"
+      },
+      {
+        "command": "opencode-ui.unshareSession",
+        "title": "OpenCode: Unshare Session",
+        "icon": "$(unlock)"
       },
       {
         "command": "opencode-ui.restartWorkspaceServer",
@@ -331,19 +349,29 @@
           "group": "inline@4"
         },
         {
-          "command": "opencode-ui.openSession",
-          "when": "view == opencode-ui.sessions && viewItem == session",
+          "command": "opencode-ui.renameSession",
+          "when": "view == opencode-ui.sessions && (viewItem == session || viewItem == session-shared)",
           "group": "inline@1"
         },
         {
-          "command": "opencode-ui.deleteSession",
+          "command": "opencode-ui.shareSession",
           "when": "view == opencode-ui.sessions && viewItem == session",
           "group": "inline@2"
         },
         {
-          "command": "opencode-ui.manageSessionTags",
-          "when": "view == opencode-ui.sessions && viewItem == session",
+          "command": "opencode-ui.unshareSession",
+          "when": "view == opencode-ui.sessions && viewItem == session-shared",
+          "group": "inline@2"
+        },
+        {
+          "command": "opencode-ui.archiveSession",
+          "when": "view == opencode-ui.sessions && (viewItem == session || viewItem == session-shared)",
           "group": "inline@3"
+        },
+        {
+          "command": "opencode-ui.manageSessionTags",
+          "when": "view == opencode-ui.sessions && (viewItem == session || viewItem == session-shared)",
+          "group": "inline@4"
         },
         {
           "command": "opencode-ui.clearWorkspaceSessionSearch",

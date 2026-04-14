@@ -211,4 +211,23 @@ describe("sidebar session search", () => {
     assert.equal(items.filter((item) => item.contextValue === "session").length, 1)
     assert.equal(items.find((item) => item.contextValue === "session")?.label, "Fix login")
   })
+
+  test("marks shared sessions with a distinct context value and compact shared hint", () => {
+    const items = buildWorkspaceChildren({
+      runtime: {
+        ...runtime(),
+      },
+      sessions: [{
+        ...session("s1", "Shared session"),
+        share: {
+          url: "https://share.example/s1",
+        },
+      }],
+      statuses: new Map(),
+    })
+
+    assert.equal(items[0]?.contextValue, "session-shared")
+    assert.match(String(items[0]?.description), /shared/i)
+    assert.match(String(items[0]?.tooltip), /share\.example/)
+  })
 })

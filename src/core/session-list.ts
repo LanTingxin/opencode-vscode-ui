@@ -1,7 +1,8 @@
 import type { SessionInfo, SessionStatus } from "./sdk"
 
-export function shouldTrackSession(info: { parentID?: string }) {
+export function shouldTrackSession(info: { parentID?: string; time?: { archived?: number } }) {
   return !info.parentID
+    && !info.time?.archived
 }
 
 export function syncTrackedSession(

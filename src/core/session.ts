@@ -249,13 +249,14 @@ export class SessionStore implements vscode.Disposable {
       }
 
       const list: SessionInfo[] = listRes.data ?? []
-      this.applySessions(rt.workspaceId, list, infoRev)
-      this.applyStatuses(rt.workspaceId, list.map((item) => item.id), statusRes.data, rev)
+      const roots = list.filter(shouldTrackSession)
+      this.applySessions(rt.workspaceId, roots, infoRev)
+      this.applyStatuses(rt.workspaceId, roots.map((item) => item.id), statusRes.data, rev)
       rt.sessionsState = "ready"
       rt.sessionsErr = undefined
       this.seen.add(rt.workspaceId)
-      this.log(rt.name, `loaded ${list.length} sessions`)
-      return list
+      this.log(rt.name, `loaded ${roots.length} sessions`)
+      return roots
     } catch (err) {
       if (!this.isLatestRefresh(rt.workspaceId, refreshRev)) {
         return this.list(rt.workspaceId)

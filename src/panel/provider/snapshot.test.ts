@@ -54,6 +54,7 @@ function createSdk(current: SessionInfo) {
     },
     provider: {
       list: async () => ({ data: { all: [], default: {} } }),
+      auth: async () => ({ data: {} }),
     },
     permission: {
       list: async () => ({ data: [] }),
@@ -65,6 +66,9 @@ function createSdk(current: SessionInfo) {
       status: async () => ({ data: {} }),
     },
     lsp: {
+      status: async () => ({ data: [] }),
+    },
+    formatter: {
       status: async () => ({ data: [] }),
     },
   }

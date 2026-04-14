@@ -2,7 +2,7 @@ import * as path from "node:path"
 import type { SessionPanelRef, SessionSnapshot } from "../../bridge/types"
 import { syncTrackedSession } from "../../core/session-list"
 import { getDisplaySettings } from "../../core/settings"
-import type { AgentInfo, Client, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, ProviderInfo, SessionInfo, SessionMessage } from "../../core/sdk"
+import type { AgentInfo, Client, CommandInfo, FileDiff, FormatterStatus, LspStatus, McpResource, McpStatus, ProviderAuthMethod, ProviderInfo, SessionInfo, SessionMessage } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { summarizeSessionSnapshot } from "../shared/session-summary"
 import { filterPermission, filterQuestion, nav, relatedSessionMap, subtreeSessionIds } from "./navigation"
@@ -16,7 +16,7 @@ type SnapshotContext = {
   isSubmitting: () => boolean
 }
 
-type DeferredSnapshotData = Pick<SessionSnapshot, "sessionStatus" | "permissions" | "questions" | "mcp" | "mcpResources" | "lsp" | "commands">
+type DeferredSnapshotData = Pick<SessionSnapshot, "sessionStatus" | "permissions" | "questions" | "providerAuth" | "mcp" | "mcpResources" | "lsp" | "formatter" | "commands">
 
 export type SessionSnapshotBuild = {
   snapshot: SessionSnapshot
@@ -127,11 +127,13 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       agents,
       defaultAgent,
       providers,
+      providerAuth: {},
       providerDefault: defaults,
       configuredModel,
       mcp: {},
       mcpResources: {},
       lsp: [],
+      formatter: [],
       commands: [],
       relatedSessionIds: tree.relatedSessionIds,
       agentMode: agentMode(messages),
@@ -166,7 +168,7 @@ async function loadDeferredSnapshot({
   sessionId: string
   requestSessionIds: string[]
 }) {
-  const [statusRes, permissionRes, questionRes, mcpRes, resourceRes, lspRes, commandRes] = await Promise.all([
+  const [statusRes, permissionRes, questionRes, providerAuthRes, mcpRes, resourceRes, lspRes, formatterRes, commandRes] = await Promise.all([
     sdk.session.status({
       directory: dir,
     }),
@@ -176,11 +178,17 @@ async function loadDeferredSnapshot({
     sdk.question.list({
       directory: dir,
     }),
+    sdk.provider.auth({
+      directory: dir,
+    }),
     sdk.mcp.status({
       directory: dir,
     }),
     experimentalResources(sdk, dir),
     sdk.lsp.status({
+      directory: dir,
+    }),
+    sdk.formatter.status({
       directory: dir,
     }),
     commandList(sdk, dir),
@@ -190,9 +198,11 @@ async function loadDeferredSnapshot({
     sessionStatus: statusRes.data?.[sessionId] ?? idle(),
     permissions: filterPermission(permissionRes.data ?? [], requestSessionIds),
     questions: filterQuestion(questionRes.data ?? [], requestSessionIds),
+    providerAuth: providerAuthMap(providerAuthRes.data),
     mcp: mcpStatusMap(mcpRes.data),
     mcpResources: mcpResourceMap(resourceRes.data),
     lsp: lspStatuses(lspRes.data ?? [], dir),
+    formatter: formatterStatuses(formatterRes.data),
     commands: commandArr(commandRes.data),
   }
 }
@@ -334,11 +344,13 @@ function fallbackSnapshot(
     agents: [],
     defaultAgent: undefined,
     providers: [],
+    providerAuth: {},
     providerDefault: undefined,
     configuredModel: undefined,
     mcp: {},
     mcpResources: {},
     lsp: [],
+    formatter: [],
     commands: [],
     relatedSessionIds: [ref.sessionId],
     agentMode: "build",
@@ -365,6 +377,20 @@ function providerSnapshot(configData?: { providers?: ProviderInfo[] }, legacyDat
 
 function providerDefaults(configData?: { default?: Record<string, string> }, legacyData?: { default?: Record<string, string> }) {
   return configData?.default ?? legacyData?.default
+}
+
+function providerAuthMap(data?: Record<string, ProviderAuthMethod[]>) {
+  if (!data || typeof data !== "object") {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(data).map(([providerID, methods]) => [providerID, Array.isArray(methods) ? methods : []]),
+  )
+}
+
+function formatterStatuses(data?: FormatterStatus[]) {
+  return Array.isArray(data) ? data : []
 }
 
 function fallbackModelRef(providers: ProviderInfo[], defaults?: Record<string, string>) {

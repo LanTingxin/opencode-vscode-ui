@@ -12,7 +12,7 @@ import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
 import { formatComposerFileContent, parseComposerFileQuery } from "../lib/composer-file-selection"
-import { agentColorClass, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel, type StatusItem, type StatusTone } from "../lib/session-meta"
+import { agentColorClass, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallFormatterStatus, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel, type StatusItem, type StatusTone } from "../lib/session-meta"
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
@@ -20,7 +20,7 @@ import { isCompletedSlashCommand, resolveComposerSlashAction } from "./composer-
 import { collectDroppedFilePaths, shouldHandleComposerFileDrop } from "./composer-drop"
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
 import { composerEnterIntent, composerTabIntent, cycleAgentName, isShortcutTarget, leaderAction, shouldEnterShellMode, shouldExitShellModeOnBackspace, type ComposerMode } from "./keyboard-shortcuts"
-import { buildModelPickerSections, ModelPicker } from "./model-picker"
+import { buildModelPickerRecoveryActions, buildModelPickerSections, ModelPicker } from "./model-picker"
 import { buildComposerHostMessage } from "./composer-submit"
 import { mergeRestoredComposerParts, restoredComposerCursor } from "./composer-seed"
 import { activeChildSessionId } from "./session-navigation"
@@ -127,6 +127,10 @@ export function App() {
     currentModel: currentSelection.model,
     variants: state.composerModelVariants,
   }), [currentSelection.model, state.composerFavoriteModels, state.composerModelVariants, state.composerRecentModels, state.snapshot.providers])
+  const modelPickerRecoveryActions = React.useMemo(() => buildModelPickerRecoveryActions({
+    providers: state.snapshot.providers,
+    providerAuth: state.snapshot.providerAuth,
+  }), [state.snapshot.providerAuth, state.snapshot.providers])
 
   const blocked = state.snapshot.permissions.length > 0 || state.snapshot.questions.length > 0
   const isChildSession = !!state.bootstrap.session?.parentID
@@ -709,6 +713,10 @@ export function App() {
 
   const openProviderDocs = React.useCallback(() => {
     vscode.postMessage({ type: "openDocs", target: "providers" })
+  }, [])
+
+  const startProviderAuth = React.useCallback((providerID: string) => {
+    vscode.postMessage({ type: "providerAuthAction", providerID })
   }, [])
 
   const postComposerAction = React.useCallback((action: "refreshSession" | "compactSession" | "undoSession" | "redoSession" | "interruptSession", model?: { providerID: string; modelID: string }) => {
@@ -1453,9 +1461,11 @@ export function App() {
                       {modelPickerOpen ? (
                         <ModelPicker
                           sections={modelPickerSections}
+                          recoveryActions={modelPickerRecoveryActions}
                           currentAgent={currentSelection.agent}
                           onClose={() => setModelPickerOpen(false)}
                           onOpenProviderDocs={openProviderDocs}
+                          onStartProviderAuth={startProviderAuth}
                           onSelect={selectComposerModel}
                           onToggleFavorite={toggleComposerFavorite}
                           onCycleVariant={cycleComposerVariant}
@@ -1795,10 +1805,12 @@ function ComposerMetrics({ state }: { state: AppState }) {
 function ComposerStatusBadges({ state, pendingMcpActions, onMcpActionStart }: { state: AppState; pendingMcpActions: Record<string, boolean>; onMcpActionStart: (name: string) => void }) {
   const mcp = overallMcpStatus(state.snapshot.mcp)
   const lsp = overallLspStatus(state.snapshot.lsp)
+  const formatter = overallFormatterStatus(state.snapshot.formatter)
   return (
     <div className="oc-actionRow oc-composerBadgeRow">
       <StatusBadge label="MCP" tone={mcp.tone} items={mcp.items} pendingActions={pendingMcpActions} onActionStart={onMcpActionStart} />
       <StatusBadge label="LSP" tone={lsp.tone} items={lsp.items} />
+      <StatusBadge label="FMT" tone={formatter.tone} items={formatter.items} />
     </div>
   )
 }
@@ -1853,13 +1865,15 @@ function StatusPopoverAction({ item, pending, onActionStart }: { item: StatusIte
       return
     }
     onActionStart?.(item.name)
-    vscode.postMessage({ type: "toggleMcp", name: item.name, action: item.action })
+    vscode.postMessage({ type: "mcpAction", name: item.name, action: item.action })
   }
 
   return (
-    <button type="button" disabled={pending} className={`oc-statusPopoverAction${item.action === "disconnect" ? " is-disconnect" : ""}${item.action === "connect" ? " is-connect" : ""}${pending ? " is-pending" : ""}`} onClick={onClick} title={item.actionLabel} aria-label={item.actionLabel}>
+    <button type="button" disabled={pending} className={`oc-statusPopoverAction${item.action === "disconnect" || item.action === "removeAuth" ? " is-disconnect" : ""}${item.action === "connect" || item.action === "authenticate" ? " is-connect" : ""}${pending ? " is-pending" : ""}`} onClick={onClick} title={item.actionLabel} aria-label={item.actionLabel}>
       {item.action === "disconnect" ? <DisconnectIcon /> : null}
+      {item.action === "removeAuth" ? <DisconnectIcon /> : null}
       {item.action === "connect" ? <ConnectIcon /> : null}
+      {item.action === "authenticate" ? <ConnectIcon /> : null}
       {item.action === "reconnect" ? <ReconnectIcon /> : null}
     </button>
   )

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
+import * as vscode from "vscode"
 
 import type { HostMessage, SessionSnapshot } from "../../bridge/types"
 import type { PermissionRequest, QuestionRequest, SessionEvent, SessionInfo, SessionMessage } from "../../core/sdk"
@@ -133,6 +134,58 @@ function createHarness(current: SessionSnapshot, incrementalReady = true): Harne
 
 async function handle(controller: SessionPanelController, event: SessionEvent) {
   await (controller as any).handle(event)
+}
+
+function createWebviewMessageHarness(rt: Record<string, unknown>) {
+  let onMessage: ((message: unknown) => void) | undefined
+  const panel = {
+    viewColumn: vscode.ViewColumn.Active,
+    webview: {
+      options: undefined,
+      html: "",
+      asWebviewUri: (value: unknown) => value,
+      onDidReceiveMessage(listener: (message: unknown) => void) {
+        onMessage = listener
+        return { dispose() {} }
+      },
+      postMessage: async () => true,
+    },
+    onDidDispose: () => ({ dispose() {} }),
+    onDidChangeViewState: () => ({ dispose() {} }),
+    reveal() {},
+    title: "",
+    iconPath: undefined,
+  }
+
+  const controller = new SessionPanelController(
+    vscode.Uri.parse("/extension"),
+    {
+      workspaceId: "file:///workspace",
+      dir: "/workspace",
+      sessionId: "session-1",
+    },
+    "file:///workspace:session-1",
+    panel as any,
+    {
+      get: () => rt,
+      onDidChange: () => ({ dispose() {} }),
+    } as any,
+    {
+      onDidEvent: () => ({ dispose() {} }),
+    } as any,
+    {
+      appendLine() {},
+    } as any,
+    () => {},
+    () => {},
+  )
+
+  return {
+    controller,
+    send(message: unknown) {
+      onMessage?.(message)
+    },
+  }
 }
 
 describe("SessionPanelController.handle", () => {
@@ -429,6 +482,94 @@ describe("SessionPanelController.handle", () => {
 
     assert.equal(logs.some((line) => line.includes("event message.part.updated session=root message=m1 part=m1-part partType=text")), true)
     assert.equal(logs.some((line) => line.includes("event session.status session=root status=busy")), true)
+  })
+
+  test("routes provider auth recovery messages through the host action path", async () => {
+    let authPayload: unknown
+    let authorizePayload: unknown
+    let opened: string | undefined
+    const originalOpenExternal = vscode.env.openExternal
+    ;(vscode.env as any).openExternal = async (uri: { toString(): string }) => {
+      opened = uri.toString()
+      return true
+    }
+
+    try {
+      const { controller, send } = createWebviewMessageHarness({
+        state: "ready",
+        dir: "/workspace",
+        name: "workspace",
+        sdk: {
+          provider: {
+            auth: async (input: unknown) => {
+              authPayload = input
+              return {
+                data: {
+                  openai: [{ type: "oauth", label: "Connect OpenAI" }],
+                },
+              }
+            },
+            oauth: {
+              authorize: async (input: unknown) => {
+                authorizePayload = input
+                return {
+                  data: {
+                    url: "https://auth.example/openai",
+                    method: "auto",
+                    instructions: "Open the browser to continue.",
+                  },
+                }
+              },
+            },
+          },
+        },
+      })
+
+      send({ type: "providerAuthAction", providerID: "openai" })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      assert.deepEqual(authPayload, { directory: "/workspace" })
+      assert.deepEqual(authorizePayload, {
+        providerID: "openai",
+        directory: "/workspace",
+        method: 0,
+      })
+      assert.equal(opened, "https://auth.example/openai")
+      controller.dispose()
+    } finally {
+      ;(vscode.env as any).openExternal = originalOpenExternal
+    }
+  })
+
+  test("routes MCP authenticate messages through auth-specific host behavior", async () => {
+    let authenticatePayload: unknown
+    const { controller, send } = createWebviewMessageHarness({
+      state: "ready",
+      dir: "/workspace",
+      name: "workspace",
+      sdk: {
+        mcp: {
+          connect: async () => ({ data: undefined }),
+          disconnect: async () => ({ data: undefined }),
+          auth: {
+            authenticate: async (input: unknown) => {
+              authenticatePayload = input
+              return { data: undefined }
+            },
+            remove: async () => ({ data: undefined }),
+          },
+        },
+      },
+    })
+
+    send({ type: "mcpAction", name: "docs", action: "authenticate" })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    assert.deepEqual(authenticatePayload, {
+      name: "docs",
+      directory: "/workspace",
+    })
+    controller.dispose()
   })
 })
 

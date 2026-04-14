@@ -11,6 +11,13 @@ export type SidebarViewState = {
   sessionRef?: SessionPanelRef
   todos: Todo[]
   diff: FileDiff[]
+  branch?: string
+  defaultBranch?: string
+  workspaceFileSummary?: {
+    added: number
+    deleted: number
+    modified: number
+  }
   error?: string
 }
 
