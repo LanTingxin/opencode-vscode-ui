@@ -184,8 +184,7 @@ describe("SessionPanelController.handle", () => {
         sessionID: "root",
         diff: [{
           file: "src/app.ts",
-          before: "before",
-          after: "after",
+          patch: "@@ -1 +1 @@\n-before\n+after\n",
           additions: 1,
           deletions: 1,
           status: "modified" as const,

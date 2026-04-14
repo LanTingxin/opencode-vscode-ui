@@ -72,7 +72,7 @@
     "parity:upstream:golden": "bun run src/test/parity/generate-upstream-golden.ts"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "1.2.21",
+    "@opencode-ai/sdk": "1.4.3",
     "diff": "^8.0.3",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",

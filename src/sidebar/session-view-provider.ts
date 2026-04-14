@@ -237,7 +237,7 @@ export class SessionViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
 
     if (message?.type === "runSlashCommand") {
-      void runSlashCommand(this.actionContext(), message.command, message.arguments, message.agent, message.model, message.variant)
+      void runSlashCommand(this.actionContext(), message.command, message.arguments, message.agent, message.model, message.variant, message.parts)
       return
     }
 

@@ -143,6 +143,41 @@ describe("provider actions submitting", () => {
     })
   })
 
+  test("runSlashCommand forwards attachment parts to command execution", async () => {
+    let commandPayload: unknown
+    const { ctx } = createContext({
+      command: async (input) => {
+        commandPayload = input
+        return { data: undefined }
+      },
+    })
+
+    await withImmediateTimeout(async () => {
+      await runSlashCommand(ctx, "using-superpowers", "", "builder", "openai/gpt-5", "default", [{
+        type: "file",
+        mime: "image/png",
+        url: "data:image/png;base64,AAAA",
+        filename: "image.png",
+      }])
+    })
+
+    assert.deepEqual(commandPayload, {
+      sessionID: "session-1",
+      directory: "/workspace",
+      command: "using-superpowers",
+      arguments: "",
+      agent: "builder",
+      model: "openai/gpt-5",
+      variant: "default",
+      parts: [{
+        type: "file",
+        mime: "image/png",
+        url: "data:image/png;base64,AAAA",
+        filename: "image.png",
+      }],
+    })
+  })
+
   test("runShellCommand toggles submitting and posts success message", async () => {
     let shellPayload: unknown
     const { ctx, posted, syncStates } = createContext({
@@ -164,7 +199,6 @@ describe("provider actions submitting", () => {
       command: "bun test",
       agent: "builder",
       model: { providerID: "openai", modelID: "gpt-5" },
-      variant: "fast",
     })
     assert.deepEqual(posted, [{ type: "shellCommandSucceeded" }])
   })

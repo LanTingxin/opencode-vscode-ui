@@ -58,6 +58,22 @@ describe("sdk adapter", () => {
     assert.equal(await sdk.session.list({ directory: "/workspace", roots: true }), listResult)
   })
 
+  test("preserves official namespaces outside the local compatibility shims", async () => {
+    const currentResult = { data: { id: "project-1" } }
+    class GetterBackedClient {
+      get project() {
+        return {
+          current: async () => currentResult,
+        }
+      }
+    }
+
+    const sdk = createClientAdapter(new GetterBackedClient() as unknown as Parameters<typeof createClientAdapter>[0])
+
+    assert.equal(typeof sdk.project?.current, "function")
+    assert.equal(await sdk.project.current({ directory: "/workspace" }), currentResult)
+  })
+
   test("adapts getter-only find and event namespaces without mutating the official client", async () => {
     let receivedFind: unknown
     const stream = {

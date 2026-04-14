@@ -5,7 +5,7 @@
     "": {
       "name": "opencode-vscode-ui",
       "dependencies": {
-        "@opencode-ai/sdk": "1.2.21",
+        "@opencode-ai/sdk": "1.4.3",
         "diff": "^8.0.3",
         "highlight.js": "^11.11.1",
         "markdown-it": "^14.1.0",
@@ -105,7 +105,7 @@
 
     "@humanwhocodes/retry": ["@humanwhocodes/retry@0.4.3", "https://registry.npmmirror.com/@humanwhocodes/retry/-/retry-0.4.3.tgz", {}, "sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ=="],
 
-    "@opencode-ai/sdk": ["@opencode-ai/sdk@1.2.21", "https://registry.npmmirror.com/@opencode-ai/sdk/-/sdk-1.2.21.tgz", {}, "sha512-7XF7QlXDP5iAbGcAsxsrmKlIjRtSzKgbwuDHPPuZbILkhGOfCo05XwPidAZrVWucZ/re44oc/psw2zDECaZOpQ=="],
+    "@opencode-ai/sdk": ["@opencode-ai/sdk@1.4.3", "", { "dependencies": { "cross-spawn": "7.0.6" } }, "sha512-X0CAVbwoGAjTY2iecpWkx2B+GAa2jSaQKYpJ+xILopeF/OGKZUN15mjqci+L7cEuwLHV5wk3x2TStUOVCa5p0A=="],
 
     "@types/estree": ["@types/estree@1.0.8", "https://registry.npmmirror.com/@types/estree/-/estree-1.0.8.tgz", {}, "sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w=="],
 

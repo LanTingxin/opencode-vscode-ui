@@ -3,7 +3,7 @@ import * as path from "node:path"
 import { URL } from "node:url"
 import { postToWebview } from "../../bridge/host"
 import type { ComposerPromptPart, SessionPanelRef } from "../../bridge/types"
-import type { MessageInfo, PermissionReply, PromptPartInput, SessionMessage } from "../../core/sdk"
+import type { MessageInfo, PermissionReply, PromptFilePartInput, PromptPartInput, SessionMessage } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
 import { text, textError, wait } from "./utils"
 import { friendlyShellSubmitError } from "./shell-errors"
@@ -101,7 +101,7 @@ export async function toggleMcp(ctx: ActionContext, name: string, action: "conne
   }
 }
 
-export async function runSlashCommand(ctx: ActionContext, command: string, args: string, agent?: string, model?: string, variant?: string) {
+export async function runSlashCommand(ctx: ActionContext, command: string, args: string, agent?: string, model?: string, variant?: string, parts?: PromptFilePartInput[]) {
   if (!command || ctx.state.disposed) {
     return
   }
@@ -122,6 +122,7 @@ export async function runSlashCommand(ctx: ActionContext, command: string, args:
       directory: rt.dir,
       command,
       arguments: args,
+      ...(parts ? { parts } : {}),
       agent,
       model,
       variant,
@@ -140,7 +141,7 @@ export async function runSlashCommand(ctx: ActionContext, command: string, args:
   }
 }
 
-export async function runShellCommand(ctx: ActionContext, command: string, agent?: string, model?: MessageInfo["model"], variant?: string) {
+export async function runShellCommand(ctx: ActionContext, command: string, agent?: string, model?: MessageInfo["model"], _variant?: string) {
   if (!command.trim() || ctx.state.disposed) {
     return
   }
@@ -162,7 +163,6 @@ export async function runShellCommand(ctx: ActionContext, command: string, agent
       command,
       agent,
       model: model ? { providerID: model.providerID, modelID: model.modelID } : undefined,
-      variant,
     })
 
     ctx.panel.webview.postMessage({ type: "shellCommandSucceeded" })

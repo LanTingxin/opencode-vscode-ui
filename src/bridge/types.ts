@@ -1,4 +1,4 @@
-import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, PromptSource, ProviderInfo, QuestionRequest, SessionEvent, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
+import type { AgentInfo, CommandInfo, FileDiff, LspStatus, McpResource, McpStatus, PermissionRequest, PromptFilePartInput, PromptSource, ProviderInfo, QuestionRequest, SessionEvent, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
 import type { DisplaySettings } from "../core/settings"
 
 export const SESSION_PANEL_VIEW_TYPE = "opencode-ui.session"
@@ -233,6 +233,7 @@ export type WebviewMessage =
       type: "runSlashCommand"
       command: string
       arguments: string
+      parts?: PromptFilePartInput[]
       agent?: string
       model?: string
       variant?: string

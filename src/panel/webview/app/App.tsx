@@ -21,6 +21,7 @@ import { collectDroppedFilePaths, shouldHandleComposerFileDrop } from "./compose
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
 import { composerEnterIntent, composerTabIntent, cycleAgentName, isShortcutTarget, leaderAction, shouldEnterShellMode, shouldExitShellModeOnBackspace, type ComposerMode } from "./keyboard-shortcuts"
 import { buildModelPickerSections, ModelPicker } from "./model-picker"
+import { buildComposerHostMessage } from "./composer-submit"
 import { mergeRestoredComposerParts, restoredComposerCursor } from "./composer-seed"
 import { activeChildSessionId } from "./session-navigation"
 
@@ -525,28 +526,22 @@ export function App() {
         return
       }
 
-      if (slashAction.type === "command") {
-        vscode.postMessage({
-          type: "runSlashCommand",
-          command: slashAction.command,
-          arguments: slashAction.arguments,
-          agent: selection.agent,
-          model: selection.model ? `${selection.model.providerID}/${selection.model.modelID}` : undefined,
-          variant: selection.variant,
-        })
-        setState((current) => ({
-          ...current,
-          draft: "",
-          composerParts: emptyComposerParts(),
-          composerMentions: [],
-          composerMentionAgentOverride: undefined,
-          error: "",
-        }))
-        return
-      }
     }
 
-    if (!selection.model) {
+    const mentions = mentionsFromParts(finalized)
+    const parts = buildComposerSubmitParts(draft, mentions)
+    const images = state.imageAttachments.map((img) => ({ dataUrl: img.dataUrl, mime: img.mime, name: img.name }))
+    const hostMessage = buildComposerHostMessage({
+      draft,
+      commands: state.snapshot.commands,
+      parts,
+      images,
+      agent: selection.agent,
+      model: selection.model,
+      variant: selection.variant,
+    })
+
+    if (hostMessage.type === "submit" && !selection.model) {
       setState((current) => ({
         ...current,
         error: current.snapshot.providers.length > 0 ? "Select a model before sending this message." : "Configure a provider before sending this message.",
@@ -555,18 +550,7 @@ export function App() {
       return
     }
 
-    const mentions = mentionsFromParts(finalized)
-    const parts = buildComposerSubmitParts(draft, mentions)
-    const images = state.imageAttachments.map((img) => ({ dataUrl: img.dataUrl, mime: img.mime, name: img.name }))
-    vscode.postMessage({
-      type: "submit",
-      text: draft,
-      parts,
-      images: images.length > 0 ? images : undefined,
-      agent: selection.agent,
-      model: selection.model,
-      variant: selection.variant,
-    })
+    vscode.postMessage(hostMessage)
     setState((current) => ({
       ...current,
       draft: "",

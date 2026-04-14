@@ -58,8 +58,7 @@ export type Todo = {
 
 export type FileDiff = {
   file: string
-  before: string
-  after: string
+  patch: string
   additions: number
   deletions: number
   status?: "added" | "deleted" | "modified"
@@ -384,233 +383,32 @@ export type SessionEvent =
       properties?: unknown
     }
 
-export type Client = {
-  find: {
-    files(input: {
-      query: string
-      directory?: string
-      workspace?: string
-      dirs?: boolean
-      type?: "file" | "directory"
-      limit?: number
-    }): Promise<{ data?: string[] }>
-  }
-  command: {
-    list(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: CommandInfo[] }>
-  }
-  provider: {
-    list(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: ProviderList }>
-  }
-  mcp: {
-    status(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: Record<string, McpStatus> }>
-    connect(input: {
-      name: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: boolean }>
-    disconnect(input: {
-      name: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: boolean }>
-  }
-  experimental: {
-    resource: {
-      list(input?: {
-        directory?: string
-        workspace?: string
-      }): Promise<{ data?: Record<string, McpResource> }>
-    }
-  }
-  lsp: {
-    status(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: LspStatus[] }>
-  }
-  config: {
-    get(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: ConfigInfo }>
-    providers(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: { providers?: ProviderInfo[]; default?: Record<string, string> } }>
-  }
-  app: {
-    agents(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: AgentInfo[] }>
-  }
-  session: {
-    list(input?: {
-      directory?: string
-      workspace?: string
-      roots?: boolean
-      start?: number
-      search?: string
-      limit?: number
-    }): Promise<{ data?: SessionInfo[] }>
-    create(input?: {
-      directory?: string
-      workspace?: string
-      parentID?: string
-      title?: string
-    }): Promise<{ data?: SessionInfo }>
-    fork(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-      messageID?: string
-    }): Promise<{ data?: SessionInfo }>
-    delete(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: boolean }>
-    diff(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-      messageID?: string
-    }): Promise<{ data?: FileDiff[] }>
-    get(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: SessionInfo }>
-    children(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: SessionInfo[] }>
-    status(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: Record<string, SessionStatus> }>
-    messages(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-      limit?: number
-    }): Promise<{ data?: SessionMessage[] }>
-    promptAsync(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-      messageID?: string
-      model?: {
-        providerID: string
-        modelID: string
-      }
-      agent?: string
-      noReply?: boolean
-      variant?: string
-      parts: PromptPartInput[]
-    }): Promise<{ data?: void }>
-    command(input: {
-      sessionID: string
-      command: string
-      arguments: string
-      directory?: string
-      workspace?: string
-      messageID?: string
-      agent?: string
-      model?: string
-      variant?: string
-    }): Promise<{ data?: void }>
-    shell(input: {
-      sessionID: string
-      command: string
-      directory?: string
-      workspace?: string
-      messageID?: string
-      agent?: string
-      model?: { providerID: string; modelID: string }
-      variant?: string
-    }): Promise<{ data?: void }>
-    summarize(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-      providerID: string
-      modelID: string
-      auto?: boolean
-    }): Promise<{ data?: boolean }>
-    abort(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: boolean }>
-    revert(input: {
-      sessionID: string
-      messageID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: SessionInfo }>
-    unrevert(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: SessionInfo }>
-    todo(input: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: Todo[] }>
-  }
-  permission: {
-    list(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: PermissionRequest[] }>
-    reply(input: {
-      requestID: string
-      directory?: string
-      workspace?: string
-      reply?: PermissionReply
-      message?: string
-    }): Promise<{ data?: void }>
-  }
-  question: {
-    list(input?: {
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: QuestionRequest[] }>
-    reply(input: {
-      requestID: string
-      directory?: string
-      workspace?: string
-      answers?: string[][]
-    }): Promise<{ data?: void }>
-    reject(input: {
-      requestID: string
-      directory?: string
-      workspace?: string
-    }): Promise<{ data?: void }>
-  }
-  event: {
-    subscribe(input?: {
-      directory?: string
-      workspace?: string
-    }, options?: {
-      signal?: AbortSignal
-      onSseError?: (error: unknown) => void
-    }): Promise<{
-      stream: AsyncIterable<SessionEvent>
-    }>
-  }
+type AdaptedFind = Omit<OfficialOpencodeClient["find"], "files"> & {
+  files(input: {
+    query: string
+    directory?: string
+    workspace?: string
+    dirs?: boolean
+    type?: "file" | "directory"
+    limit?: number
+  }): Promise<{ data?: string[] }>
+}
+
+type AdaptedEvent = Omit<OfficialOpencodeClient["event"], "subscribe"> & {
+  subscribe(input?: {
+    directory?: string
+    workspace?: string
+  }, options?: {
+    signal?: AbortSignal
+    onSseError?: (error: unknown) => void
+  }): Promise<{
+    stream: AsyncIterable<SessionEvent>
+  }>
+}
+
+export type Client = Omit<OfficialOpencodeClient, "find" | "event"> & {
+  find: AdaptedFind
+  event: AdaptedEvent
 }
 
 export function createClientAdapter(client: OfficialOpencodeClient): Client {
