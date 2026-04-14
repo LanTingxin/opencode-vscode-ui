@@ -617,26 +617,46 @@ export function createClientAdapter(client: OfficialOpencodeClient): Client {
   const adapted = Object.create(client) as Client
 
   if (client.find) {
-    adapted.find = {
-      ...client.find,
-      files(input) {
-        return client.find.files({
-          ...input,
-          dirs: input.dirs === undefined ? undefined : input.dirs ? "true" : "false",
-        }) as Promise<{ data?: string[] }>
+    Object.defineProperty(adapted, "find", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: {
+        ...client.find,
+        files(input: {
+          directory?: string
+          query: string
+          dirs?: boolean
+        }) {
+          return client.find.files({
+            ...input,
+            dirs: input.dirs === undefined ? undefined : input.dirs ? "true" : "false",
+          }) as Promise<{ data?: string[] }>
+        },
       },
-    }
+    })
   }
 
   if (client.event) {
-    adapted.event = {
-      ...client.event,
-      async subscribe(input, options) {
-        const result = await client.event.subscribe(input, options)
-        const stream = "stream" in result ? result.stream : result
-        return { stream: stream as AsyncIterable<SessionEvent> }
+    Object.defineProperty(adapted, "event", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: {
+        ...client.event,
+        async subscribe(input?: {
+          directory?: string
+          workspace?: string
+        }, options?: {
+          signal?: AbortSignal
+          onSseError?: (error: unknown) => void
+        }) {
+          const result = await client.event.subscribe(input, options)
+          const stream = "stream" in result ? result.stream : result
+          return { stream: stream as AsyncIterable<SessionEvent> }
+        },
       },
-    }
+    })
   }
 
   return adapted

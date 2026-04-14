@@ -58,6 +58,47 @@ describe("sdk adapter", () => {
     assert.equal(await sdk.session.list({ directory: "/workspace", roots: true }), listResult)
   })
 
+  test("adapts getter-only find and event namespaces without mutating the official client", async () => {
+    let receivedFind: unknown
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+      },
+    }
+
+    class GetterOnlyClient {
+      get find() {
+        return {
+          files: async (input: unknown) => {
+            receivedFind = input
+            return { data: [] }
+          },
+        }
+      }
+
+      get event() {
+        return {
+          subscribe: async () => stream,
+        }
+      }
+    }
+
+    const sdk = createClientAdapter(new GetterOnlyClient() as unknown as Parameters<typeof createClientAdapter>[0])
+
+    await sdk.find.files({
+      directory: "/workspace",
+      query: "src",
+      dirs: false,
+    })
+    const result = await sdk.event.subscribe({ directory: "/workspace" })
+
+    assert.deepEqual(receivedFind, {
+      directory: "/workspace",
+      query: "src",
+      dirs: "false",
+    })
+    assert.equal(result.stream, stream)
+  })
+
   test("exports local semantic aliases backed by official v2 shapes", () => {
     const session: SessionInfo = {
       id: "session-1",
