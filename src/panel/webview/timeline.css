@@ -84,11 +84,36 @@
   transition: opacity 120ms ease, transform 120ms ease;
 }
 
+.oc-revertActions {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(calc(-50% + 2px));
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
 .oc-turnUser:hover .oc-messageActions,
-.oc-turnUser:focus-within .oc-messageActions {
+.oc-turnUser:focus-within .oc-messageActions,
+.oc-revertNotice:hover .oc-revertActions,
+.oc-revertNotice:focus-within .oc-revertActions {
   opacity: 1;
   pointer-events: auto;
+}
+
+.oc-turnUser:hover .oc-messageActions,
+.oc-turnUser:focus-within .oc-messageActions {
   transform: translateY(0);
+}
+
+.oc-revertNotice:hover .oc-revertActions,
+.oc-revertNotice:focus-within .oc-revertActions {
+  transform: translateY(-50%);
 }
 
 .oc-messageActionBtn {
@@ -292,9 +317,10 @@
 }
 
 .oc-revertNotice {
+  position: relative;
   display: grid;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 8px 44px 8px 10px;
   background: color-mix(in srgb, var(--oc-surface-block) 84%, var(--oc-surface-canvas) 16%);
   border-left: 3px solid color-mix(in srgb, var(--oc-accent) 55%, var(--oc-border-strong) 45%);
 }

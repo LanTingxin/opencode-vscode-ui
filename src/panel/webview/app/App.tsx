@@ -748,6 +748,10 @@ export function App() {
     vscode.postMessage({ type: "messageAction", action: "forkUserMessage", messageID: message.info.id })
   }, [])
 
+  const redoSession = React.useCallback(() => {
+    postComposerAction("redoSession")
+  }, [postComposerAction])
+
   const undoUserMessage = React.useCallback((message: SessionMessage) => {
     postMessageAction("undoUserMessage", message.info.id)
   }, [postMessageAction])
@@ -1037,6 +1041,7 @@ export function App() {
                     messages={state.snapshot.messages}
                     onCopyUserMessage={copyUserMessage}
                     onForkUserMessage={forkUserMessage}
+                    onRedoSession={redoSession}
                     onUndoUserMessage={undoUserMessage}
                     revertID={state.snapshot.session?.revert?.messageID}
                     revertDiff={state.snapshot.session?.revert?.diff}

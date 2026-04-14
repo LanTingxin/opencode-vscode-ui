@@ -39,6 +39,7 @@ type TimelineProps = {
   messages: SessionMessage[]
   onCopyUserMessage: (message: SessionMessage) => void
   onForkUserMessage: (message: SessionMessage) => void
+  onRedoSession: () => void
   onUndoUserMessage: (message: SessionMessage) => void
   revertDiff?: string
   revertID?: string
@@ -58,6 +59,7 @@ export const Timeline = React.memo(function Timeline({
   messages,
   onCopyUserMessage,
   onForkUserMessage,
+  onRedoSession,
   onUndoUserMessage,
   revertDiff,
   revertID,
@@ -106,6 +108,7 @@ export const Timeline = React.memo(function Timeline({
             diffMode={diffMode}
             onCopyUserMessage={onCopyUserMessage}
             onForkUserMessage={onForkUserMessage}
+            onRedoSession={onRedoSession}
             onUndoUserMessage={onUndoUserMessage}
           />
         ))}
@@ -124,6 +127,7 @@ type TimelineBlockViewProps = {
   diffMode: "unified" | "split"
   onCopyUserMessage: (message: SessionMessage) => void
   onForkUserMessage: (message: SessionMessage) => void
+  onRedoSession: () => void
   onUndoUserMessage: (message: SessionMessage) => void
 }
 
@@ -137,6 +141,7 @@ function TimelineBlockView({
   diffMode,
   onCopyUserMessage,
   onForkUserMessage,
+  onRedoSession,
   onUndoUserMessage,
 }: TimelineBlockViewProps) {
   if (block.kind === "user-message") {
@@ -191,6 +196,11 @@ function TimelineBlockView({
   if (block.kind === "revert") {
     return (
       <section className="oc-revertNotice">
+        <div className="oc-revertActions" aria-label="Revert actions">
+          <button type="button" className="oc-messageActionBtn" aria-label="Redo" data-tooltip="Redo" onClick={onRedoSession}>
+            <RedoMessageIcon />
+          </button>
+        </div>
         <div className="oc-revertNoticeTitle">{block.count} message reverted</div>
         <div className="oc-revertNoticeText">Use `/redo` to restore this part of the session.</div>
         {block.files.length > 0 ? (
@@ -223,6 +233,7 @@ function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: Timeline
     || prev.diffMode !== next.diffMode
     || prev.onCopyUserMessage !== next.onCopyUserMessage
     || prev.onForkUserMessage !== next.onForkUserMessage
+    || prev.onRedoSession !== next.onRedoSession
     || prev.onUndoUserMessage !== next.onUndoUserMessage) {
     return false
   }
@@ -506,6 +517,15 @@ function UndoMessageIcon() {
     <svg viewBox="0 0 16 16" aria-hidden="true">
       <path d="M6.5 4.5H11a2.5 2.5 0 0 1 0 5H4.5" className="oc-messageActionPath" />
       <path d="M6.5 2.75 3.75 5.5 6.5 8.25" className="oc-messageActionPath" />
+    </svg>
+  )
+}
+
+function RedoMessageIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M9.5 4.5H5a2.5 2.5 0 0 0 0 5h6.5" className="oc-messageActionPath" />
+      <path d="m9.5 2.75 2.75 2.75-2.75 2.75" className="oc-messageActionPath" />
     </svg>
   )
 }

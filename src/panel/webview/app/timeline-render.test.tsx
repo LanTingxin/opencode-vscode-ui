@@ -42,6 +42,7 @@ describe("Timeline user message rendering", () => {
         messages={[sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")])]}
         onCopyUserMessage={() => {}}
         onForkUserMessage={() => {}}
+        onRedoSession={() => {}}
         onUndoUserMessage={() => {}}
         showInternals={false}
         showThinking={true}
@@ -65,6 +66,7 @@ describe("Timeline user message rendering", () => {
         messages={[sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")])]}
         onCopyUserMessage={() => {}}
         onForkUserMessage={() => {}}
+        onRedoSession={() => {}}
         onUndoUserMessage={() => {}}
         showInternals={false}
         showThinking={true}
@@ -84,5 +86,33 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes('data-tooltip="Fork"'), true)
     assert.equal(html.includes('data-tooltip="Undo"'), true)
     assert.equal(html.includes(">Copy<"), false)
+  })
+
+  test("renders a redo action for revert notices", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        diffMode="unified"
+        messages={[
+          sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")]),
+          sessionMessage(messageInfo("m2", "assistant"), [textPart("p2", "m2", "done")]),
+        ]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onUndoUserMessage={() => {}}
+        onRedoSession={() => {}}
+        revertID="m1"
+        showInternals={false}
+        showThinking={true}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes('aria-label="Redo"'), true)
+    assert.equal(html.includes('data-tooltip="Redo"'), true)
   })
 })
