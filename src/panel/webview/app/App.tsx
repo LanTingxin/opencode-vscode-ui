@@ -1473,8 +1473,10 @@ export function App() {
                   />
                         {!state.draft.trim() && !composerFocused ? <div className="oc-composerPlaceholder" aria-hidden="true">{composerPlaceholder}</div> : null}
                       </div>
-                    <div className="oc-composerInfoWrap" ref={modelPickerRef}>
-                      <ComposerInfo state={state} leaderPending={leaderPending} modelPickerOpen={modelPickerOpen} onToggleModelPicker={toggleModelPicker} onCycleVariant={() => cycleComposerVariant()} />
+                    <div className="oc-modelPickerLayer" ref={modelPickerRef}>
+                      <div className="oc-composerInfoWrap">
+                        <ComposerInfo state={state} leaderPending={leaderPending} modelPickerOpen={modelPickerOpen} onToggleModelPicker={toggleModelPicker} onCycleVariant={() => cycleComposerVariant()} />
+                      </div>
                       {modelPickerOpen ? (
                         <ModelPicker
                           sections={modelPickerSections}
