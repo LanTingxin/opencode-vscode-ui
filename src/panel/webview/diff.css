@@ -22,6 +22,8 @@
   padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
   border-left: 2px solid color-mix(in srgb, var(--oc-accent) 72%, transparent 28%);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-code-surface);
 }
 
 .oc-diffBlock.is-window {

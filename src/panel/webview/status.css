@@ -2,9 +2,10 @@
 .oc-answerInput {
   width: 100%;
   border: 1px solid var(--oc-border-strong);
-  background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
+  background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-composer-surface) 92%);
   color: var(--oc-fg-primary);
   padding: 10px 12px;
+  border-radius: var(--oc-radius-sm);
 }
 
 .oc-composerInput {
@@ -61,8 +62,9 @@
 
 .oc-composerBody {
   position: relative;
-  border: 1px solid var(--oc-border-strong);
-  background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
+  border: 1px solid var(--oc-composer-border);
+  border-radius: var(--oc-radius-md);
+  background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-composer-surface) 92%);
   padding-bottom: calc(10px + (1.65em * 2));
 }
 
@@ -86,6 +88,7 @@
   border: 1px dashed color-mix(in srgb, var(--oc-info) 50%, var(--oc-border-strong) 50%);
   background: color-mix(in srgb, var(--oc-info) 12%, var(--oc-surface-control) 88%);
   color: var(--oc-fg-primary);
+  border-radius: var(--oc-radius-md);
   font-size: var(--oc-font-size-sm);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -111,7 +114,7 @@
   border: 1px solid var(--oc-border-strong);
   background: color-mix(in srgb, var(--oc-accent) 14%, var(--oc-surface-control) 86%);
   color: var(--oc-fg-primary);
-  border-radius: 999px;
+  border-radius: var(--oc-radius-sm);
   white-space: nowrap;
 }
 
@@ -149,6 +152,8 @@
   padding: 8px;
   border: 1px solid var(--oc-border-strong);
   background: var(--oc-status-popover-bg);
+  border-radius: var(--oc-radius-md);
+  box-shadow: var(--oc-shadow-floating);
   z-index: 3;
   max-height: min(18rem, 48vh);
   overflow: hidden;
@@ -180,6 +185,7 @@
   padding: 5px 8px;
   border: 1px solid var(--oc-border);
   background: color-mix(in srgb, var(--oc-surface-control) 82%, transparent 18%);
+  border-radius: var(--oc-radius-sm);
 }
 
 .oc-composerAutocompleteItem {

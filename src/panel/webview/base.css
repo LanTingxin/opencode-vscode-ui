@@ -50,6 +50,7 @@ button {
 .oc-part {
   border: 1px solid var(--oc-border);
   background: var(--oc-surface-block);
+  border-radius: var(--oc-radius-md);
 }
 
 .oc-kicker,
@@ -167,8 +168,8 @@ button {
 }
 
 .oc-composer {
-  border-color: color-mix(in srgb, var(--oc-border-strong) 44%, transparent 56%);
-  background: var(--oc-surface-block);
+  border-color: var(--oc-composer-border);
+  background: var(--oc-composer-surface);
   display: grid;
   gap: 0;
 }
@@ -187,6 +188,7 @@ button {
   color: var(--oc-fg-primary);
   padding: 5px 9px;
   font-size: var(--oc-font-size-sm);
+  border-radius: var(--oc-radius-sm);
 }
 
 .oc-pill-file {
@@ -252,6 +254,7 @@ button {
   color: var(--oc-fg-primary);
   padding: 8px 12px;
   cursor: pointer;
+  border-radius: var(--oc-radius-sm);
 }
 
 .oc-toolTrigger,

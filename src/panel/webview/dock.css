@@ -33,6 +33,7 @@
   display: grid;
   gap: 6px;
   border-color: color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
+  border-radius: var(--oc-radius-md);
 }
 
 .oc-questionDetails {
@@ -92,6 +93,7 @@
   background: color-mix(in srgb, var(--oc-surface-control) 84%, var(--oc-surface-block) 16%);
   color: var(--oc-fg-primary);
   text-align: left;
+  border-radius: var(--oc-radius-sm);
 }
 
 button.oc-questionOption,

@@ -3,7 +3,7 @@ import type { ComposerPathResult, ComposerPromptPart, SessionBootstrap } from ".
 import type { QuestionRequest, SessionMessage } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, WorkspaceDirContext } from "./contexts"
 import { answerKey, PermissionDock, QuestionDock, RetryStatus, SessionNav, SubagentNotice } from "./docks"
-import { createInitialState, persistableAppState, type AppState, type ComposerEditorPart, type ImageAttachment, type PersistedAppState, type VsCodeApi } from "./state"
+import { createInitialState, persistableAppState, resolvePanelThemeValue, type AppState, type ComposerEditorPart, type ImageAttachment, type PersistedAppState, type VsCodeApi } from "./state"
 import { Timeline } from "./timeline"
 import { AgentBadge, CompactionDivider, EmptyState, MarkdownBlock, PartView, WebviewBindingsProvider } from "./webview-bindings"
 import { ensureComposerCursorVisible, resizeComposer, useComposerResize } from "../hooks/useComposer"
@@ -1036,7 +1036,7 @@ export function App() {
       <ChildMessagesContext.Provider value={state.snapshot.childMessages}>
         <ChildSessionsContext.Provider value={state.snapshot.childSessions}>
           <WebviewBindingsProvider fileRefStatus={fileRefStatus} vscode={vscode}>
-            <div className="oc-shell">
+            <div className="oc-shell" data-oc-theme={resolvePanelThemeValue(state.snapshot.display.panelTheme)}>
               <main ref={timelineRef} className="oc-transcript">
                 <div className="oc-transcriptInner">
                   <Timeline

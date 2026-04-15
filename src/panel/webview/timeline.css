@@ -10,7 +10,8 @@
   position: relative;
   padding: 6px 96px 6px 12px;
   border: 0;
-  background: var(--oc-surface-block);
+  border-radius: var(--oc-radius-lg);
+  background: var(--oc-message-user-bg);
 }
 
 .oc-turnUser::before {
@@ -21,7 +22,7 @@
   bottom: 0;
   width: 3px;
   background: var(--oc-rail-user);
-  border-radius: 1px;
+  border-radius: var(--oc-radius-sm);
 }
 
 .oc-userStatusRow {
@@ -127,7 +128,7 @@
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 76%, transparent 24%);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--oc-surface-canvas) 74%, var(--oc-surface-block) 26%);
+  background: color-mix(in srgb, var(--oc-surface-elevated, var(--oc-surface-canvas)) 82%, var(--oc-surface-block) 18%);
   color: var(--oc-fg-muted);
   cursor: pointer;
 }
@@ -141,14 +142,14 @@
   padding: 5px 10px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 65%, transparent 35%);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--oc-surface-canvas) 88%, white 12%);
+  background: color-mix(in srgb, var(--oc-surface-elevated, var(--oc-surface-canvas)) 94%, var(--oc-surface-block) 6%);
   color: var(--oc-fg-primary);
   font-size: var(--oc-font-size-sm);
   line-height: 1.2;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  box-shadow: 0 10px 24px color-mix(in srgb, black 20%, transparent 80%);
+  box-shadow: var(--oc-shadow-soft);
   transition: opacity 120ms ease, transform 120ms ease;
 }
 
@@ -196,6 +197,7 @@
 .oc-part-text {
   padding: 6px 10px;
   border: 0;
+  background: var(--oc-message-assistant-bg);
 }
 
 .oc-partText,
@@ -219,16 +221,19 @@
 .oc-part-inline {
   padding: 6px 10px;
   border: 0;
+  background: var(--oc-message-assistant-bg);
 }
 
 .oc-part-compact {
   padding: 6px 10px;
   border: 0;
+  background: var(--oc-message-assistant-bg);
 }
 
 .oc-part-reasoning {
   padding: 6px 10px;
   border: 0;
+  background: var(--oc-message-assistant-bg);
   border-left: 1px solid color-mix(in srgb, var(--oc-border-strong) 82%, transparent 18%);
 }
 
