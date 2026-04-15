@@ -1,9 +1,14 @@
 import * as vscode from "vscode"
 import type { SessionPanelRef } from "../bridge/types"
 import { EventHub } from "../core/events"
-import type { Client, FileDiff, SessionEvent, SessionInfo, Todo } from "../core/sdk"
+import type { Client, FileDiff, SessionEvent, SessionInfo, SessionStatus, Todo } from "../core/sdk"
 import { WorkspaceManager } from "../core/workspace"
 import { SessionPanelManager } from "../panel/provider"
+
+export type FocusedSubagentItem = {
+  session: SessionInfo
+  status: SessionStatus
+}
 
 export type FocusedSessionState = {
   status: "idle" | "loading" | "ready" | "error"
@@ -11,6 +16,7 @@ export type FocusedSessionState = {
   session?: SessionInfo
   todos: Todo[]
   diff: FileDiff[]
+  subagents: FocusedSubagentItem[]
   branch?: string
   defaultBranch?: string
   error?: string
@@ -20,6 +26,7 @@ const idleState: FocusedSessionState = {
   status: "idle",
   todos: [],
   diff: [],
+  subagents: [],
 }
 
 export class FocusedSessionStore implements vscode.Disposable {
@@ -70,6 +77,7 @@ export class FocusedSessionStore implements vscode.Disposable {
           session: this.state.session,
           todos: [],
           diff: [],
+          subagents: [],
         })
       }
     })
@@ -111,6 +119,7 @@ export class FocusedSessionStore implements vscode.Disposable {
       session: this.state.session?.id === ref.sessionId ? this.state.session : undefined,
       todos: [],
       diff: [],
+      subagents: [],
     })
 
     const rt = this.mgr.get(ref.workspaceId)
@@ -121,6 +130,7 @@ export class FocusedSessionStore implements vscode.Disposable {
         session: this.state.session?.id === ref.sessionId ? this.state.session : undefined,
         todos: [],
         diff: [],
+        subagents: [],
       })
       return
     }
@@ -154,6 +164,7 @@ export class FocusedSessionStore implements vscode.Disposable {
         ref,
         todos: [],
         diff: [],
+        subagents: [],
         error: message,
       })
     }
@@ -196,9 +207,44 @@ export class FocusedSessionStore implements vscode.Disposable {
       return
     }
 
+    if (event.type === "session.status") {
+      const props = event.properties as { sessionID: string; status: SessionStatus }
+      if (!props.sessionID || !this.state.subagents.some((item) => item.session.id === props.sessionID)) {
+        return
+      }
+
+      this.set({
+        ...this.state,
+        status: "ready",
+        subagents: this.state.subagents.map((item) => item.session.id === props.sessionID
+          ? {
+              ...item,
+              status: props.status,
+            }
+          : item),
+      })
+      return
+    }
+
     if (event.type === "session.updated" || event.type === "session.created") {
       const props = event.properties as { info: SessionInfo }
       if (props.info?.id !== ref.sessionId) {
+        if (!isTrackedSubagent(ref.sessionId, this.state.subagents, props.info)) {
+          if (this.state.subagents.some((item) => item.session.id === props.info?.id)) {
+            this.set({
+              ...this.state,
+              status: "ready",
+              subagents: removeSubagentTree(this.state.subagents, props.info.id),
+            })
+          }
+          return
+        }
+
+        this.set({
+          ...this.state,
+          status: "ready",
+          subagents: upsertSubagent(this.state.subagents, props.info),
+        })
         return
       }
       if (props.info.time.archived) {
@@ -216,6 +262,15 @@ export class FocusedSessionStore implements vscode.Disposable {
     if (event.type === "session.deleted") {
       const props = event.properties as { info: SessionInfo }
       if (props.info?.id !== ref.sessionId) {
+        if (!this.state.subagents.some((item) => item.session.id === props.info?.id)) {
+          return
+        }
+
+        this.set({
+          ...this.state,
+          status: "ready",
+          subagents: removeSubagentTree(this.state.subagents, props.info.id),
+        })
         return
       }
       this.clearRef(props.info.id, workspaceId)
@@ -271,14 +326,103 @@ export async function loadFocusedSessionState(input: {
       directory: input.ref.dir,
     }),
   ])
+  const subagents = await loadSubagents(input.runtime.sdk, input.ref.dir, input.ref.sessionId)
 
   return {
     session: sessionRes.data,
     todos: todoRes.data ?? [],
     diff: diffRes.data ?? [],
+    subagents,
     branch: vcsRes.data?.branch,
     defaultBranch: vcsRes.data?.default_branch,
   }
+}
+
+async function loadSubagents(sdk: Client, dir: string, sessionID: string) {
+  if (typeof sdk.session.children !== "function" || typeof sdk.session.status !== "function") {
+    return []
+  }
+
+  const sessions = await loadDescendants(sdk, dir, sessionID)
+  const statusMap = (await sdk.session.status({
+    directory: dir,
+  })).data ?? {}
+
+  return sessions.map((session) => ({
+    session,
+    status: statusMap[session.id] ?? idleStatus(),
+  }))
+}
+
+async function loadDescendants(sdk: Client, dir: string, rootSessionID: string) {
+  const out: SessionInfo[] = []
+  const queue = [rootSessionID]
+
+  while (queue.length > 0) {
+    const sessionID = queue.shift()
+    if (!sessionID) {
+      continue
+    }
+
+    const res = await sdk.session.children({
+      sessionID,
+      directory: dir,
+    })
+
+    for (const item of res.data ?? []) {
+      if (item.time.archived || out.some((existing) => existing.id === item.id)) {
+        continue
+      }
+
+      out.push(item)
+      queue.push(item.id)
+    }
+  }
+
+  return out
+}
+
+function idleStatus(): SessionStatus {
+  return { type: "idle" }
+}
+
+function isTrackedSubagent(rootSessionID: string, subagents: FocusedSubagentItem[], info?: SessionInfo) {
+  if (!info || info.time.archived) {
+    return false
+  }
+
+  if (info.parentID === rootSessionID) {
+    return true
+  }
+
+  return subagents.some((item) => item.session.id === info.parentID)
+}
+
+function upsertSubagent(subagents: FocusedSubagentItem[], info: SessionInfo) {
+  const next = subagents.filter((item) => item.session.id !== info.id)
+  next.push({
+    session: info,
+    status: subagents.find((item) => item.session.id === info.id)?.status ?? idleStatus(),
+  })
+  return next
+}
+
+function removeSubagentTree(subagents: FocusedSubagentItem[], sessionID: string) {
+  const removed = new Set([sessionID])
+  let changed = true
+
+  while (changed) {
+    changed = false
+    for (const item of subagents) {
+      if (removed.has(item.session.id) || !removed.has(item.session.parentID ?? "")) {
+        continue
+      }
+      removed.add(item.session.id)
+      changed = true
+    }
+  }
+
+  return subagents.filter((item) => !removed.has(item.session.id))
 }
 
 function sameRef(a?: SessionPanelRef, b?: SessionPanelRef) {
