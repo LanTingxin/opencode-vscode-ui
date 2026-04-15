@@ -21,6 +21,7 @@ function snapshot(parentID?: string): SessionSnapshot {
       showInternals: false,
       showThinking: true,
       diffMode: "unified",
+      panelTheme: "default",
     },
     sessionStatus: { type: "idle" },
     messages: [],

@@ -65,6 +65,7 @@ function snapshot(options?: {
       showInternals: false,
       showThinking: true,
       diffMode: "unified",
+      panelTheme: "default",
     },
     sessionStatus: { type: "idle" },
     messages: options?.messages ?? [message(session.id, "m1", "hello")],

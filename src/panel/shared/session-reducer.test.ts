@@ -46,6 +46,7 @@ function snapshot(overrides: Partial<SessionSnapshot> & { display?: DisplaySetti
       showInternals: false,
       showThinking: true,
       diffMode: "unified",
+      panelTheme: "default",
     },
   }
 }

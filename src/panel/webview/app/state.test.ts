@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import { createInitialState, persistableAppState, type PersistedAppState } from "./state"
+import type { SessionSnapshot } from "../../../bridge/types"
+import { createInitialState, normalizeSnapshotPayload, persistableAppState, type PersistedAppState } from "./state"
 
 const initialRef = {
   workspaceId: "vscode-remote://ssh-remote+box/workspace",
@@ -25,6 +26,12 @@ function persisted(overrides: Partial<PersistedAppState> = {}): PersistedAppStat
 }
 
 describe("panel webview persisted state", () => {
+  test("defaults the snapshot display panel theme to default", () => {
+    const state = createInitialState(initialRef)
+
+    assert.equal(state.snapshot.display.panelTheme, "default")
+  })
+
   test("reuses session-scoped composer state when workspace id and session id match", () => {
     const state = createInitialState(initialRef, persisted())
 
@@ -99,5 +106,82 @@ describe("panel webview persisted state", () => {
       composerFavoriteModels: [{ providerID: "provider-f", modelID: "model-f" }],
       composerModelVariants: { "provider-a:model-a": "fast" },
     })
+  })
+})
+
+describe("normalizeSnapshotPayload", () => {
+  test("preserves panelTheme from incoming snapshots", () => {
+    const snapshot = {
+      status: "ready",
+      workspaceName: "workspace",
+      sessionRef: {
+        workspaceId: initialRef.workspaceId,
+        dir: initialRef.dir,
+        sessionId: initialRef.sessionId,
+      },
+      display: {
+        showInternals: false,
+        showThinking: true,
+        diffMode: "unified",
+        compactSkillInvocations: true,
+        panelTheme: "codex",
+      },
+      messages: [],
+      childMessages: {},
+      childSessions: {},
+      submitting: false,
+      todos: [],
+      diff: [],
+      permissions: [],
+      questions: [],
+      agents: [],
+      providers: [],
+      mcp: {},
+      mcpResources: {},
+      lsp: [],
+      commands: [],
+      relatedSessionIds: [],
+      agentMode: "build",
+      navigation: {},
+    } satisfies SessionSnapshot
+
+    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "codex")
+  })
+
+  test("defaults missing panelTheme to default when normalizing older snapshots", () => {
+    const snapshot = {
+      status: "ready",
+      workspaceName: "workspace",
+      sessionRef: {
+        workspaceId: initialRef.workspaceId,
+        dir: initialRef.dir,
+        sessionId: initialRef.sessionId,
+      },
+      display: {
+        showInternals: false,
+        showThinking: true,
+        diffMode: "unified",
+        compactSkillInvocations: true,
+      },
+      messages: [],
+      childMessages: {},
+      childSessions: {},
+      submitting: false,
+      todos: [],
+      diff: [],
+      permissions: [],
+      questions: [],
+      agents: [],
+      providers: [],
+      mcp: {},
+      mcpResources: {},
+      lsp: [],
+      commands: [],
+      relatedSessionIds: [],
+      agentMode: "build",
+      navigation: {},
+    } as unknown as SessionSnapshot
+
+    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "default")
   })
 })

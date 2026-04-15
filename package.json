@@ -282,6 +282,22 @@
           "description": "Render OpenCode skill usage as a compact skill marker in session panels.",
           "scope": "machine-overridable"
         },
+        "opencode-ui.panelTheme": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "codex",
+            "claude"
+          ],
+          "markdownEnumDescriptions": [
+            "Use the standard OpenCode panel styling and follow the active VS Code light or dark theme.",
+            "Use a more tool-like panel preset with stronger framing while still following the active VS Code light or dark theme.",
+            "Use a softer panel preset with gentler surfaces while still following the active VS Code light or dark theme."
+          ],
+          "description": "Choose the visual preset for session panels. Light or dark rendering still follows the active VS Code theme.",
+          "scope": "machine-overridable"
+        },
         "opencode-ui.httpProxy": {
           "type": "string",
           "default": "",

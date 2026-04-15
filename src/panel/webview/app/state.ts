@@ -148,6 +148,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
         showThinking: true,
         diffMode: "unified",
         compactSkillInvocations: true,
+        panelTheme: "default",
       },
       skillCatalog: [],
       childMessages: {},
@@ -234,6 +235,7 @@ export function normalizeSnapshotPayload(payload: SessionSnapshot, previous?: Ap
     display: {
       ...payload.display,
       compactSkillInvocations: payload.display?.compactSkillInvocations !== false,
+      panelTheme: payload.display?.panelTheme ?? "default",
     },
     skillCatalog: Array.isArray(payload.skillCatalog) ? payload.skillCatalog : [],
     messages: reconcileMessageList(Array.isArray(payload.messages) ? payload.messages : [], previous?.messages),
