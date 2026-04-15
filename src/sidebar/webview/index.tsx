@@ -15,6 +15,8 @@ type VsCodeApi = {
   postMessage(message: SidebarWebviewMessage): void
 }
 
+type SubagentFilter = "all" | "in_progress" | "done"
+
 type GlobalWithVsCodeApi = typeof globalThis & {
   acquireVsCodeApi?: () => VsCodeApi
 }
@@ -166,7 +168,9 @@ function DiffList({ state }: { state: SidebarViewState }) {
 }
 
 export function SubagentsList({ state }: { state: SidebarViewState }) {
+  const [filter, setFilter] = React.useState<SubagentFilter>("all")
   const view = buildSubagentPanelView({
+    filter,
     subagents: state.subagents,
   })
 
@@ -176,22 +180,29 @@ export function SubagentsList({ state }: { state: SidebarViewState }) {
 
   return (
     <section className="sv-group">
-      {view.inProgress.length > 0 ? (
-        <div className="sv-taskSection">
-          <div className="sv-taskSectionTitle">In Progress</div>
-          <div className="sv-list">
-            {view.inProgress.map((item) => <SubagentRow key={item.session.id} state={state} item={item} />)}
-          </div>
+      <div className="sv-taskSummary">
+        <div className="sv-taskSummaryCounts">
+          <span>{view.summary.total} total</span>
+          <span>{view.summary.inProgress} in progress</span>
+          <span>{view.summary.done} done</span>
         </div>
-      ) : null}
-      {view.done.length > 0 ? (
-        <div className="sv-taskSection">
-          <div className="sv-taskSectionTitle">Done</div>
-          <div className="sv-list">
-            {view.done.map((item) => <SubagentRow key={item.session.id} state={state} item={item} />)}
-          </div>
+        <div className="sv-taskFilters" role="tablist" aria-label="Subagent filter">
+          {(["all", "in_progress", "done"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={`sv-taskFilter${filter === item ? " is-active" : ""}`}
+              onClick={() => setFilter(item)}
+            >
+              {subagentFilterLabel(item)}
+            </button>
+          ))}
         </div>
-      ) : null}
+      </div>
+      {view.items.length === 0 ? <Empty title="No matching subagents" text="Try a different filter" /> : null}
+      <div className="sv-list">
+        {view.items.map((item) => <SubagentRow key={item.session.id} state={state} item={item} />)}
+      </div>
     </section>
   )
 }
@@ -210,8 +221,8 @@ function SubagentRow({ state, item }: { state: SidebarViewState; item: SidebarSu
       }}
       disabled={!message}
     >
+      <span className="sv-subagentPrefix">{subagentPrefix(item.status.type)}</span>
       <span className="sv-subagentTitle">{item.session.title || item.session.id}</span>
-      <span className="sv-subagentMeta">{subagentStatusLabel(item.status.type)}</span>
     </button>
   )
 }
@@ -321,13 +332,36 @@ export function buildDiffPanelView(input: {
 }
 
 export function buildSubagentPanelView(input: {
+  filter?: SubagentFilter
   subagents: SidebarSubagent[]
 }) {
-  const sorted = [...input.subagents].sort((a, b) => b.session.time.updated - a.session.time.updated)
+  const filter = input.filter ?? "all"
+  const sorted = [...input.subagents].sort((a, b) => {
+    const statusCmp = subagentStatusRank(a.status.type) - subagentStatusRank(b.status.type)
+    if (statusCmp !== 0) {
+      return statusCmp
+    }
+    return b.session.time.updated - a.session.time.updated
+  })
+  const items = sorted.filter((item) => {
+    if (filter === "in_progress") {
+      return item.status.type === "busy" || item.status.type === "retry"
+    }
+
+    if (filter === "done") {
+      return item.status.type === "idle"
+    }
+
+    return true
+  })
 
   return {
-    inProgress: sorted.filter((item) => item.status.type === "busy" || item.status.type === "retry"),
-    done: sorted.filter((item) => item.status.type === "idle"),
+    summary: {
+      total: input.subagents.length,
+      inProgress: input.subagents.filter((item) => item.status.type === "busy" || item.status.type === "retry").length,
+      done: input.subagents.filter((item) => item.status.type === "idle").length,
+    },
+    items,
   }
 }
 
@@ -370,16 +404,36 @@ function taskFilterLabel(filter: TaskFilter) {
   return "All"
 }
 
-function subagentStatusLabel(status: SidebarSubagent["status"]["type"]) {
+function subagentPrefix(status: SidebarSubagent["status"]["type"]) {
   if (status === "busy") {
-    return "running"
+    return "[•]"
   }
 
   if (status === "retry") {
-    return "retrying"
+    return "[↺]"
   }
 
-  return "done"
+  return "[✓]"
+}
+
+function subagentStatusRank(status: SidebarSubagent["status"]["type"]) {
+  if (status === "busy" || status === "retry") {
+    return 0
+  }
+
+  return 1
+}
+
+function subagentFilterLabel(filter: SubagentFilter) {
+  if (filter === "in_progress") {
+    return "In Progress"
+  }
+
+  if (filter === "done") {
+    return "Done"
+  }
+
+  return "All"
 }
 
 function idleText(mode: SidebarViewMode) {

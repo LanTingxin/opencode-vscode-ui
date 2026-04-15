@@ -43,14 +43,15 @@ describe("sidebar todo list", () => {
 
     const html = renderToStaticMarkup(<SubagentsList state={state} />)
 
-    assert.equal(html.includes("In Progress"), true)
-    assert.equal(html.includes("Done"), true)
     assert.equal(html.includes("Builder"), true)
     assert.equal(html.includes("Planner"), true)
+    assert.equal(html.includes("sv-taskSectionTitle"), false)
+    assert.equal(html.includes(">done<"), false)
   })
 
-  test("buildSubagentPanelView sorts by update time descending within each group", () => {
+  test("buildSubagentPanelView filters and orders subagents with in-progress items first", () => {
     const view = buildSubagentPanelView({
+      filter: "all",
       subagents: [
         { session: sessionInfo("child-old", 2, "Older busy"), status: { type: "busy" } },
         { session: sessionInfo("child-new", 5, "Newer busy"), status: { type: "busy" } },
@@ -59,8 +60,22 @@ describe("sidebar todo list", () => {
       ],
     } as any)
 
-    assert.deepEqual(view.inProgress.map((item) => item.session.id), ["child-new", "child-old"])
-    assert.deepEqual(view.done.map((item) => item.session.id), ["done-new", "done-old"])
+    assert.equal(view.summary.total, 4)
+    assert.equal(view.summary.inProgress, 2)
+    assert.equal(view.summary.done, 2)
+    assert.deepEqual(view.items.map((item) => item.session.id), ["child-new", "child-old", "done-new", "done-old"])
+  })
+
+  test("buildSubagentPanelView applies the done filter", () => {
+    const view = buildSubagentPanelView({
+      filter: "done",
+      subagents: [
+        { session: sessionInfo("child-busy", 2, "Busy"), status: { type: "busy" } },
+        { session: sessionInfo("child-done", 3, "Done"), status: { type: "idle" } },
+      ],
+    } as any)
+
+    assert.deepEqual(view.items.map((item) => item.session.id), ["child-done"])
   })
 
   test("buildSubagentOpenMessage reuses the openSession payload shape", () => {

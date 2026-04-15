@@ -6,7 +6,7 @@ import type { SessionEvent } from "../core/sdk"
 import { FocusedSessionStore, loadFocusedSessionState } from "./focused"
 
 describe("focused session store", () => {
-  test("loads all descendant subagents for a focused root session", async () => {
+  test("loads direct child subagents only for a focused root session", async () => {
     const state = await loadFocusedSessionState({
       ref: {
         workspaceId: "ws-1",
@@ -49,13 +49,12 @@ describe("focused session store", () => {
       } as any,
     })
 
-    assert.deepEqual(state.subagents.map((item) => item.session.id), ["child-a", "child-b", "grandchild-a"])
+    assert.deepEqual(state.subagents.map((item) => item.session.id), ["child-a", "child-b"])
     assert.equal(state.subagents[0]?.status.type, "busy")
     assert.equal(state.subagents[1]?.status.type, "idle")
-    assert.equal(state.subagents[2]?.status.type, "retry")
   })
 
-  test("scopes loaded subagents to the focused child subtree only", async () => {
+  test("scopes loaded subagents to the focused session direct children only", async () => {
     const state = await loadFocusedSessionState({
       ref: {
         workspaceId: "ws-1",
@@ -98,7 +97,7 @@ describe("focused session store", () => {
       } as any,
     })
 
-    assert.deepEqual(state.subagents.map((item) => item.session.id), ["grandchild-a", "great-grandchild-a"])
+    assert.deepEqual(state.subagents.map((item) => item.session.id), ["grandchild-a"])
   })
 
   test("focused-session load uses the selected session diff only", async () => {
@@ -286,6 +285,74 @@ describe("focused session store", () => {
     assert.equal(store.snapshot().diff.length, 1)
   })
 
+  test("preserves the current focused session for the next active child opened from subagents", async () => {
+    const ref: SessionPanelRef = {
+      workspaceId: "ws-1",
+      dir: "/workspace",
+      sessionId: "root",
+    }
+    const childRef: SessionPanelRef = {
+      workspaceId: "ws-1",
+      dir: "/workspace",
+      sessionId: "child-a",
+    }
+
+    let activeListener: ((ref?: SessionPanelRef) => void) | undefined
+    const store = new FocusedSessionStore(
+      {
+        get: () => ({
+          state: "ready",
+          dir: "/workspace",
+          sdk: {
+            session: {
+              get: async ({ sessionID }: { sessionID: string }) => ({
+                data: sessionInfo(sessionID, sessionID === "root" ? undefined : "root"),
+              }),
+              todo: async () => ({ data: [] }),
+              diff: async () => ({ data: [] }),
+              children: async ({ sessionID }: { sessionID: string }) => ({
+                data: sessionID === "root" ? [sessionInfo("child-a", "root", 2)] : [],
+              }),
+              status: async () => ({ data: { "child-a": { type: "busy" as const } } }),
+            },
+            vcs: {
+              get: async () => ({
+                data: {
+                  branch: "feature/subagents",
+                  default_branch: "main",
+                },
+              }),
+            },
+          },
+        }),
+        onDidChange: () => ({ dispose() {} }),
+      } as any,
+      {
+        activeSession: () => undefined,
+        onDidChangeActiveSession(listener: (value?: SessionPanelRef) => void) {
+          activeListener = listener
+          return { dispose() {} }
+        },
+      } as any,
+      {
+        onDidEvent: () => ({ dispose() {} }),
+      } as any,
+      {
+        appendLine() {},
+      } as any,
+    )
+
+    store.selectSession(ref)
+    await settle()
+
+    store.preserveFocusForNextActive(childRef)
+    activeListener?.(childRef)
+    await settle()
+
+    assert.equal(store.snapshot().ref?.sessionId, "root")
+    assert.deepEqual(store.snapshot().subagents.map((item) => item.session.id), ["child-a"])
+  })
+
   test("updates subagent status from session.status events", async () => {
     const harness = createFocusedStoreHarness()
 
@@ -322,7 +389,7 @@ describe("focused session store", () => {
     })
     await settle()
 
-    assert.deepEqual(harness.store.snapshot().subagents.map((item) => item.session.id), ["child-a", "grandchild-a"])
+    assert.deepEqual(harness.store.snapshot().subagents.map((item) => item.session.id), ["child-a"])
 
     harness.emit({
       type: "session.deleted",
