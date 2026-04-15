@@ -1,8 +1,12 @@
 import type { SessionPanelRef } from "../bridge/types"
-import type { FileDiff, Todo } from "../core/sdk"
+import type { FileDiff, SessionInfo, SessionStatus, Todo } from "../core/sdk"
 
-export type SidebarViewMode = "todo" | "diff"
+export type SidebarViewMode = "todo" | "diff" | "subagents"
 export type TaskFilter = "all" | "open" | "completed"
+export type SidebarSubagent = {
+  session: SessionInfo
+  status: SessionStatus
+}
 
 export type SidebarViewState = {
   status: "idle" | "loading" | "ready" | "error"
@@ -11,6 +15,7 @@ export type SidebarViewState = {
   sessionRef?: SessionPanelRef
   todos: Todo[]
   diff: FileDiff[]
+  subagents: SidebarSubagent[]
   branch?: string
   defaultBranch?: string
   error?: string

@@ -46,6 +46,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
   const tree = new SidebarProvider(workspaceMgr, sessions, tags)
   const todoView = new SidebarViewProvider(ctx.extensionUri, "todo", focused)
   const diffView = new SidebarViewProvider(ctx.extensionUri, "diff", focused)
+  const subagentsView = new SidebarViewProvider(ctx.extensionUri, "subagents", focused)
   const sessionView = new SessionViewProvider(ctx.extensionUri, workspaceMgr, events, focused, out)
   const treeView = vscode.window.createTreeView("opencode-ui.sessions", {
     treeDataProvider: tree,
@@ -82,6 +83,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
   })
   const todoReg = vscode.window.registerWebviewViewProvider("opencode-ui.todo", todoView)
   const diffReg = vscode.window.registerWebviewViewProvider("opencode-ui.diff", diffView)
+  const subagentsReg = vscode.window.registerWebviewViewProvider("opencode-ui.subagents", subagentsView)
   const sessionViewReg = vscode.window.registerWebviewViewProvider("opencode-ui.sessionView", sessionView, {
     webviewOptions: { retainContextWhenHidden: true },
   })
@@ -92,7 +94,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 
   commands(ctx, workspaceMgr, sessions, out, tabs, panels, capabilities, tags, tree)
 
-  ctx.subscriptions.push(out, workspaceMgr, sessions, events, panels, focused, capabilities, statusBar, tree, todoView, diffView, sessionView, treeView, treeSelectionReg, treeActiveSyncReg, treeVisibilityReg, todoReg, diffReg, sessionViewReg, serializer)
+  ctx.subscriptions.push(out, workspaceMgr, sessions, events, panels, focused, capabilities, statusBar, tree, todoView, diffView, subagentsView, sessionView, treeView, treeSelectionReg, treeActiveSyncReg, treeVisibilityReg, todoReg, diffReg, subagentsReg, sessionViewReg, serializer)
   out.appendLine("OpenCode UI activated")
 
   const folders = vscode.workspace.workspaceFolders ?? []

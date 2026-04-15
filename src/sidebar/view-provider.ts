@@ -43,6 +43,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider, vscode.D
       }
 
       if (message.type === "openSession") {
+        if (this.mode === "subagents") {
+          this.focused.preserveFocusForNextActive({
+            workspaceId: message.workspaceId,
+            dir: message.dir,
+            sessionId: message.sessionId,
+          })
+        }
         void vscode.commands.executeCommand("opencode-ui.openSessionById", {
           workspaceId: message.workspaceId,
           dir: message.dir,
@@ -70,6 +77,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider, vscode.D
         sessionRef: state.ref,
         todos: state.todos,
         diff: state.diff,
+        subagents: state.subagents,
         branch: state.branch,
         defaultBranch: state.defaultBranch,
         error: state.error,

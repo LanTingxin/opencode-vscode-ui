@@ -33,6 +33,7 @@
     "onStartupFinished",
     "onView:opencode-ui.sessions",
     "onView:opencode-ui.sessionView",
+    "onView:opencode-ui.subagents",
     "onCommand:opencode-ui.refresh",
     "onCommand:opencode-ui.newSession",
     "onCommand:opencode-ui.openSession",
@@ -125,6 +126,11 @@
         {
           "id": "opencode-ui.diff",
           "name": "Modified Files",
+          "type": "webview"
+        },
+        {
+          "id": "opencode-ui.subagents",
+          "name": "Subagents",
           "type": "webview"
         }
       ],
