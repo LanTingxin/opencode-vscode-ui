@@ -3,7 +3,7 @@
 .oc-questionItems,
 .oc-questionOptions {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .oc-questionProgress {
@@ -31,8 +31,33 @@
 
 .oc-questionCard {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   border-color: color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
+}
+
+.oc-questionDetails {
+  display: grid;
+  gap: 6px;
+}
+
+.oc-questionItemHeadMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.oc-questionSummaryAction {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+  line-height: 1.4;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.oc-questionSummaryAction:hover {
+  color: var(--oc-fg-primary);
 }
 
 .oc-questionItemHead {
@@ -52,7 +77,7 @@
 
 .oc-questionPrompt {
   white-space: pre-wrap;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .oc-questionOption {
@@ -60,9 +85,9 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
   background: color-mix(in srgb, var(--oc-surface-control) 84%, var(--oc-surface-block) 16%);
   color: var(--oc-fg-primary);
@@ -98,7 +123,7 @@ label.oc-questionOption:hover {
 
 .oc-questionOptionBody {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 

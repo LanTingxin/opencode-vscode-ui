@@ -180,6 +180,8 @@ function QuestionItem(props: {
 }) {
   const { index, item, mode, selected, custom, onOption, onCustom } = props
   const multiple = !!item.multiple
+  const answered = mode === "answered"
+  const [expanded, setExpanded] = React.useState(() => !answered || selected.length === 0)
   const marker = (picked: boolean) => {
     if (multiple) {
       return picked ? "[x]" : "[ ]"
@@ -191,15 +193,40 @@ function QuestionItem(props: {
   const customAnswers = selected.filter((answer) => !known.has(answer))
   const customValue = mode === "active" ? custom : customAnswers.join("\n")
   const customPicked = customAnswers.length > 0 || (mode === "active" && !!custom.trim())
+  const showSummary = answered && selected.length > 0 && !expanded
+  const selectedKey = selected.join("\n")
 
-  return (
-    <section className="oc-questionCard">
-      <div className="oc-questionItemHead">
-        <div className="oc-inlineValue">{item.header || "Question"}</div>
-        {mode === "answered" ? <span className="oc-questionState">{selected.length > 0 ? "answered" : "no answer"}</span> : null}
-      </div>
-      <div className="oc-questionPrompt">{item.question || ""}</div>
-      {mode === "active" ? <div className="oc-questionHint">{multiple ? "Choose one or more answers." : "Choose one answer."}</div> : null}
+  React.useEffect(() => {
+    setExpanded(!answered || selected.length === 0)
+  }, [answered, selected.length, selectedKey])
+
+  const summary = (
+    <div className="oc-questionOptions">
+      {item.options
+        .filter((option) => selected.includes(option.label))
+        .map((option) => (
+          <div key={option.label} className="oc-questionOption is-selected">
+            <span className="oc-questionMark" aria-hidden="true">{marker(true)}</span>
+            <span className="oc-questionOptionBody">
+              <span className="oc-questionOptionLabel">{option.label}</span>
+              {option.description ? <span className="oc-questionOptionDescription">{option.description}</span> : null}
+            </span>
+          </div>
+        ))}
+      {item.custom === false ? null : customValue.trim() ? (
+        <div className="oc-questionOption oc-questionOption-custom is-selected">
+          <span className="oc-questionMark" aria-hidden="true">{marker(true)}</span>
+          <span className="oc-questionOptionBody">
+            <span className="oc-questionOptionLabel">Custom answer</span>
+            <span className="oc-questionAnswerText">{customValue}</span>
+          </span>
+        </div>
+      ) : null}
+    </div>
+  )
+
+  const options = (
+    <>
       <div className="oc-questionOptions">
         {item.options.map((option) => {
           const picked = selected.includes(option.label)
@@ -212,7 +239,7 @@ function QuestionItem(props: {
               </span>
             </>
           )
-          if (mode === "answered") {
+          if (answered) {
             return <div key={option.label} className={`oc-questionOption${picked ? " is-selected" : ""}`}>{body}</div>
           }
           return (
@@ -226,7 +253,7 @@ function QuestionItem(props: {
             </button>
           )
         })}
-        {item.custom === false ? null : mode === "answered" ? (
+        {item.custom === false ? null : answered ? (
           customValue.trim() ? (
             <div className="oc-questionOption oc-questionOption-custom is-selected">
               <span className="oc-questionMark" aria-hidden="true">{marker(true)}</span>
@@ -255,7 +282,38 @@ function QuestionItem(props: {
           </label>
         )}
       </div>
-      {mode === "answered" && selected.length === 0 ? <div className="oc-questionAnswerEmpty">No answer recorded.</div> : null}
+      {answered && selected.length === 0 ? <div className="oc-questionAnswerEmpty">No answer recorded.</div> : null}
+    </>
+  )
+
+  return (
+    <section className="oc-questionCard">
+      <div className="oc-questionItemHead">
+        <div className="oc-inlineValue">{item.header || "Question"}</div>
+        {answered ? (
+          <div className="oc-questionItemHeadMeta">
+            <span className="oc-questionState">{selected.length > 0 ? "answered" : "no answer"}</span>
+            {selected.length > 0 ? (
+              <button
+                type="button"
+                className="oc-questionSummaryAction"
+                onClick={() => setExpanded((current) => !current)}
+              >
+                {expanded ? "Hide options" : "Show options"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="oc-questionPrompt">{item.question || ""}</div>
+      {mode === "active" ? <div className="oc-questionHint">{multiple ? "Choose one or more answers." : "Choose one answer."}</div> : null}
+      {showSummary ? (
+        <div className="oc-questionDetails">
+          {summary}
+        </div>
+      ) : answered && selected.length > 0 ? (
+        <div className="oc-questionDetails">{options}</div>
+      ) : options}
     </section>
   )
 }
