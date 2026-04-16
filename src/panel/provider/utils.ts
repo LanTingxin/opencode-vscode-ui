@@ -19,7 +19,7 @@ export function panelTitle(title: string) {
 }
 
 export function panelIconPath(extensionUri: vscode.Uri): vscode.IconPath {
-  return vscode.Uri.joinPath(extensionUri, "images", "logo.svg")
+  return vscode.Uri.joinPath(extensionUri, "images", "tab.png")
 }
 
 export function boot(payload: SessionSnapshot): SessionBootstrap {

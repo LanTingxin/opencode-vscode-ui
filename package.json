@@ -101,14 +101,14 @@
         {
           "id": "opencode-ui",
           "title": "OpenCode",
-          "icon": "images/activity.svg"
+          "icon": "images/activity.png"
         }
       ],
       "secondarySidebar": [
         {
           "id": "opencode-ui-secondary",
           "title": "OpenCode",
-          "icon": "images/activity.svg"
+          "icon": "images/activity.png"
         }
       ]
     },
@@ -211,8 +211,8 @@
         "title": "OpenCode: Quick New Session",
         "shortTitle": "OpenCode",
         "icon": {
-          "light": "images/button-dark.svg",
-          "dark": "images/button-light.svg"
+          "light": "images/button-dark.png",
+          "dark": "images/button-light.png"
         }
       },
       {
