@@ -1130,7 +1130,8 @@ export function App() {
   }, [state.form.custom, state.form.selected])
 
   const panelTheme = resolvePanelThemeValue(state.snapshot.display.panelTheme)
-  const showCodexTodoPopover = panelTheme === "codex" && state.snapshot.todos.length > 0
+  const hasIncompleteTodos = state.snapshot.todos.some((todo) => todo.status !== "completed")
+  const showCodexTodoPopover = panelTheme === "codex" && state.snapshot.todos.length > 0 && hasIncompleteTodos
 
   React.useEffect(() => {
     if (!showCodexTodoPopover) {

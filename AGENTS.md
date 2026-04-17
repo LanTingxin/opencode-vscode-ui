@@ -21,6 +21,9 @@ This repo is a standalone VS Code extension for browsing and operating OpenCode 
 - When you want to ask user for making decisions, if there is a `question` tool or `ask_user` tool, prefer to use it instead of asking the user directly. If there is no suitable tool, ask the user directly.
 - Before making any changes, write a TODO list to remind yourself to implement the features later, if there is a `todo` tool, prefer to use it instead of writing the TODO list manually.
 - Before you start writing code, you need to inform the user of the solution you intend to adopt. Only after discussing and confirming with the user should you begin the work. And also remember that DO NOT ASK ANY QUESTIONS IN SUBAGENTS.
+- Test-driven development is required for every feature, bug fix, and behavior change. Write the test first, verify it fails for the expected reason, then implement the minimal code needed to make it pass.
+- Refactors must be protected by tests before changing production code. If the current behavior is not covered, add or update characterization tests first, then refactor while keeping the test suite green.
+- Exceptions are limited to throwaway prototypes, generated code, or configuration-only changes, and should be called out explicitly to the user before proceeding.
 
 ## Run / Build / Lint / Test
 

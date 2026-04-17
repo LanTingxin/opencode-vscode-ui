@@ -29,12 +29,15 @@ export function CodexTodoPopover({ todos, collapsed = false, onToggle }: CodexTo
           aria-expanded={collapsed ? "false" : "true"}
           onClick={onToggle}
         >
-          <svg viewBox="0 0 16 16" aria-hidden="true" className="oc-codexTodoToggleIcon">
-            <path d="M5 2.5H2.5V5" className="oc-codexTodoTogglePath" />
-            <path d="M11 13.5H13.5V11" className="oc-codexTodoTogglePath" />
-            <path d="M2.5 5 6 1.5" className="oc-codexTodoTogglePath" />
-            <path d="M10 14.5 13.5 11" className="oc-codexTodoTogglePath" />
-          </svg>
+          {collapsed ? (
+            <svg viewBox="0 0 1024 1024" aria-hidden="true" className="oc-codexTodoToggleIcon">
+              <path d="M273.664 213.333333H426.666667V128H128v298.666667h85.333333V273.664l183.168 183.168 60.330667-60.330667L273.664 213.333333zM896 597.333333h-85.333333v153.002667l-183.168-183.168-60.330667 60.330667L750.336 810.666667H597.333333v85.333333h298.666667v-298.666667z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 1024 1024" aria-hidden="true" className="oc-codexTodoToggleIcon">
+              <path d="M384 170.666667h85.333333v298.666666H170.666667V384h153.002666L140.501333 200.832l60.330667-60.330667L384 323.669333V170.666667z m469.333333 469.333333h-153.002666l183.168 183.168-60.330667 60.330667L640 700.330667V853.333333h-85.333333v-298.666666h298.666666v85.333333z" />
+            </svg>
+          )}
         </button>
       </div>
       {!collapsed ? (

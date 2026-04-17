@@ -760,7 +760,6 @@
   display: inline-flex;
   justify-content: flex-end;
   align-items: center;
-  position: relative;
   flex-wrap: nowrap;
   white-space: nowrap;
 }
@@ -1210,13 +1209,25 @@
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoDock {
   position: absolute;
-  left: var(--oc-shell-gutter);
-  right: var(--oc-shell-gutter);
-  bottom: calc(100% - 10px);
   z-index: 6;
   display: flex;
-  justify-content: flex-start;
   pointer-events: none;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoDock.is-collapsed {
+  left: var(--oc-shell-gutter);
+  right: var(--oc-shell-gutter);
+  bottom: calc(100% + 8px);
+  top: auto;
+  justify-content: center;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoDock:not(.is-collapsed) {
+  left: var(--oc-shell-gutter);
+  right: var(--oc-shell-gutter);
+  bottom: calc(100% + 12px);
+  top: auto;
+  justify-content: center;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover {
@@ -1239,8 +1250,11 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed {
-  width: min(320px, calc(100vw - 84px));
+  width: auto;
   max-height: none;
+  border-radius: 18px;
+  padding: 0;
+  box-shadow: 0 2px 8px color-mix(in srgb, black 10%, transparent 90%), 0 0 0 1px color-mix(in srgb, white 2%, transparent 98%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover::after {
@@ -1256,6 +1270,10 @@
   transform: rotate(45deg);
 }
 
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed::after {
+  display: none;
+}
+
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoHeader {
   display: flex;
   align-items: flex-start;
@@ -1265,11 +1283,24 @@
   border-bottom: 1px solid color-mix(in srgb, var(--oc-border) 78%, transparent 22%);
 }
 
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoHeader {
+  padding: 6px 8px 6px 12px;
+  border-bottom: none;
+  gap: 10px;
+  align-items: center;
+}
+
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoHeaderText {
   display: grid;
   gap: 4px;
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoHeaderText {
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoEyebrow {
@@ -1280,11 +1311,22 @@
   letter-spacing: 0.12em;
 }
 
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoEyebrow {
+  display: none;
+}
+
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoSummary {
   color: var(--oc-fg-muted);
   font-size: 11px;
   line-height: 1.35;
   font-weight: 600;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoSummary {
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--oc-fg-primary);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoToggle {
@@ -1300,24 +1342,37 @@
   color: color-mix(in srgb, var(--oc-fg-muted) 78%, var(--oc-accent) 22%);
   cursor: pointer;
   flex: 0 0 auto;
+  transition: all 0.15s ease;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoToggle {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border-color: color-mix(in srgb, var(--oc-border) 50%, transparent 50%);
+  background: color-mix(in srgb, var(--oc-surface-control) 60%, transparent 40%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoToggle:hover {
   background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
   color: var(--oc-fg-primary);
+  border-color: color-mix(in srgb, var(--oc-accent) 30%, var(--oc-border) 70%);
+  transform: scale(1.05);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoToggleIcon {
   width: 14px;
   height: 14px;
+  transition: transform 0.2s ease;
 }
 
-.oc-shell[data-oc-theme="codex"] .oc-codexTodoTogglePath {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoToggleIcon path {
+  fill: currentColor;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoToggleIcon {
+  width: 12px;
+  height: 12px;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoToggle.is-collapsed .oc-codexTodoToggleIcon {
