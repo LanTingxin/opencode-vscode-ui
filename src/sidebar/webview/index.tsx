@@ -222,7 +222,10 @@ function SubagentRow({ state, item }: { state: SidebarViewState; item: SidebarSu
       disabled={!message}
     >
       <span className="sv-subagentPrefix">{subagentPrefix(item.status.type)}</span>
-      <span className="sv-subagentTitle">{item.session.title || item.session.id}</span>
+      <span className="sv-subagentBody">
+        <span className="sv-subagentTitle">{item.session.title || item.session.id}</span>
+        {item.activity ? <span className="sv-subagentActivity">{item.activity}</span> : null}
+      </span>
     </button>
   )
 }

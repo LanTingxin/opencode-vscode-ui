@@ -6,6 +6,7 @@ export type TaskFilter = "all" | "open" | "completed"
 export type SidebarSubagent = {
   session: SessionInfo
   status: SessionStatus
+  activity: string
 }
 
 export type SidebarViewState = {

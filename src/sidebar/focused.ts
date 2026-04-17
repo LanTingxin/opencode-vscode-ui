@@ -1,13 +1,16 @@
 import * as vscode from "vscode"
 import type { SessionPanelRef } from "../bridge/types"
 import { EventHub } from "../core/events"
-import type { Client, FileDiff, SessionEvent, SessionInfo, SessionStatus, Todo } from "../core/sdk"
+import type { Client, FileDiff, SessionEvent, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
 import { WorkspaceManager } from "../core/workspace"
 import { SessionPanelManager } from "../panel/provider"
+import { appendDelta, removePart, sortMessages, upsertMessage, upsertPart } from "../panel/provider/mutations"
+import { summarizeSubagentActivity } from "./subagent-activity"
 
 export type FocusedSubagentItem = {
   session: SessionInfo
   status: SessionStatus
+  activity: string
 }
 
 export type FocusedSessionState = {
@@ -17,6 +20,7 @@ export type FocusedSessionState = {
   todos: Todo[]
   diff: FileDiff[]
   subagents: FocusedSubagentItem[]
+  childMessages: Record<string, SessionMessage[]>
   branch?: string
   defaultBranch?: string
   error?: string
@@ -27,6 +31,7 @@ const idleState: FocusedSessionState = {
   todos: [],
   diff: [],
   subagents: [],
+  childMessages: {},
 }
 
 export class FocusedSessionStore implements vscode.Disposable {
@@ -86,6 +91,7 @@ export class FocusedSessionStore implements vscode.Disposable {
           todos: [],
           diff: [],
           subagents: [],
+          childMessages: {},
         })
       }
     })
@@ -133,6 +139,7 @@ export class FocusedSessionStore implements vscode.Disposable {
       todos: [],
       diff: [],
       subagents: [],
+      childMessages: {},
     })
 
     const rt = this.mgr.get(ref.workspaceId)
@@ -144,6 +151,7 @@ export class FocusedSessionStore implements vscode.Disposable {
         todos: [],
         diff: [],
         subagents: [],
+        childMessages: {},
       })
       return
     }
@@ -178,6 +186,7 @@ export class FocusedSessionStore implements vscode.Disposable {
         todos: [],
         diff: [],
         subagents: [],
+        childMessages: {},
         error: message,
       })
     }
@@ -233,6 +242,7 @@ export class FocusedSessionStore implements vscode.Disposable {
           ? {
               ...item,
               status: props.status,
+              activity: summarizeSubagentActivity(props.status, this.state.childMessages[props.sessionID] ?? []),
             }
           : item),
       })
@@ -248,6 +258,7 @@ export class FocusedSessionStore implements vscode.Disposable {
               ...this.state,
               status: "ready",
               subagents: removeSubagent(this.state.subagents, props.info.id),
+              childMessages: removeSubagentMessages(this.state.childMessages, props.info.id),
             })
           }
           return
@@ -283,11 +294,95 @@ export class FocusedSessionStore implements vscode.Disposable {
           ...this.state,
           status: "ready",
           subagents: removeSubagent(this.state.subagents, props.info.id),
+          childMessages: removeSubagentMessages(this.state.childMessages, props.info.id),
         })
         return
       }
       this.clearRef(props.info.id, workspaceId)
       await this.focus(this.resolveRef())
+      return
+    }
+
+    if (event.type === "message.updated") {
+      const props = event.properties as { info: SessionMessage["info"] }
+      if (!this.state.subagents.some((item) => item.session.id === props.info.sessionID)) {
+        return
+      }
+
+      const messages = upsertMessage(this.state.childMessages[props.info.sessionID] ?? [], props.info)
+      this.set(updateSubagentMessages(this.state, props.info.sessionID, messages))
+      return
+    }
+
+    if (event.type === "message.removed") {
+      const props = event.properties as { sessionID: string; messageID: string }
+      if (!this.state.subagents.some((item) => item.session.id === props.sessionID)) {
+        return
+      }
+
+      const messages = (this.state.childMessages[props.sessionID] ?? []).filter((item) => item.info.id !== props.messageID)
+      this.set(updateSubagentMessages(this.state, props.sessionID, messages))
+      return
+    }
+
+    if (event.type === "message.part.updated") {
+      const props = event.properties as { part: SessionMessage["parts"][number] }
+      if (!this.state.subagents.some((item) => item.session.id === props.part.sessionID)) {
+        return
+      }
+
+      const messages = upsertPart(this.state.childMessages[props.part.sessionID] ?? [], props.part)
+      this.set(updateSubagentMessages(this.state, props.part.sessionID, messages))
+      return
+    }
+
+    if (event.type === "message.part.removed") {
+      const props = event.properties as { messageID: string; partID: string }
+      const nextMessages: Record<string, SessionMessage[]> = {}
+      let changed = false
+
+      for (const item of this.state.subagents) {
+        const current = this.state.childMessages[item.session.id] ?? []
+        const next = removePart(current, props.messageID, props.partID)
+        nextMessages[item.session.id] = next
+        if (next !== current) {
+          changed = true
+        }
+      }
+
+      if (!changed) {
+        return
+      }
+
+      let nextState = {
+        ...this.state,
+        childMessages: {
+          ...this.state.childMessages,
+          ...nextMessages,
+        },
+      }
+
+      for (const item of this.state.subagents) {
+        nextState = updateSubagentMessages(nextState, item.session.id, nextMessages[item.session.id] ?? [])
+      }
+      this.set(nextState)
+      return
+    }
+
+    if (event.type === "message.part.delta") {
+      const props = event.properties as {
+        sessionID: string
+        messageID: string
+        partID: string
+        field: string
+        delta: string
+      }
+      if (!this.state.subagents.some((item) => item.session.id === props.sessionID)) {
+        return
+      }
+
+      const messages = appendDelta(this.state.childMessages[props.sessionID] ?? [], props.messageID, props.partID, props.field, props.delta)
+      this.set(updateSubagentMessages(this.state, props.sessionID, messages))
     }
   }
 
@@ -339,13 +434,14 @@ export async function loadFocusedSessionState(input: {
       directory: input.ref.dir,
     }),
   ])
-  const subagents = await loadSubagents(input.runtime.sdk, input.ref.dir, input.ref.sessionId)
+  const { childMessages, subagents } = await loadSubagents(input.runtime.sdk, input.ref.dir, input.ref.sessionId)
 
   return {
     session: sessionRes.data,
     todos: todoRes.data ?? [],
     diff: diffRes.data ?? [],
     subagents,
+    childMessages,
     branch: vcsRes.data?.branch,
     defaultBranch: vcsRes.data?.default_branch,
   }
@@ -353,7 +449,10 @@ export async function loadFocusedSessionState(input: {
 
 async function loadSubagents(sdk: Client, dir: string, sessionID: string) {
   if (typeof sdk.session.children !== "function" || typeof sdk.session.status !== "function") {
-    return []
+    return {
+      subagents: [],
+      childMessages: {},
+    }
   }
 
   const res = await sdk.session.children({
@@ -364,11 +463,28 @@ async function loadSubagents(sdk: Client, dir: string, sessionID: string) {
   const statusMap = (await sdk.session.status({
     directory: dir,
   })).data ?? {}
+  const childMessages = typeof sdk.session.messages === "function"
+    ? Object.fromEntries(await Promise.all(sessions.map(async (session) => {
+        const messages = await sdk.session.messages({
+          sessionID: session.id,
+          directory: dir,
+          limit: 200,
+        })
+        return [session.id, sortMessages(messages.data ?? [])]
+      })))
+    : {}
 
-  return sessions.map((session) => ({
-    session,
-    status: statusMap[session.id] ?? idleStatus(),
-  }))
+  return {
+    childMessages,
+    subagents: sessions.map((session) => {
+      const status = statusMap[session.id] ?? idleStatus()
+      return {
+        session,
+        status,
+        activity: summarizeSubagentActivity(status, childMessages[session.id] ?? []),
+      }
+    }),
+  }
 }
 
 function idleStatus(): SessionStatus {
@@ -385,15 +501,40 @@ function isTrackedSubagent(rootSessionID: string, info?: SessionInfo) {
 
 function upsertSubagent(subagents: FocusedSubagentItem[], info: SessionInfo) {
   const next = subagents.filter((item) => item.session.id !== info.id)
+  const existing = subagents.find((item) => item.session.id === info.id)
   next.push({
     session: info,
-    status: subagents.find((item) => item.session.id === info.id)?.status ?? idleStatus(),
+    status: existing?.status ?? idleStatus(),
+    activity: existing?.activity ?? "",
   })
   return next
 }
 
 function removeSubagent(subagents: FocusedSubagentItem[], sessionID: string) {
   return subagents.filter((item) => item.session.id !== sessionID)
+}
+
+function removeSubagentMessages(childMessages: Record<string, SessionMessage[]>, sessionID: string) {
+  const next = { ...childMessages }
+  delete next[sessionID]
+  return next
+}
+
+function updateSubagentMessages(state: FocusedSessionState, sessionID: string, messages: SessionMessage[]) {
+  return {
+    ...state,
+    status: "ready" as const,
+    childMessages: {
+      ...state.childMessages,
+      [sessionID]: messages,
+    },
+    subagents: state.subagents.map((item) => item.session.id === sessionID
+      ? {
+          ...item,
+          activity: summarizeSubagentActivity(item.status, messages),
+        }
+      : item),
+  }
 }
 
 function sameRef(a?: SessionPanelRef, b?: SessionPanelRef) {

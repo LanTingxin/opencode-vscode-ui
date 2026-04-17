@@ -1,6 +1,7 @@
 import React from "react"
+import { summarizeSubagentBody } from "../../../core/subagent-summary"
 import type { MessagePart, SessionInfo, SessionMessage } from "../../../core/sdk"
-import { displayWorkspacePath, fileLabel, formatDuration, numberValue, recordValue, stringList, stringValue } from "../lib/part-utils"
+import { displayWorkspacePath, fileLabel, numberValue, recordValue, stringList, stringValue } from "../lib/part-utils"
 import { isMcpTool, lspRendersInline, mcpDisplayTitle, toolDetails, toolLabel } from "../lib/tool-meta"
 import type { ToolDetails } from "../tools/types"
 
@@ -204,75 +205,10 @@ export function taskSessionTitle(part: ToolPart, session?: SessionInfo) {
 }
 
 export function taskBody(part: ToolPart, messages: SessionMessage[]) {
-  const status = part.state?.status || "pending"
-  if (status === "completed") {
-    return taskSummary(part, messages)
-  }
-  const calls = childTools(messages).length
-  const current = childCurrentTool(messages)
-  const currentTool = current ? toolLabel(current.tool) : ""
-  const currentTitle = current ? stringValue(current.state?.title) : ""
-  const outputLines = (part.state?.output || "")
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item) => !item.startsWith("task_id:") && item !== "<task_result>" && item !== "</task_result>")
-  if (currentTool && currentTitle) {
-    return `${currentTool}: ${currentTitle}`
-  }
-  if (currentTitle) {
-    return currentTitle
-  }
-  if (calls > 0) {
-    return `${calls} ${calls === 1 ? "tool" : "tools"}`
-  }
-  if (status === "running") {
-    return ""
-  }
-  if (outputLines.length > 0) {
-    return outputLines[outputLines.length - 1]
-  }
-  return "Queued…"
-}
-
-function taskSummary(part: ToolPart, messages: SessionMessage[]) {
-  const status = part.state?.status || "pending"
-  if (status !== "completed") {
-    return ""
-  }
-
-  const calls = childTools(messages).length
-  const duration = childDuration(messages)
-  const parts: string[] = []
-  if (calls > 0) {
-    parts.push(`${calls} tools`)
-  }
-  if (duration > 0) {
-    parts.push(formatDuration(Math.round(duration / 1000)))
-  }
-  return parts.join(" · ")
-}
-
-function childTools(messages: SessionMessage[]) {
-  return messages.flatMap((message) => message.parts.filter((part): part is ToolPart => part.type === "tool"))
-}
-
-function childCurrentTool(messages: SessionMessage[]) {
-  const tools = childTools(messages)
-  for (let index = tools.length - 1; index >= 0; index -= 1) {
-    const part = tools[index]
-    if (stringValue(part.state?.title)) {
-      return part
-    }
-  }
-  return tools[tools.length - 1]
-}
-
-function childDuration(messages: SessionMessage[]) {
-  const start = messages.find((message) => message.info.role === "user")?.info.time.created
-  const end = [...messages].reverse().find((message) => message.info.role === "assistant")?.info.time.completed
-  if (typeof start !== "number" || typeof end !== "number" || end < start) {
-    return 0
-  }
-  return end - start
+  return summarizeSubagentBody({
+    status: part.state?.status || "pending",
+    messages,
+    output: part.state?.output || "",
+    toolLabel,
+  })
 }

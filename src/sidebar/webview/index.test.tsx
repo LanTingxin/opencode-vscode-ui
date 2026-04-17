@@ -36,8 +36,8 @@ describe("sidebar todo list", () => {
       todos: [],
       diff: [],
       subagents: [
-        { session: sessionInfo("child-a", 5, "Builder"), status: { type: "busy" } },
-        { session: sessionInfo("child-b", 4, "Planner"), status: { type: "idle" } },
+        { session: sessionInfo("child-a", 5, "Builder"), status: { type: "busy" }, activity: "webfetch: https://example.com" },
+        { session: sessionInfo("child-b", 4, "Planner"), status: { type: "idle" }, activity: "1 tools · 3s" },
       ],
     } as any
 
@@ -45,6 +45,8 @@ describe("sidebar todo list", () => {
 
     assert.equal(html.includes("Builder"), true)
     assert.equal(html.includes("Planner"), true)
+    assert.equal(html.includes("webfetch: https://example.com"), true)
+    assert.equal(html.includes("1 tools · 3s"), true)
     assert.equal(html.includes("sv-taskSectionTitle"), false)
     assert.equal(html.includes(">done<"), false)
   })

@@ -22,6 +22,23 @@ describe("focused session store", () => {
             }),
             todo: async () => ({ data: [] }),
             diff: async () => ({ data: [] }),
+            messages: async ({ sessionID }: { sessionID: string }) => ({
+              data: sessionID === "child-a"
+                ? [
+                    userMessage("child-a", "user-1", 1),
+                    assistantMessage("child-a", "assistant-1", 2, undefined, [
+                      runningTool("child-a", "assistant-1", "tool-1", "webfetch", "https://example.com"),
+                    ]),
+                  ]
+                : sessionID === "child-b"
+                  ? [
+                      userMessage("child-b", "user-2", 10_000),
+                      assistantMessage("child-b", "assistant-2", 11_000, 13_000, [
+                        completedTool("child-b", "assistant-2", "tool-2", "read", "README.md"),
+                      ]),
+                    ]
+                  : [],
+            }),
             children: async ({ sessionID }: { sessionID: string }) => ({
               data: sessionID === "root"
                 ? [sessionInfo("child-a", "root", 5), sessionInfo("child-b", "root", 4)]
@@ -51,7 +68,9 @@ describe("focused session store", () => {
 
     assert.deepEqual(state.subagents.map((item) => item.session.id), ["child-a", "child-b"])
     assert.equal(state.subagents[0]?.status.type, "busy")
+    assert.equal(state.subagents[0]?.activity, "webfetch: https://example.com")
     assert.equal(state.subagents[1]?.status.type, "idle")
+    assert.equal(state.subagents[1]?.activity, "1 tools · 3s")
   })
 
   test("scopes loaded subagents to the focused session direct children only", async () => {
@@ -373,6 +392,36 @@ describe("focused session store", () => {
     assert.equal(harness.store.snapshot().subagents[0]?.status.type, "idle")
   })
 
+  test("updates subagent activity from child message events", async () => {
+    const harness = createFocusedStoreHarness()
+
+    harness.store.selectSession(harness.ref)
+    await settle()
+
+    assert.equal(harness.store.snapshot().subagents[0]?.activity, "")
+
+    harness.emit({
+      type: "message.updated",
+      properties: {
+        info: {
+          id: "assistant-1",
+          sessionID: "child-a",
+          role: "assistant",
+          time: { created: 2 },
+        },
+      },
+    })
+    harness.emit({
+      type: "message.part.updated",
+      properties: {
+        part: runningTool("child-a", "assistant-1", "tool-1", "webfetch", "https://example.com"),
+      },
+    })
+    await settle()
+
+    assert.equal(harness.store.snapshot().subagents[0]?.activity, "webfetch: https://example.com")
+  })
+
   test("adds and removes descendant child sessions incrementally", async () => {
     const harness = createFocusedStoreHarness()
 
@@ -464,6 +513,9 @@ function createFocusedStoreHarness() {
             }),
             todo: async () => ({ data: [] }),
             diff: async () => ({ data: [] }),
+            messages: async () => ({
+              data: [],
+            }),
             children: async ({ sessionID }: { sessionID: string }) => ({
               data: sessionID === "root" ? [sessionInfo("child-a", "root", 2)] : [],
             }),
@@ -508,6 +560,69 @@ function createFocusedStoreHarness() {
         workspaceId: "ws-1",
         event,
       })
+    },
+  }
+}
+
+function userMessage(sessionID: string, id: string, created: number) {
+  return {
+    info: {
+      id,
+      sessionID,
+      role: "user" as const,
+      time: { created },
+    },
+    parts: [],
+  }
+}
+
+function assistantMessage(sessionID: string, id: string, created: number, completed?: number, parts: Array<ReturnType<typeof runningTool> | ReturnType<typeof completedTool>> = []) {
+  return {
+    info: {
+      id,
+      sessionID,
+      role: "assistant" as const,
+      time: completed === undefined ? { created } : { created, completed },
+    },
+    parts,
+  }
+}
+
+function runningTool(sessionID: string, messageID: string, id: string, tool: string, title: string) {
+  return {
+    id,
+    sessionID,
+    messageID,
+    type: "tool" as const,
+    tool,
+    state: {
+      status: "running" as const,
+      input: {},
+      title,
+      time: {
+        start: 1,
+      },
+    },
+  }
+}
+
+function completedTool(sessionID: string, messageID: string, id: string, tool: string, title: string) {
+  return {
+    id,
+    sessionID,
+    messageID,
+    type: "tool" as const,
+    tool,
+    state: {
+      status: "completed" as const,
+      input: {},
+      output: "",
+      title,
+      metadata: {},
+      time: {
+        start: 1,
+        end: 2,
+      },
     },
   }
 }

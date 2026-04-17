@@ -120,6 +120,12 @@ body {
   display: grid;
 }
 
+.sv-subagentBody {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
 .sv-todoPrefix,
 .sv-add,
 .sv-sep,
@@ -173,6 +179,15 @@ body {
 }
 
 .sv-subagentTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sv-subagentActivity {
+  min-width: 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
