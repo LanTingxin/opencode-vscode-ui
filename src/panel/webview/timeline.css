@@ -123,7 +123,7 @@
   padding: 6px 12px;
   border: 0;
   border-radius: var(--oc-radius-lg);
-  background: var(--oc-message-assistant-bg);
+  background: var(--oc-assistant-error-bg, var(--oc-message-assistant-bg));
 }
 
 .oc-assistantError::before {
@@ -133,7 +133,7 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--oc-error);
+  background: var(--oc-assistant-error-rail, var(--oc-error));
   border-radius: var(--oc-radius-sm);
 }
 

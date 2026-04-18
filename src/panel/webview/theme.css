@@ -164,6 +164,8 @@ body.vscode-dark .oc-shell[data-oc-theme="codex"] {
   --oc-composer-surface: #0f141d;
   --oc-composer-border: color-mix(in srgb, #edf2fb 22%, transparent 78%);
   --oc-status-popover-surface: color-mix(in srgb, #151d29 92%, #65758f 8%);
+  --oc-assistant-error-bg: color-mix(in srgb, #ff6b7f 12%, #0d131b 88%);
+  --oc-assistant-error-rail: color-mix(in srgb, #ff7d8f 78%, #63a6ff 22%);
   --oc-shell-backdrop: linear-gradient(180deg, #131920 0%, #0c1117 100%);
   --oc-shell-divider: color-mix(in srgb, #edf2fb 10%, transparent 90%);
   --oc-footer-surface: color-mix(in srgb, #0c1117 88%, #151d29 12%);
@@ -201,6 +203,8 @@ body.vscode-light .oc-shell[data-oc-theme="codex"] {
   --oc-composer-surface: #f3f7fc;
   --oc-composer-border: color-mix(in srgb, #1e2733 18%, transparent 82%);
   --oc-status-popover-surface: color-mix(in srgb, #ffffff 92%, #d7dfeb 8%);
+  --oc-assistant-error-bg: color-mix(in srgb, #c23c4d 10%, #fbfdff 90%);
+  --oc-assistant-error-rail: color-mix(in srgb, #c23c4d 82%, #0b6bcb 18%);
   --oc-shell-backdrop: linear-gradient(180deg, #f9fcff 0%, #edf3fb 100%);
   --oc-shell-divider: color-mix(in srgb, #1e2733 10%, transparent 90%);
   --oc-footer-surface: color-mix(in srgb, #f9fcff 74%, #e8eef7 26%);
@@ -239,6 +243,8 @@ body.vscode-dark .oc-shell[data-oc-theme="claude"] {
   --oc-dock-warning-hover: #6a5028;
   --oc-dock-warning-fg-strong: #f7eedf;
   --oc-status-popover-surface: color-mix(in srgb, #28231e 92%, #695d50 8%);
+  --oc-assistant-error-bg: color-mix(in srgb, #9f4f45 20%, #1a1713 80%);
+  --oc-assistant-error-rail: color-mix(in srgb, #c96a59 64%, #d98d3f 36%);
   --oc-md-heading-accent: #ffbf73;
   --oc-md-emphasis-accent: #e6a85c;
   --oc-shell-backdrop: linear-gradient(180deg, #1b1713 0%, #12100d 100%);
@@ -283,6 +289,8 @@ body.vscode-light .oc-shell[data-oc-theme="claude"] {
   --oc-dock-warning-hover: #ecd2aa;
   --oc-dock-warning-fg-strong: #6b4a18;
   --oc-status-popover-surface: color-mix(in srgb, #fffdf8 94%, #eadfce 6%);
+  --oc-assistant-error-bg: color-mix(in srgb, #c96a59 10%, #fffbf5 90%);
+  --oc-assistant-error-rail: color-mix(in srgb, #b3564b 72%, #c67426 28%);
   --oc-md-heading-accent: #a86016;
   --oc-md-emphasis-accent: #94510f;
   --oc-shell-backdrop: linear-gradient(180deg, #fffdf8 0%, #f6efe5 100%);
@@ -373,6 +381,8 @@ body {
   --oc-diff-syntax-punctuation: var(--oc-diff-syntax-punctuation-text);
   --oc-warning: var(--vscode-editorWarning-foreground, var(--oc-status-warning));
   --oc-error: var(--vscode-errorForeground, var(--vscode-terminal-ansiRed, #f14c4c));
+  --oc-assistant-error-bg: var(--oc-message-assistant-bg);
+  --oc-assistant-error-rail: var(--oc-error);
   --oc-success: var(--vscode-testing-iconPassed, #4caf50);
   --oc-info: var(--vscode-terminal-ansiBlue, var(--oc-accent-strong));
   --oc-status-green: var(--oc-status-success);

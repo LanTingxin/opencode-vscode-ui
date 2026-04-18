@@ -204,6 +204,18 @@ describe("panel theme settings", () => {
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-outputWindowAction::before\s*\{[\s\S]*content:\s*\"\";/)
   })
 
+  test("styles assistant error blocks with preset-specific theme variables", () => {
+    const themeCss = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+    const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
+
+    assert.match(themeCss, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-assistant-error-bg:/)
+    assert.match(themeCss, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-assistant-error-bg:/)
+    assert.match(themeCss, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-assistant-error-rail:/)
+    assert.match(themeCss, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-assistant-error-rail:/)
+    assert.match(timelineCss, /\.oc-assistantError\s*\{[\s\S]*background:\s*var\(--oc-assistant-error-bg,/)
+    assert.match(timelineCss, /\.oc-assistantError::before\s*\{[\s\S]*background:\s*var\(--oc-assistant-error-rail,/)
+  })
+
   test("adds a codex todo popover and hides transcript todo panels for codex", () => {
     const layoutCss = readFileSync(resolve(process.cwd(), "src/panel/webview/layout.css"), "utf8")
     const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
