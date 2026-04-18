@@ -35,6 +35,20 @@ function sessionMessage(info: MessageInfo, parts: MessagePart[]): SessionMessage
   return { info, parts }
 }
 
+function toolPart(id: string, messageID: string, tool = "webfetch"): Extract<MessagePart, { type: "tool" }> {
+  return {
+    id,
+    sessionID: "session-1",
+    messageID,
+    type: "tool",
+    tool,
+    callID: `${id}-call`,
+    state: {
+      status: "completed",
+    },
+  }
+}
+
 const WRAPPED_SKILL_OUTPUT = `<skill_content name="using-superpowers">
 # Skill: using-superpowers
 
@@ -232,6 +246,45 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("unknown certificate verification error"), true)
     assert.equal(html.includes("oc-assistantError"), true)
     assert.ok(html.indexOf("unknown certificate verification error") < html.indexOf("build"))
+  })
+
+  test("wraps claude assistant outputs in unified chain items while leaving user messages unchained", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[
+          sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")]),
+          sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [toolPart("p2", "m2"), textPart("p3", "m2", "done")]),
+        ]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="claude"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("oc-turnUser"), true)
+    assert.equal(html.includes("oc-chainItem"), true)
+    assert.equal(html.includes("oc-chainItem-first"), true)
+    assert.equal(html.includes("oc-chainItem-last"), true)
+    assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-part"), true)
+    assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-meta"), false)
+    assert.equal(html.includes("oc-chainItem-tool-webfetch"), true)
+    assert.equal(html.includes('<section class="oc-turnUser">'), true)
+    assert.equal(html.includes('<div class="oc-chainItem oc-chainItem-user-message'), false)
   })
 
   test("renders a compact skill marker for wrapped user text", () => {

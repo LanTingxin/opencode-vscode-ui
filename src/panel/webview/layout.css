@@ -2,13 +2,13 @@
   height: 100%;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  background: var(--oc-shell-backdrop, var(--oc-surface-canvas));
+  background: var(--oc-surface-canvas);
 }
 
 .oc-footer {
   padding: 8px 0 10px;
   border-top: 1px solid var(--oc-shell-divider, color-mix(in srgb, var(--oc-border-strong) 52%, var(--oc-border) 48%));
-  background: var(--oc-footer-surface, var(--oc-surface-canvas));
+  background: var(--oc-surface-canvas);
 }
 
 .oc-transcript {
@@ -34,6 +34,7 @@
 
 .oc-footerInner {
   gap: 8px;
+  position: relative;
 }
 
 .oc-transcriptTools {
@@ -56,37 +57,11 @@
   padding: 24px 0;
 }
 
-.oc-shell[data-oc-theme="claude"] .oc-transcriptInner,
-.oc-shell[data-oc-theme="claude"] .oc-footerInner {
-  max-width: min(920px, calc(100vw - 40px));
-  margin: 0 auto;
-  padding: 0 var(--oc-shell-gutter);
-}
-
-.oc-shell[data-oc-theme="codex"] .oc-transcriptInner,
-.oc-shell[data-oc-theme="codex"] .oc-footerInner {
-  max-width: min(1160px, calc(100vw - 36px));
-  margin: 0 auto;
-  padding: 0 var(--oc-shell-gutter);
-}
-
-.oc-shell[data-oc-theme="codex"] .oc-footerInner {
-  position: relative;
-}
-
 @media (max-width: 720px) {
   .oc-footer,
   .oc-transcript {
     padding-left: 0;
     padding-right: 0;
-  }
-
-  .oc-shell[data-oc-theme="claude"] .oc-transcriptInner,
-  .oc-shell[data-oc-theme="claude"] .oc-footerInner,
-  .oc-shell[data-oc-theme="codex"] .oc-transcriptInner,
-  .oc-shell[data-oc-theme="codex"] .oc-footerInner {
-    max-width: none;
-    padding: 0 12px;
   }
 
   .oc-composerActions {

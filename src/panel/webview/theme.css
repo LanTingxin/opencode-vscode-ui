@@ -243,6 +243,7 @@ body.vscode-dark .oc-shell[data-oc-theme="claude"] {
   --oc-md-emphasis-accent: #e6a85c;
   --oc-shell-backdrop: linear-gradient(180deg, #1b1713 0%, #12100d 100%);
   --oc-shell-divider: color-mix(in srgb, #f4eee5 8%, transparent 92%);
+  --oc-chain-line: color-mix(in srgb, #b6b6b6 34%, transparent 66%);
   --oc-footer-surface: color-mix(in srgb, #12100d 82%, #211c16 18%);
   --oc-transcript-pad-y-start: 22px;
   --oc-transcript-pad-y-end: 26px;

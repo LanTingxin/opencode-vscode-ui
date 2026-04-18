@@ -260,10 +260,6 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-toolRowWrap {
-  position: relative;
-  width: calc(100% - 28px);
-  max-width: calc(100% - 28px);
-  margin-left: 28px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 48%, transparent 52%);
   border-radius: calc(var(--oc-radius-sm) + 4px);
   background: color-mix(in srgb, var(--oc-surface-elevated) 72%, var(--oc-surface-block) 28%);
@@ -271,40 +267,10 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-toolPanel {
-  position: relative;
-  width: calc(100% - 28px);
-  max-width: calc(100% - 28px);
-  margin-left: 28px;
   border-color: color-mix(in srgb, var(--oc-border-strong) 54%, transparent 46%);
   border-radius: calc(var(--oc-radius-md) - 2px);
   background: color-mix(in srgb, var(--oc-surface-elevated) 76%, var(--oc-surface-block) 24%);
   box-shadow: var(--oc-card-shadow);
-}
-
-.oc-shell[data-oc-theme="claude"] .oc-toolRowWrap::before,
-.oc-shell[data-oc-theme="claude"] .oc-toolPanel::before {
-  content: "";
-  position: absolute;
-  left: -18px;
-  top: -14px;
-  bottom: -14px;
-  width: 3px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--oc-accent) 30%, transparent 70%) 0%, color-mix(in srgb, var(--oc-accent) 12%, var(--oc-border) 88%) 52%, color-mix(in srgb, var(--oc-accent) 22%, transparent 78%) 100%);
-}
-
-.oc-shell[data-oc-theme="claude"] .oc-toolRowWrap::after,
-.oc-shell[data-oc-theme="claude"] .oc-toolPanel::after {
-  content: "";
-  position: absolute;
-  left: -23px;
-  top: 16px;
-  width: 12px;
-  height: 12px;
-  border: 2px solid color-mix(in srgb, var(--oc-accent) 28%, transparent 72%);
-  border-radius: 999px;
-  background: var(--oc-surface-canvas);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--oc-accent) 8%, transparent 92%);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-toolPanel.is-active {

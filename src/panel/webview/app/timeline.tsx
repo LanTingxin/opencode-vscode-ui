@@ -119,28 +119,34 @@ export const Timeline = React.memo(function Timeline({
   return (
     <TranscriptVisibilityContext.Provider value={{ showThinking, showInternals, compactSkillInvocations, panelTheme, skillCatalog }}>
       <div className="oc-log">
-        {blocks.map((block) => (
-          <MemoTimelineBlockView
-            key={block.key}
-            AgentBadge={AgentBadge}
-            CompactionDivider={CompactionDivider}
-            MarkdownBlock={MarkdownBlock}
-            PartView={PartView}
-            active={block.kind === "assistant-part" && block.part.type === "tool" && block.part.id === activeToolID}
-            block={block}
-            commandPromptInvocations={commandPromptInvocations}
-            commands={commands}
-            compactSkillInvocations={compactSkillInvocations}
-            diffMode={diffMode}
-            onCopyUserMessage={onCopyUserMessage}
-            onForkUserMessage={onForkUserMessage}
-            onOpenFileAttachment={onOpenFileAttachment}
-            onPreviewImageAttachment={onPreviewImageAttachment}
-            onRedoSession={onRedoSession}
-            onUndoUserMessage={onUndoUserMessage}
-            skillCatalog={skillCatalog}
-          />
-        ))}
+        {blocks.map((block, index) => {
+          const content = (
+            <MemoTimelineBlockView
+              key={block.key}
+              AgentBadge={AgentBadge}
+              CompactionDivider={CompactionDivider}
+              MarkdownBlock={MarkdownBlock}
+              PartView={PartView}
+              active={block.kind === "assistant-part" && block.part.type === "tool" && block.part.id === activeToolID}
+              block={block}
+              commandPromptInvocations={commandPromptInvocations}
+              commands={commands}
+              compactSkillInvocations={compactSkillInvocations}
+              diffMode={diffMode}
+              onCopyUserMessage={onCopyUserMessage}
+              onForkUserMessage={onForkUserMessage}
+              onOpenFileAttachment={onOpenFileAttachment}
+              onPreviewImageAttachment={onPreviewImageAttachment}
+              onRedoSession={onRedoSession}
+              onUndoUserMessage={onUndoUserMessage}
+              skillCatalog={skillCatalog}
+            />
+          )
+          const chainClassName = panelTheme === "claude" ? assistantChainClassName(blocks, index) : ""
+          return chainClassName
+            ? <div key={block.key} className={chainClassName}>{content}</div>
+            : content
+        })}
       </div>
     </TranscriptVisibilityContext.Provider>
   )
@@ -472,6 +478,33 @@ function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { 
       </div>
     </section>
   )
+}
+
+function assistantChainClassName(blocks: TimelineBlock[], index: number) {
+  const block = blocks[index]
+  if (!block || block.kind === "user-message" || block.kind === "assistant-meta") {
+    return ""
+  }
+
+  const classes = ["oc-chainItem", `oc-chainItem-${block.kind}`]
+  if (block.kind === "assistant-part") {
+    classes.push(`oc-chainItem-part-${block.part.type}`)
+    if (block.part.type === "tool") {
+      classes.push(`oc-chainItem-tool-${block.part.tool}`)
+    }
+  }
+  if (!isAssistantChainable(blocks[index - 1])) {
+    classes.push("oc-chainItem-first")
+  }
+  if (!isAssistantChainable(blocks[index + 1])) {
+    classes.push("oc-chainItem-last")
+  }
+
+  return classes.join(" ")
+}
+
+function isAssistantChainable(block?: TimelineBlock) {
+  return !!block && block.kind !== "user-message" && block.kind !== "assistant-meta"
 }
 
 export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages: SessionMessage[], options: TimelineDerivationOptions) {

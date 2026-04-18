@@ -145,9 +145,10 @@ describe("panel theme settings", () => {
     const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
 
-    assert.match(layoutCss, /\.oc-shell\s*\{[\s\S]*background:\s*var\(--oc-shell-backdrop,\s*var\(--oc-surface-canvas\)\);/)
-    assert.match(layoutCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-transcriptInner\s*,/)
-    assert.match(layoutCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-transcriptInner\s*,/)
+    assert.match(layoutCss, /\.oc-shell\s*\{[\s\S]*background:\s*var\(--oc-surface-canvas\);/)
+    assert.match(layoutCss, /\.oc-footer\s*\{[\s\S]*background:\s*var\(--oc-surface-canvas\);/)
+    assert.doesNotMatch(layoutCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-transcriptInner\s*,/)
+    assert.doesNotMatch(layoutCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-transcriptInner\s*,/)
 
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUser\s*\{/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUser::before\s*\{/)
@@ -163,19 +164,49 @@ describe("panel theme settings", () => {
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-toolPanel\.is-active\s*\{/)
   })
 
-  test("tightens codex user prompts and centers claude prompts with a toolflow connector", () => {
+  test("keeps codex and claude on the default full-width outer layout", () => {
+    const layoutCss = readFileSync(resolve(process.cwd(), "src/panel/webview/layout.css"), "utf8")
+    const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
+    const appTsx = readFileSync(resolve(process.cwd(), "src/panel/webview/app/App.tsx"), "utf8")
+    const baseCss = readFileSync(resolve(process.cwd(), "src/panel/webview/base.css"), "utf8")
+    const themeCss = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+
+    assert.doesNotMatch(appTsx, /document\.body\.dataset\.ocTheme/)
+    assert.match(baseCss, /html,\s*body,\s*#root\s*\{[\s\S]*background:\s*var\(--oc-surface-canvas\);/s)
+    assert.doesNotMatch(themeCss, /--oc-page-backdrop:/)
+    assert.doesNotMatch(themeCss, /body\.vscode-dark\[data-oc-theme=\"codex\"\]/)
+    assert.doesNotMatch(themeCss, /body\.vscode-dark\[data-oc-theme=\"claude\"\]/)
+    assert.doesNotMatch(layoutCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-footerInner\s*\{/)
+    assert.doesNotMatch(layoutCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-footerInner\s*\{[\s\S]*position:\s*relative;/)
+    assert.doesNotMatch(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUser\s*\{[\s\S]*justify-self:\s*center;/)
+    assert.doesNotMatch(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUser\s*\{[\s\S]*max-width:\s*min\(860px,\s*calc\(100% - 28px\)\);/)
+  })
+
+  test("keeps codex user prompts compact and preserves claude toolflow connectors", () => {
     const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
 
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*max-width:\s*min\(72ch,\s*100%\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*justify-self:\s*end;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*padding:\s*10px 16px;/)
-    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUser\s*\{[\s\S]*justify-self:\s*center;/)
-    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUser\s*\{[\s\S]*max-width:\s*min\(860px,\s*calc\(100% - 28px\)\);/)
-    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolRowWrap::before\s*,/)
-    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolPanel::before\s*\{/)
-    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolRowWrap::before[\s\S]*linear-gradient/)
-    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolRowWrap::after[\s\S]*box-shadow:/)
-    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolRowWrap\s*\{[\s\S]*width:\s*calc\(100%\s*-\s*28px\);/)
-    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolPanel\s*\{[\s\S]*width:\s*calc\(100%\s*-\s*28px\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::before\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-first::before\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-last::before\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{[\s\S]*width:\s*8px;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{[\s\S]*height:\s*8px;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{[\s\S]*border:\s*0;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-question\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-todowrite\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-bash,\s*[\s\S]*?\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-write,/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::before\s*\{[\s\S]*top:\s*calc\(var\(--oc-chain-gap,\s*12px\)\s*\*\s*-0\.5\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnMeta\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnMeta\s+\.oc-agentSwatch\s*\{/)
+    assert.doesNotMatch(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolRowWrap::before\s*,/)
+    assert.doesNotMatch(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolPanel::before\s*\{/)
+    assert.doesNotMatch(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolRowWrap\s*\{[\s\S]*width:\s*calc\(100%\s*-\s*28px\);/)
+    assert.doesNotMatch(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolPanel\s*\{[\s\S]*width:\s*calc\(100%\s*-\s*28px\);/)
   })
 
   test("adds theme-specific pills, markdown, and output window treatments", () => {
@@ -210,11 +241,9 @@ describe("panel theme settings", () => {
   })
 
   test("adds a codex todo popover and hides transcript todo panels for codex", () => {
-    const layoutCss = readFileSync(resolve(process.cwd(), "src/panel/webview/layout.css"), "utf8")
     const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
 
-    assert.match(layoutCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-footerInner\s*\{[\s\S]*position:\s*relative;/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*position:\s*absolute;/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*pointer-events:\s*none;/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoPopover\s*\{/)

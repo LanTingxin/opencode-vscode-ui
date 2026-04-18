@@ -389,9 +389,113 @@
   gap: 12px;
 }
 
+.oc-chainItem {
+  width: 100%;
+  margin: 0;
+  justify-self: stretch;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem {
+  --oc-chain-gutter: 38px;
+  --oc-chain-x: 26px;
+  --oc-chain-gap: 12px;
+  --oc-chain-anchor-y: 22px;
+  --oc-chain-dot-color: color-mix(in srgb, var(--oc-fg-muted) 72%, var(--oc-fg-primary) 28%);
+  position: relative;
+  padding-left: var(--oc-chain-gutter);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-part.oc-chainItem-part-reasoning,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-error,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-revert {
+  --oc-chain-anchor-y: 20px;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-part.oc-chainItem-part-text {
+  --oc-chain-anchor-y: 30px;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-part-tool {
+  --oc-chain-anchor-y: 20px;
+  --oc-chain-dot-color: #cf8450;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-bash,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-write,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-edit,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-apply_patch,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-lsp,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem[class*="oc-chainItem-tool-lsp_"] {
+  --oc-chain-anchor-y: 18px;
+  --oc-chain-dot-color: #d28a57;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-question {
+  --oc-chain-anchor-y: 18px;
+  --oc-chain-dot-color: #74b0d8;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-todowrite {
+  --oc-chain-anchor-y: 18px;
+  --oc-chain-dot-color: #d8ba63;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-error {
+  --oc-chain-dot-color: #d66d6d;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-revert {
+  --oc-chain-dot-color: #b99768;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--oc-chain-x) - 1px);
+  top: calc(var(--oc-chain-gap, 12px) * -0.5);
+  bottom: calc(var(--oc-chain-gap, 12px) * -0.5);
+  width: 2px;
+  background: var(--oc-chain-line, color-mix(in srgb, var(--oc-border-strong) 30%, transparent 70%));
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-first::before {
+  top: var(--oc-chain-anchor-y);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-last::before {
+  bottom: calc(100% - var(--oc-chain-anchor-y));
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem::after {
+  content: "";
+  position: absolute;
+  left: var(--oc-chain-x);
+  top: var(--oc-chain-anchor-y);
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 999px;
+  background: var(--oc-chain-dot-color);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-turnMeta {
+  padding: 2px 0 2px;
+  color: color-mix(in srgb, var(--oc-fg-muted) 92%, var(--oc-accent) 8%);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-turnMeta .oc-agentBadge {
+  gap: 5px;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-turnMeta .oc-agentSwatch {
+  width: 7px;
+  height: 7px;
+  border: 0;
+  border-radius: 999px;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-turnUser {
-  max-width: min(860px, calc(100% - 28px));
-  justify-self: center;
   padding: 15px 18px 14px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
   border-radius: 12px;
