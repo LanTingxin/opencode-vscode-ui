@@ -60,6 +60,7 @@ function renderSkillPart(options?: { compactSkillInvocations?: boolean; active?:
           showThinking: true,
           showInternals: false,
           compactSkillInvocations: options?.compactSkillInvocations !== false,
+          panelTheme: "default",
           skillCatalog: [],
         }}
       >
@@ -92,6 +93,7 @@ function renderSkillTextPart(options?: { compactSkillInvocations?: boolean }) {
           showThinking: true,
           showInternals: false,
           compactSkillInvocations: options?.compactSkillInvocations !== false,
+          panelTheme: "default",
           skillCatalog: [],
         }}
       >
@@ -124,7 +126,41 @@ function renderExactSkillTextPart(options?: { compactSkillInvocations?: boolean 
           showThinking: true,
           showInternals: false,
           compactSkillInvocations: options?.compactSkillInvocations !== false,
+          panelTheme: "default",
           skillCatalog: ARTICLE_WRITING_SKILL,
+        }}
+      >
+        <PartView part={part} />
+      </TranscriptVisibilityContext.Provider>
+    </WebviewBindingsProvider>,
+  )
+}
+
+function renderAssistantTextPart(panelTheme: "default" | "codex" | "claude") {
+  const part: MessagePart = {
+    id: "text-3",
+    sessionID: "session-1",
+    messageID: "message-3",
+    type: "text",
+    text: "# 其他产品动态\n\n- Canva\n- DeepL",
+  }
+
+  return renderToStaticMarkup(
+    <WebviewBindingsProvider
+      fileRefStatus={new Map()}
+      vscode={{
+        postMessage: () => {},
+        getState: () => undefined,
+        setState: () => {},
+      }}
+    >
+      <TranscriptVisibilityContext.Provider
+        value={{
+          showThinking: true,
+          showInternals: false,
+          compactSkillInvocations: true,
+          panelTheme,
+          skillCatalog: [],
         }}
       >
         <PartView part={part} />
@@ -164,5 +200,25 @@ describe("skill tool rendering", () => {
     assert.equal(html.includes("SKILL"), true)
     assert.equal(html.includes("article-writing"), true)
     assert.equal(html.includes("Write long-form content"), false)
+  })
+
+  test("keeps assistant markdown source text literal in the default theme", () => {
+    const html = renderAssistantTextPart("default")
+
+    assert.equal(html.includes("# 其他产品动态"), true)
+    assert.equal(html.includes("<h1>"), false)
+    assert.equal(html.includes("<li>Canva</li>"), false)
+  })
+
+  test("renders assistant markdown as rich content in codex and claude themes", () => {
+    const codexHtml = renderAssistantTextPart("codex")
+    const claudeHtml = renderAssistantTextPart("claude")
+
+    assert.equal(codexHtml.includes("<h1>其他产品动态</h1>"), true)
+    assert.equal(codexHtml.includes("<li>Canva</li>"), true)
+    assert.equal(codexHtml.includes("# 其他产品动态"), false)
+    assert.equal(claudeHtml.includes("<h1>其他产品动态</h1>"), true)
+    assert.equal(claudeHtml.includes("<li>DeepL</li>"), true)
+    assert.equal(claudeHtml.includes("# 其他产品动态"), false)
   })
 })

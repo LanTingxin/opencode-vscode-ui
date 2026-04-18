@@ -1,6 +1,7 @@
 import React from "react"
 import { parsePatch } from "diff"
 import type { SkillCatalogEntry } from "../../../bridge/types"
+import type { PanelTheme } from "../../../core/settings"
 import type { CommandInfo, FilePart, MessageInfo, MessagePart, SessionMessage, TextPart } from "../../../core/sdk"
 import { findSkillInvocationMatch } from "../../shared/skill-invocation"
 import { commandPromptLabel, findCommandPromptInvocation, previewCommandPromptText, type CommandPromptCatalog } from "./command-prompt"
@@ -58,6 +59,7 @@ type TimelineProps = {
   revertID?: string
   showInternals: boolean
   showThinking: boolean
+  panelTheme?: PanelTheme
   skillCatalog: SkillCatalogEntry[]
   AgentBadge: ({ name }: { name: string }) => React.JSX.Element
   CompactionDivider: () => React.JSX.Element
@@ -84,6 +86,7 @@ export const Timeline = React.memo(function Timeline({
   revertID,
   showInternals,
   showThinking,
+  panelTheme = "default",
   skillCatalog,
   AgentBadge,
   CompactionDivider,
@@ -114,7 +117,7 @@ export const Timeline = React.memo(function Timeline({
   }
 
   return (
-    <TranscriptVisibilityContext.Provider value={{ showThinking, showInternals, compactSkillInvocations, skillCatalog }}>
+    <TranscriptVisibilityContext.Provider value={{ showThinking, showInternals, compactSkillInvocations, panelTheme, skillCatalog }}>
       <div className="oc-log">
         {blocks.map((block) => (
           <MemoTimelineBlockView
@@ -166,7 +169,7 @@ type TimelineBlockViewProps = {
 function TimelineBlockView({
   AgentBadge,
   CompactionDivider,
-  MarkdownBlock,
+  MarkdownBlock: _MarkdownBlock,
   PartView,
   active,
   block,
@@ -233,13 +236,13 @@ function TimelineBlockView({
             </div>
           ) : null}
           {commandPrompt
-            ? (commandPromptExpanded ? <MarkdownBlock content={userText?.text || ""} /> : null)
+            ? (commandPromptExpanded ? <PlainTextBlock content={userText?.text || ""} /> : null)
             : skillMatch?.remainder
-            ? <MarkdownBlock content={skillMatch.remainder} />
+            ? <PlainTextBlock content={skillMatch.remainder} />
             : skillMatch
               ? null
             : userText
-              ? <MarkdownBlock content={userText.text || ""} />
+              ? <PlainTextBlock content={userText.text || ""} />
             : (showEmptyPrompt ? <div className="oc-partEmpty">No visible prompt text.</div> : null)}
           <div className="oc-messageActions" aria-label="Message actions">
             <button type="button" className="oc-messageActionBtn" aria-label="Copy" data-tooltip="Copy" onClick={() => onCopyUserMessage(block.message)}>
@@ -299,6 +302,10 @@ function TimelineBlockView({
 }
 
 const MemoTimelineBlockView = React.memo(TimelineBlockView, areTimelineBlockPropsEqual)
+
+function PlainTextBlock({ content }: { content: string }) {
+  return <div className="oc-partText">{content}</div>
+}
 
 function AttachmentPill({
   part,

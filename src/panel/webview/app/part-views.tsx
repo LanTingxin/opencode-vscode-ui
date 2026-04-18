@@ -6,6 +6,7 @@ type ToolDisplayVariant = "row" | "panel" | "links" | "files" | "todos" | "quest
 export function PartView({
   DividerPartView,
   MarkdownBlock,
+  TextBlock,
   ToolPartView,
   diffMode = "unified",
   part,
@@ -19,6 +20,7 @@ export function PartView({
 }: {
   DividerPartView: ({ part }: { part: MessagePart }) => React.JSX.Element
   MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
+  TextBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
   ToolPartView: ({ part, active, diffMode }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
   diffMode?: "unified" | "split"
   part: MessagePart
@@ -35,7 +37,7 @@ export function PartView({
   if (part.type === "text") {
     return (
       <section className="oc-part oc-part-text oc-part-inline">
-        <MarkdownBlock content={part.text || ""} />
+        <TextBlock content={part.text || ""} />
       </section>
     )
   }

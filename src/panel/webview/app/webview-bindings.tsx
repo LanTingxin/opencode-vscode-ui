@@ -53,13 +53,13 @@ export function PartView({ part, active = false, diffMode = "unified" }: { part:
           <div className="oc-attachmentRow">
             <SkillPill name={skillMatch.name} onClick={skillLocation ? () => vscode.postMessage({ type: "openFile", filePath: skillLocation }) : undefined} />
           </div>
-          {skillMatch.remainder ? <MarkdownBlock content={skillMatch.remainder} /> : null}
+          {skillMatch.remainder ? <AssistantTextBlock content={skillMatch.remainder} /> : null}
         </section>
       )
     }
   }
 
-  return <BasePartView DividerPartView={DividerPartView} MarkdownBlock={MarkdownBlock} ToolPartView={ToolPartView} diffMode={diffMode} part={part} active={active} cleanReasoning={cleanReasoning} fileLabel={fileLabel} isDividerPart={isDividerPart} partMeta={partMeta} partTitle={partTitle} renderPartBody={renderPartBody} />
+  return <BasePartView DividerPartView={DividerPartView} MarkdownBlock={MarkdownBlock} TextBlock={AssistantTextBlock} ToolPartView={ToolPartView} diffMode={diffMode} part={part} active={active} cleanReasoning={cleanReasoning} fileLabel={fileLabel} isDividerPart={isDividerPart} partMeta={partMeta} partTitle={partTitle} renderPartBody={renderPartBody} />
 }
 
 export function ToolPartView({ part, active = false, diffMode = "unified" }: { part: Extract<MessagePart, { type: "tool" }>; active?: boolean; diffMode?: "unified" | "split" }) {
@@ -224,6 +224,14 @@ export function EmptyState({ title, text }: { title: string; text: string }) {
 export function MarkdownBlock({ content, className = "" }: { content: string; className?: string }) {
   const { fileRefStatus, vscode } = useWebviewBindings()
   return <BaseMarkdownBlock fileRefStatus={fileRefStatus} onOpenFile={(filePath, line) => vscode.postMessage({ type: "openFile", filePath, line })} onResolveFileRefs={(refs) => vscode.postMessage({ type: "resolveFileRefs", refs })} content={content} className={className} />
+}
+
+function AssistantTextBlock({ content, className = "" }: { content: string; className?: string }) {
+  const { panelTheme } = useTranscriptVisibility()
+  if (panelTheme === "codex" || panelTheme === "claude") {
+    return <MarkdownBlock content={content} className={className} />
+  }
+  return <div className={`oc-partText${className ? ` ${className}` : ""}`}>{content}</div>
 }
 
 export function OutputWindow({ action, title, running = false, lineCount, className = "", children }: { action: string; title: React.ReactNode; running?: boolean; lineCount: number; className?: string; children: React.ReactNode }) {

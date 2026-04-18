@@ -264,6 +264,35 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("Always check the skill list first."), false)
   })
 
+  test("keeps user prompt markdown as literal text instead of rendering it", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "# 用户标题\n\n- 条目")])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>rendered:{content}</div>}
+        PartView={({ part }) => <div>{part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("rendered:# 用户标题"), false)
+    assert.equal(html.includes("# 用户标题"), true)
+    assert.equal(html.includes("<li>条目</li>"), false)
+  })
+
   test("renders a compact skill marker for exact matched skill content", () => {
     const html = renderToStaticMarkup(
       <Timeline
@@ -361,8 +390,6 @@ describe("Timeline user message rendering", () => {
   })
 
   test("hides inline file mention text when the same file is rendered as an attachment pill", () => {
-    const seenMarkdown: string[] = []
-
     const html = renderToStaticMarkup(
       <Timeline
         bootstrapStatus="ready"
@@ -397,16 +424,14 @@ describe("Timeline user message rendering", () => {
         AgentBadge={({ name }) => <span>{name}</span>}
         CompactionDivider={() => <div>divider</div>}
         EmptyState={({ title, text }) => <div>{title}:{text}</div>}
-        MarkdownBlock={({ content, className }) => {
-          seenMarkdown.push(content)
-          return <div className={className}>{content}</div>
-        }}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
         PartView={({ part }) => <div>{part.type}</div>}
       />,
     )
 
     assert.equal(html.includes('aria-label="Open attachment README.md"'), true)
-    assert.deepEqual(seenMarkdown, ["我已经截了一些图片放到screenshot目录了，，图片可以重命名一下"])
+    assert.equal(html.includes("我已经截了一些图片放到screenshot目录了，，图片可以重命名一下"), true)
+    assert.equal(html.includes("@README.md"), false)
   })
 
   test("renders a compact command marker for prompt-style slash command text", () => {

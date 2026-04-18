@@ -194,7 +194,12 @@ describe("panel theme settings", () => {
 
     assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-markdown blockquote\s*\{/)
     assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-markdown blockquote\s*\{[\s\S]*box-shadow:\s*inset 3px 0 0/)
-    assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-markdown h1::before\s*,/)
+    assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-markdown h1::before\s*,[\s\S]*content:\s*\"\";/)
+    assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-markdown h1::before\s*,[\s\S]*content:\s*\"\";/)
+    assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-markdown ul\s*\{[\s\S]*list-style-type:\s*disc;/)
+    assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-markdown ol\s*\{[\s\S]*list-style-type:\s*decimal;/)
+    assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-markdown ul\s*\{[\s\S]*list-style-type:\s*disc;/)
+    assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-markdown ol\s*\{[\s\S]*list-style-type:\s*decimal;/)
     assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-inlineCode\s*\{/)
     assert.match(markdownCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-markdown pre\s*\{[\s\S]*border:\s*1px solid/)
 

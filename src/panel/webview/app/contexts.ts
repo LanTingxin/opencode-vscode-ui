@@ -1,11 +1,13 @@
 import React from "react"
 import type { SkillCatalogEntry } from "../../../bridge/types"
+import type { PanelTheme } from "../../../core/settings"
 import type { SessionInfo, SessionMessage } from "../../../core/sdk"
 
 export const TranscriptVisibilityContext = React.createContext({
   showThinking: false,
   showInternals: false,
   compactSkillInvocations: true,
+  panelTheme: "default" as PanelTheme,
   skillCatalog: [] as SkillCatalogEntry[],
 })
 
