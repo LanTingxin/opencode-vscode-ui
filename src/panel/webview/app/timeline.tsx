@@ -533,7 +533,7 @@ function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { 
 
 function assistantChainClassName(blocks: TimelineBlock[], index: number) {
   const block = blocks[index]
-  if (!block || block.kind === "user-message" || block.kind === "assistant-meta") {
+  if (!block || block.kind === "user-message") {
     return ""
   }
 
@@ -555,7 +555,7 @@ function assistantChainClassName(blocks: TimelineBlock[], index: number) {
 }
 
 function isAssistantChainable(block?: TimelineBlock) {
-  return !!block && block.kind !== "user-message" && block.kind !== "assistant-meta"
+  return !!block && block.kind !== "user-message"
 }
 
 export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages: SessionMessage[], options: TimelineDerivationOptions) {

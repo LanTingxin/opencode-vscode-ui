@@ -413,9 +413,15 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-part.oc-chainItem-part-reasoning,
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-meta,
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-error,
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-revert {
   --oc-chain-anchor-y: 20px;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-meta {
+  --oc-chain-anchor-y: 50%;
+  --oc-chain-dot-color: #8fa0b3;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-assistant-part.oc-chainItem-part-text {
@@ -496,10 +502,7 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-turnMeta .oc-agentSwatch {
-  width: 7px;
-  height: 7px;
-  border: 0;
-  border-radius: 999px;
+  display: none;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-turnUserWrap-theme-claude {
