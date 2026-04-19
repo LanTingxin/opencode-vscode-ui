@@ -2,6 +2,8 @@
   height: 100%;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
+  width: calc(100% + (var(--oc-webview-body-inset, 20px) * 2));
+  margin-inline: calc(var(--oc-webview-body-inset, 20px) * -1);
   background: var(--oc-surface-canvas);
 }
 
