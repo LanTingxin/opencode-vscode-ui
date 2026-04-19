@@ -32,4 +32,18 @@ describe("buildComposerMenuItems", () => {
     assert.ok(skillsItem)
     assert.equal(skillsItem?.kind, "action")
   })
+
+  test("includes a local slash action for theme", () => {
+    const state = createInitialState({
+      workspaceId: "file:///workspace",
+      dir: "/workspace",
+      sessionId: "session-1",
+    })
+
+    const items = buildComposerMenuItems(state, [])
+    const themeItem = items.find((item) => item.trigger === "slash" && item.label === "theme")
+
+    assert.ok(themeItem)
+    assert.equal(themeItem?.kind, "action")
+  })
 })

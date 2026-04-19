@@ -71,6 +71,11 @@ mock.module("vscode", () => ({
     executeCommand: async () => undefined,
     registerCommand: () => new Disposable(),
   },
+  ConfigurationTarget: {
+    Global: 1,
+    Workspace: 2,
+    WorkspaceFolder: 3,
+  },
   env: {
     remoteName: undefined,
     uiKind: 1,

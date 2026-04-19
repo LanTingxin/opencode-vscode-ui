@@ -28,6 +28,7 @@ import { mergeRestoredComposerParts, restoredComposerCursor } from "./composer-s
 import { activeChildSessionId } from "./session-navigation"
 import { captureCommandPromptInvocations, consumeFailedCommandPrompt, shouldTrackCommandPromptInvocation, type CommandPromptInvocation } from "./command-prompt"
 import { CodexTodoPopover } from "./codex-todo-popover"
+import { buildThemePickerItems, ThemePicker } from "./theme-picker"
 
 declare global {
   interface Window {
@@ -67,6 +68,7 @@ export function App() {
   const [fileSearch, setFileSearch] = React.useState<{ status: "idle" | "searching" | "done"; query: string }>({ status: "idle", query: "" })
   const [composerDrag, setComposerDrag] = React.useState<null | "mention">(null)
   const [modelPickerOpen, setModelPickerOpen] = React.useState(false)
+  const [themePickerOpen, setThemePickerOpen] = React.useState(false)
   const [previewImage, setPreviewImage] = React.useState<PreviewImage | null>(null)
   const [skillPickerOpen, setSkillPickerOpen] = React.useState(false)
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = React.useState(0)
@@ -74,6 +76,7 @@ export function App() {
   const timelineRef = React.useRef<HTMLDivElement | null>(null)
   const composerRef = React.useRef<HTMLDivElement | null>(null)
   const modelPickerRef = React.useRef<HTMLDivElement | null>(null)
+  const themePickerRef = React.useRef<HTMLDivElement | null>(null)
   const composerCursorRef = React.useRef<number | null>(null)
   const searchRef = React.useRef<{ requestID: string; query: string } | null>(null)
   const escTimerRef = React.useRef<number | null>(null)
@@ -148,6 +151,7 @@ export function App() {
     providers: state.snapshot.providers,
     providerAuth: state.snapshot.providerAuth,
   }), [state.snapshot.providerAuth, state.snapshot.providers])
+  const themePickerItems = React.useMemo(() => buildThemePickerItems(resolvePanelThemeValue(state.snapshot.display.panelTheme)), [state.snapshot.display.panelTheme])
 
   const blocked = state.snapshot.permissions.length > 0 || state.snapshot.questions.length > 0
   const isChildSession = !!state.bootstrap.session?.parentID
@@ -462,7 +466,7 @@ export function App() {
   }, [latestUserSelection])
 
   React.useEffect(() => {
-    if (!modelPickerOpen) {
+    if (!modelPickerOpen && !themePickerOpen) {
       return
     }
 
@@ -471,12 +475,17 @@ export function App() {
       if (target instanceof Node && modelPickerRef.current?.contains(target)) {
         return
       }
+      if (target instanceof Node && themePickerRef.current?.contains(target)) {
+        return
+      }
       setModelPickerOpen(false)
+      setThemePickerOpen(false)
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setModelPickerOpen(false)
+        setThemePickerOpen(false)
       }
     }
 
@@ -486,7 +495,7 @@ export function App() {
       document.removeEventListener("mousedown", onPointerDown)
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [modelPickerOpen])
+  }, [modelPickerOpen, themePickerOpen])
 
   React.useLayoutEffect(() => {
     const input = composerRef.current
@@ -573,6 +582,19 @@ export function App() {
         openSkillPicker()
         return
       }
+
+      if (slashAction.type === "openThemePicker") {
+        setState((current) => ({
+          ...current,
+          draft: "",
+          composerParts: emptyComposerParts(),
+          composerMentions: [],
+          composerMentionAgentOverride: undefined,
+          error: "",
+        }))
+        openThemePicker()
+        return
+      }
     }
 
     const mentions = mentionsFromParts(finalized)
@@ -593,6 +615,7 @@ export function App() {
         ...current,
         error: current.snapshot.providers.length > 0 ? "Select a model before sending this message." : "Configure a provider before sending this message.",
       }))
+      setThemePickerOpen(false)
       setModelPickerOpen(true)
       return
     }
@@ -613,7 +636,7 @@ export function App() {
       imageAttachments: [],
       error: "",
     }))
-  }, [blocked, composerMode, currentSelection, exitShellMode, openSkillPicker, state.composerParts, state.imageAttachments, state.snapshot.commands])
+  }, [blocked, composerMode, currentSelection, exitShellMode, openSkillPicker, openThemePicker, state.composerParts, state.imageAttachments, state.snapshot.commands])
 
   const composerPlaceholder = composerMode === "shell"
     ? "Enter shell command to run in this workspace."
@@ -646,6 +669,8 @@ export function App() {
   function openSkillPicker() {
     autocompleteDismissedRef.current = null
     composerAutocomplete.close()
+    setModelPickerOpen(false)
+    setThemePickerOpen(false)
     setSkillPickerSelectedIndex(0)
     setSkillPickerOpen(true)
     const result = setComposerState(emptyComposerParts(), "")
@@ -708,10 +733,17 @@ export function App() {
   }, [])
 
   const openModelPicker = React.useCallback(() => {
+    setThemePickerOpen(false)
     setModelPickerOpen(true)
   }, [])
 
+  function openThemePicker() {
+    setModelPickerOpen(false)
+    setThemePickerOpen(true)
+  }
+
   const toggleModelPicker = React.useCallback(() => {
+    setThemePickerOpen(false)
     setModelPickerOpen((current) => !current)
   }, [])
 
@@ -783,6 +815,11 @@ export function App() {
 
   const startProviderAuth = React.useCallback((providerID: string) => {
     vscode.postMessage({ type: "providerAuthAction", providerID })
+  }, [])
+
+  const selectPanelTheme = React.useCallback((theme: "default" | "codex" | "claude") => {
+    setThemePickerOpen(false)
+    vscode.postMessage({ type: "updatePanelTheme", theme })
   }, [])
 
   const postComposerAction = React.useCallback((action: "refreshSession" | "compactSession" | "undoSession" | "redoSession" | "interruptSession", model?: { providerID: string; modelID: string }) => {
@@ -1050,6 +1087,13 @@ export function App() {
         return
       }
 
+      if (item.id === "slash-theme") {
+        clearComposerDraft()
+        openThemePicker()
+        composerAutocomplete.close()
+        return
+      }
+
       if (item.id === "slash-reset-agent") {
         setState((current) => ({
           ...current,
@@ -1110,7 +1154,7 @@ export function App() {
       composerAutocomplete.close()
       restoreComposerCursor(result.draft, next.cursor)
     }
-  }, [clearComposerDraft, composerAutocomplete, composerMode, currentSelection.model, openModelPicker, openSkillPicker, postComposerAction, restoreComposerCursor, setComposerState, state.composerParts, state.snapshot])
+  }, [clearComposerDraft, composerAutocomplete, composerMode, currentSelection.model, openModelPicker, openSkillPicker, openThemePicker, postComposerAction, restoreComposerCursor, setComposerState, state.composerParts, state.snapshot])
 
   const sendQuestionReply = React.useCallback((request: QuestionRequest) => {
     const answers = request.questions.map((_item, index) => {
@@ -1595,7 +1639,7 @@ export function App() {
                         />
                       {!state.draft.trim() && !composerFocused ? <div className="oc-composerPlaceholder" aria-hidden="true">{composerPlaceholder}</div> : null}
                     </div>
-                    <div className="oc-modelPickerLayer" ref={modelPickerRef}>
+                    <div className="oc-modelPickerLayer" ref={themePickerOpen ? themePickerRef : modelPickerRef}>
                       <div className="oc-composerInfoWrap">
                         <ComposerInfo state={state} leaderPending={leaderPending} modelPickerOpen={modelPickerOpen} onToggleModelPicker={toggleModelPicker} onCycleVariant={() => cycleComposerVariant()} />
                       </div>
@@ -1611,6 +1655,13 @@ export function App() {
                           onSelect={selectComposerModel}
                           onToggleFavorite={toggleComposerFavorite}
                           onCycleVariant={cycleComposerVariant}
+                        />
+                      ) : null}
+                      {themePickerOpen ? (
+                        <ThemePicker
+                          items={themePickerItems}
+                          onClose={() => setThemePickerOpen(false)}
+                          onSelect={selectPanelTheme}
                         />
                       ) : null}
                     </div>

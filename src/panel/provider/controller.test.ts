@@ -510,6 +510,47 @@ describe("SessionPanelController.handle", () => {
     assert.equal(logs.some((line) => line.includes("event session.status session=root status=busy")), true)
   })
 
+  test("updates the persisted panel theme from webview messages", async () => {
+    let updated: unknown[] = []
+    const originalGetConfiguration = vscode.workspace.getConfiguration
+
+    ;(vscode.workspace as typeof vscode.workspace & {
+      getConfiguration: typeof vscode.workspace.getConfiguration
+    }).getConfiguration = ((section?: string) => {
+      if (section !== "opencode-ui") {
+        return {
+          get: <T,>(_key: string, fallback: T) => fallback,
+        }
+      }
+
+      return {
+        get: <T,>(_key: string, fallback: T) => fallback,
+        update: async (...args: unknown[]) => {
+          updated = args
+        },
+      }
+    }) as unknown as typeof vscode.workspace.getConfiguration
+
+    try {
+      const { controller, send } = createWebviewMessageHarness({
+        state: "ready",
+        dir: "/workspace",
+        name: "workspace",
+        sdk: {},
+      })
+
+      send({ type: "updatePanelTheme", theme: "claude" })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      assert.deepEqual(updated, ["panelTheme", "claude", vscode.ConfigurationTarget.Global])
+      controller.dispose()
+    } finally {
+      ;(vscode.workspace as typeof vscode.workspace & {
+        getConfiguration: typeof vscode.workspace.getConfiguration
+      }).getConfiguration = originalGetConfiguration
+    }
+  })
+
   test("routes provider auth recovery messages through the host action path", async () => {
     let authPayload: unknown
     let authorizePayload: unknown

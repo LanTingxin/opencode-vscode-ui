@@ -88,6 +88,12 @@ export const composerParityFixtures: ComposerParityFixture[] = [
           detail: "Open the skill picker and insert a skill command.",
         },
         {
+          id: "slash-theme",
+          kind: "action",
+          label: "theme",
+          detail: "Open the theme picker for session panels.",
+        },
+        {
           id: "slash-undo",
           kind: "action",
           label: "undo",
@@ -144,6 +150,12 @@ export const composerParityFixtures: ComposerParityFixture[] = [
           kind: "action",
           label: "model",
           detail: "Open the model picker for the current agent.",
+        },
+        {
+          id: "slash-theme",
+          kind: "action",
+          label: "theme",
+          detail: "Open the theme picker for session panels.",
         },
         {
           id: "slash-skills",
@@ -368,6 +380,7 @@ export const composerParityFixtures: ComposerParityFixture[] = [
         { id: "slash-refresh", kind: "action", label: "refresh", detail: "Ask the host to reload the current session snapshot." },
         { id: "command:review", kind: "command", label: "review", detail: "review changes [commit|branch|pr]" },
         { id: "slash-skills", kind: "action", label: "skills", detail: "Open the skill picker and insert a skill command." },
+        { id: "slash-theme", kind: "action", label: "theme", detail: "Open the theme picker for session panels." },
         { id: "slash-undo", kind: "action", label: "undo", detail: "Revert the previous user turn immediately." },
         // summarize (skill) must be absent
       ],
@@ -392,6 +405,7 @@ export const composerParityFixtures: ComposerParityFixture[] = [
         { id: "slash-compact", kind: "action", label: "compact", detail: "Summarize this session immediately using the current model." },
         { id: "command:debug", kind: "command", label: "debug", detail: "debug current issue :mcp" },
         { id: "slash-model", kind: "action", label: "model", detail: "Open the model picker for the current agent." },
+        { id: "slash-theme", kind: "action", label: "theme", detail: "Open the theme picker for session panels." },
         { id: "slash-skills", kind: "action", label: "skills", detail: "Open the skill picker and insert a skill command." },
       ],
     },

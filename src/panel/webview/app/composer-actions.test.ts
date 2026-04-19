@@ -19,6 +19,12 @@ describe("resolveComposerSlashAction", () => {
     })
   })
 
+  test("routes /theme to the local theme-picker action", () => {
+    assert.deepEqual(resolveComposerSlashAction("/theme", []), {
+      type: "openThemePicker",
+    })
+  })
+
   test("routes known slash commands through the host command path", () => {
     assert.deepEqual(resolveComposerSlashAction("/compact now", [{
       name: "compact",

@@ -8,6 +8,9 @@ export type ComposerSlashAction =
       type: "openSkillPicker"
     }
   | {
+      type: "openThemePicker"
+    }
+  | {
       type: "command"
       command: string
       arguments: string
@@ -28,6 +31,10 @@ export function resolveComposerSlashAction(draft: string, commands: CommandInfo[
 
   if (command === "skills" && !args) {
     return { type: "openSkillPicker" }
+  }
+
+  if (command === "theme" && !args) {
+    return { type: "openThemePicker" }
   }
 
   const known = commands.find((item) => item.name === command)

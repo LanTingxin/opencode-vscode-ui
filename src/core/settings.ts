@@ -59,6 +59,10 @@ export function affectsHttpProxySetting(event: vscode.ConfigurationChangeEvent) 
     || event.affectsConfiguration("http.proxy")
 }
 
+export async function updatePanelTheme(theme: PanelTheme) {
+  await vscode.workspace.getConfiguration(SECTION).update(PANEL_THEME_KEY, normalizePanelTheme(theme), vscode.ConfigurationTarget.Global)
+}
+
 export function openSettingsQuery() {
   return "@ext:lantingxin.opencode-enhanced-ui"
 }

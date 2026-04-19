@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { postToWebview } from "../../bridge/host"
 import type { ComposerPromptPart, HostMessage, SessionPanelRef, SessionSnapshot, WebviewMessage } from "../../bridge/types"
-import { affectsDisplaySettings } from "../../core/settings"
+import { affectsDisplaySettings, updatePanelTheme } from "../../core/settings"
 import { EventHub } from "../../core/events"
 import type { SessionEvent } from "../../core/sdk"
 import { WorkspaceManager } from "../../core/workspace"
@@ -136,6 +136,11 @@ export class SessionPanelController implements vscode.Disposable {
 
         if (message?.type === "composerAction") {
           void runComposerAction(this.actionContext(), message.action, message.model)
+          return
+        }
+
+        if (message?.type === "updatePanelTheme") {
+          void updatePanelTheme(message.theme)
           return
         }
 

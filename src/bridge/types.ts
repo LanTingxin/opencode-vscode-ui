@@ -1,5 +1,5 @@
 import type { AgentInfo, CommandInfo, FileDiff, FormatterStatus, LspStatus, McpResource, McpStatus, PermissionRequest, PromptFilePartInput, PromptSource, ProviderAuthMethod, ProviderInfo, QuestionRequest, SessionEvent, SessionInfo, SessionMessage, SessionStatus, Todo } from "../core/sdk"
-import type { DisplaySettings } from "../core/settings"
+import type { DisplaySettings, PanelTheme } from "../core/settings"
 
 export const SESSION_PANEL_VIEW_TYPE = "opencode-ui.session"
 
@@ -230,6 +230,10 @@ export type WebviewMessage =
         providerID: string
         modelID: string
       }
+    }
+  | {
+      type: "updatePanelTheme"
+      theme: PanelTheme
     }
   | {
       type: "messageAction"

@@ -30,6 +30,14 @@ export function buildComposerMenuItems(state: AppState, files: ComposerPathResul
       kind: "action",
     },
     {
+      id: "slash-theme",
+      label: "theme",
+      detail: "Open the theme picker for session panels.",
+      keywords: ["switch", "appearance", "panel", "claude", "codex"],
+      trigger: "slash",
+      kind: "action",
+    },
+    {
       id: "slash-skills",
       label: "skills",
       detail: "Open the skill picker and insert a skill command.",
