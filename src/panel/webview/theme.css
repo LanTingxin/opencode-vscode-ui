@@ -169,8 +169,8 @@ body.vscode-dark .oc-shell[data-oc-theme="codex"] {
   --oc-footer-surface: color-mix(in srgb, #0c1117 88%, #151d29 12%);
   --oc-transcript-pad-y-start: 18px;
   --oc-transcript-pad-y-end: 24px;
-  --oc-transcript-max-width: 1160px;
-  --oc-shell-gutter: 18px;
+  --oc-transcript-max-width: 1280px;
+  --oc-shell-gutter: 10px;
   --oc-card-shadow: 0 18px 40px rgba(3, 8, 15, 0.22);
   --oc-tool-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --oc-composer-shadow: 0 22px 44px rgba(0, 0, 0, 0.3);
@@ -206,8 +206,8 @@ body.vscode-light .oc-shell[data-oc-theme="codex"] {
   --oc-footer-surface: color-mix(in srgb, #f9fcff 74%, #e8eef7 26%);
   --oc-transcript-pad-y-start: 18px;
   --oc-transcript-pad-y-end: 24px;
-  --oc-transcript-max-width: 1160px;
-  --oc-shell-gutter: 18px;
+  --oc-transcript-max-width: 1280px;
+  --oc-shell-gutter: 10px;
   --oc-card-shadow: 0 14px 34px rgba(31, 50, 79, 0.08);
   --oc-tool-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
   --oc-composer-shadow: 0 20px 42px rgba(31, 50, 79, 0.14);
@@ -247,8 +247,8 @@ body.vscode-dark .oc-shell[data-oc-theme="claude"] {
   --oc-footer-surface: color-mix(in srgb, #12100d 82%, #211c16 18%);
   --oc-transcript-pad-y-start: 22px;
   --oc-transcript-pad-y-end: 26px;
-  --oc-transcript-max-width: 920px;
-  --oc-shell-gutter: 20px;
+  --oc-transcript-max-width: 1160px;
+  --oc-shell-gutter: 12px;
   --oc-card-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
   --oc-tool-shadow: inset 0 1px 0 rgba(255, 247, 235, 0.05);
   --oc-composer-shadow: 0 24px 54px rgba(0, 0, 0, 0.3);
@@ -291,8 +291,8 @@ body.vscode-light .oc-shell[data-oc-theme="claude"] {
   --oc-footer-surface: color-mix(in srgb, #fffaf2 78%, #efe3d4 22%);
   --oc-transcript-pad-y-start: 22px;
   --oc-transcript-pad-y-end: 26px;
-  --oc-transcript-max-width: 920px;
-  --oc-shell-gutter: 20px;
+  --oc-transcript-max-width: 1160px;
+  --oc-shell-gutter: 12px;
   --oc-card-shadow: 0 16px 34px rgba(76, 47, 11, 0.08);
   --oc-tool-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
   --oc-composer-shadow: 0 26px 52px rgba(76, 47, 11, 0.12);

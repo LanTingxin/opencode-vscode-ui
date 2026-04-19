@@ -19,8 +19,9 @@
 
 .oc-transcriptInner {
   width: 100%;
-  max-width: none;
-  margin: 0;
+  max-width: var(--oc-transcript-max-width, none);
+  margin: 0 auto;
+  padding: 0 var(--oc-shell-gutter, 0px);
 }
 
 .oc-log,

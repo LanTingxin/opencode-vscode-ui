@@ -283,8 +283,68 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-part"), true)
     assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-meta"), false)
     assert.equal(html.includes("oc-chainItem-tool-webfetch"), true)
-    assert.equal(html.includes('<section class="oc-turnUser">'), true)
+    assert.equal(html.includes('<div class="oc-turnUserWrap oc-turnUserWrap-theme-claude">'), true)
+    assert.equal(html.includes('<section class="oc-turnUser oc-turnUser-theme-claude">'), true)
     assert.equal(html.includes('<div class="oc-chainItem oc-chainItem-user-message'), false)
+  })
+
+  test("renders claude user actions in a top-right hover layout", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "你好")])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="claude"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes('class="oc-turnUserWrap oc-turnUserWrap-theme-claude"'), true)
+    assert.equal(html.includes('class="oc-messageActions oc-messageActions-topRightExternal"'), true)
+  })
+
+  test("renders codex user messages as end-aligned compact bubbles with below actions", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "还是没变化，比首字高，需要和首字中心平行")])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes('class="oc-turnUserWrap oc-turnUserWrap-theme-codex oc-turnUserWrap-compactEnd"'), true)
+    assert.equal(html.includes('class="oc-turnUser oc-turnUser-theme-codex oc-turnUser-compactEnd"'), true)
+    assert.equal(html.includes('class="oc-messageActions oc-messageActions-belowHover"'), true)
   })
 
   test("renders a compact skill marker for wrapped user text", () => {

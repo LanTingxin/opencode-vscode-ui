@@ -1,3 +1,10 @@
+.oc-turnUserWrap {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  justify-self: stretch;
+}
+
 .oc-turnUser {
   display: grid;
   gap: 4px;
@@ -100,16 +107,16 @@
   transition: opacity 120ms ease, transform 120ms ease;
 }
 
-.oc-turnUser:hover .oc-messageActions,
-.oc-turnUser:focus-within .oc-messageActions,
+.oc-turnUserWrap:hover .oc-messageActions,
+.oc-turnUserWrap:focus-within .oc-messageActions,
 .oc-revertNotice:hover .oc-revertActions,
 .oc-revertNotice:focus-within .oc-revertActions {
   opacity: 1;
   pointer-events: auto;
 }
 
-.oc-turnUser:hover .oc-messageActions,
-.oc-turnUser:focus-within .oc-messageActions {
+.oc-turnUserWrap:hover .oc-messageActions,
+.oc-turnUserWrap:focus-within .oc-messageActions {
   transform: translateY(0);
 }
 
@@ -416,7 +423,7 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-part-tool {
-  --oc-chain-anchor-y: 20px;
+  --oc-chain-anchor-y: 50%;
   --oc-chain-dot-color: #cf8450;
 }
 
@@ -495,8 +502,13 @@
   border-radius: 999px;
 }
 
+.oc-shell[data-oc-theme="claude"] .oc-turnUserWrap-theme-claude {
+  box-sizing: border-box;
+  padding-right: 116px;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-turnUser {
-  padding: 15px 18px 14px;
+  padding: 12px 18px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
   border-radius: 12px;
   background: color-mix(in srgb, var(--oc-message-user-bg) 94%, var(--oc-surface-elevated) 6%);
@@ -507,9 +519,10 @@
   display: none;
 }
 
-.oc-shell[data-oc-theme="claude"] .oc-messageActions {
-  right: 12px;
-  bottom: 12px;
+.oc-shell[data-oc-theme="claude"] .oc-messageActions-topRightExternal {
+  right: 0;
+  top: 8px;
+  bottom: auto;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-messageActionBtn {
@@ -561,22 +574,34 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-turnUser {
-  max-width: min(72ch, 100%);
-  justify-self: end;
-  padding: 10px 16px;
+  padding: 10px 14px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 58%, transparent 42%);
   border-radius: 18px;
   background: color-mix(in srgb, var(--oc-message-user-bg) 96%, var(--oc-surface-elevated) 4%);
   box-shadow: var(--oc-card-shadow);
 }
 
+.oc-shell[data-oc-theme="codex"] .oc-turnUserWrap-compactEnd {
+  width: fit-content;
+  max-width: min(72ch, calc(100% - 8px));
+  justify-self: end;
+  padding-bottom: 30px;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-turnUser-compactEnd {
+  width: fit-content;
+  max-width: 100%;
+  justify-self: stretch;
+}
+
 .oc-shell[data-oc-theme="codex"] .oc-turnUser::before {
   display: none;
 }
 
-.oc-shell[data-oc-theme="codex"] .oc-messageActions {
-  right: 10px;
-  bottom: 10px;
+.oc-shell[data-oc-theme="codex"] .oc-messageActions-belowHover {
+  top: auto;
+  right: 16px;
+  bottom: 0;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-messageActionBtn {

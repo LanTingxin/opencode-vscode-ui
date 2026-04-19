@@ -139,6 +139,7 @@ export const Timeline = React.memo(function Timeline({
               onPreviewImageAttachment={onPreviewImageAttachment}
               onRedoSession={onRedoSession}
               onUndoUserMessage={onUndoUserMessage}
+              panelTheme={panelTheme}
               skillCatalog={skillCatalog}
             />
           )
@@ -169,6 +170,7 @@ type TimelineBlockViewProps = {
   onPreviewImageAttachment: (image: { src: string; name: string }) => void
   onRedoSession: () => void
   onUndoUserMessage: (message: SessionMessage) => void
+  panelTheme: PanelTheme
   skillCatalog: SkillCatalogEntry[]
 }
 
@@ -189,6 +191,7 @@ function TimelineBlockView({
   onPreviewImageAttachment,
   onRedoSession,
   onUndoUserMessage,
+  panelTheme,
   skillCatalog,
 }: TimelineBlockViewProps) {
   const [commandPromptExpanded, setCommandPromptExpanded] = React.useState(false)
@@ -198,6 +201,9 @@ function TimelineBlockView({
   }, [block.kind === "user-message" ? block.message.info.id : block.key])
 
   if (block.kind === "user-message") {
+    const userTurnWrapClassName = userTurnWrapClassNames(panelTheme)
+    const userTurnClassName = userTurnClassNames(panelTheme)
+    const messageActionsClassName = messageActionsClassNames(panelTheme)
     const userText = visibleUserText(block.message)
     const commandPrompt = userText ? findCommandPromptInvocation(userText.text || "", commandPromptInvocations, commands) : undefined
     const skillMatch = compactSkillInvocations && userText
@@ -214,43 +220,45 @@ function TimelineBlockView({
     return (
       <>
         {hasCompaction ? <CompactionDivider /> : null}
-        <section className="oc-turnUser">
-          {block.queued ? (
-            <div className="oc-userStatusRow">
-              <div className="oc-queuedBadge">QUEUED</div>
-            </div>
-          ) : null}
-          {commandPrompt || skillMatch || userFiles.length > 0 ? (
-            <div className="oc-attachmentRow">
-              {commandPrompt ? (
-                <CommandPill
-                  label={commandPromptLabel(commandPrompt)}
-                  preview={previewCommandPromptText(userText?.text || "")}
-                  expanded={commandPromptExpanded}
-                  onClick={() => setCommandPromptExpanded((current) => !current)}
-                />
-              ) : null}
-              {skillMatch ? <SkillPill name={skillMatch.name} onClick={skillLocation ? () => onOpenFileAttachment(skillLocation) : undefined} /> : null}
-              {userFiles.map((part) => (
-                <AttachmentPill
-                  key={part.id}
-                  part={part}
-                  onOpenFileAttachment={onOpenFileAttachment}
-                  onPreviewImageAttachment={onPreviewImageAttachment}
-                />
-              ))}
-            </div>
-          ) : null}
-          {commandPrompt
-            ? (commandPromptExpanded ? <PlainTextBlock content={userText?.text || ""} /> : null)
-            : skillMatch?.remainder
-            ? <PlainTextBlock content={skillMatch.remainder} />
-            : skillMatch
-              ? null
-            : userText
-              ? <PlainTextBlock content={userText.text || ""} />
-            : (showEmptyPrompt ? <div className="oc-partEmpty">No visible prompt text.</div> : null)}
-          <div className="oc-messageActions" aria-label="Message actions">
+        <div className={userTurnWrapClassName}>
+          <section className={userTurnClassName}>
+            {block.queued ? (
+              <div className="oc-userStatusRow">
+                <div className="oc-queuedBadge">QUEUED</div>
+              </div>
+            ) : null}
+            {commandPrompt || skillMatch || userFiles.length > 0 ? (
+              <div className="oc-attachmentRow">
+                {commandPrompt ? (
+                  <CommandPill
+                    label={commandPromptLabel(commandPrompt)}
+                    preview={previewCommandPromptText(userText?.text || "")}
+                    expanded={commandPromptExpanded}
+                    onClick={() => setCommandPromptExpanded((current) => !current)}
+                  />
+                ) : null}
+                {skillMatch ? <SkillPill name={skillMatch.name} onClick={skillLocation ? () => onOpenFileAttachment(skillLocation) : undefined} /> : null}
+                {userFiles.map((part) => (
+                  <AttachmentPill
+                    key={part.id}
+                    part={part}
+                    onOpenFileAttachment={onOpenFileAttachment}
+                    onPreviewImageAttachment={onPreviewImageAttachment}
+                  />
+                ))}
+              </div>
+            ) : null}
+            {commandPrompt
+              ? (commandPromptExpanded ? <PlainTextBlock content={userText?.text || ""} /> : null)
+              : skillMatch?.remainder
+              ? <PlainTextBlock content={skillMatch.remainder} />
+              : skillMatch
+                ? null
+              : userText
+                ? <PlainTextBlock content={userText.text || ""} />
+              : (showEmptyPrompt ? <div className="oc-partEmpty">No visible prompt text.</div> : null)}
+          </section>
+          <div className={messageActionsClassName} aria-label="Message actions">
             <button type="button" className="oc-messageActionBtn" aria-label="Copy" data-tooltip="Copy" onClick={() => onCopyUserMessage(block.message)}>
               <CopyMessageIcon />
             </button>
@@ -261,7 +269,7 @@ function TimelineBlockView({
               <UndoMessageIcon />
             </button>
           </div>
-        </section>
+        </div>
       </>
     )
   }
@@ -311,6 +319,48 @@ const MemoTimelineBlockView = React.memo(TimelineBlockView, areTimelineBlockProp
 
 function PlainTextBlock({ content }: { content: string }) {
   return <div className="oc-partText">{content}</div>
+}
+
+function userTurnWrapClassNames(panelTheme: PanelTheme) {
+  const classes = ["oc-turnUserWrap"]
+
+  if (panelTheme === "claude") {
+    classes.push("oc-turnUserWrap-theme-claude")
+  }
+
+  if (panelTheme === "codex") {
+    classes.push("oc-turnUserWrap-theme-codex", "oc-turnUserWrap-compactEnd")
+  }
+
+  return classes.join(" ")
+}
+
+function userTurnClassNames(panelTheme: PanelTheme) {
+  const classes = ["oc-turnUser"]
+
+  if (panelTheme === "claude") {
+    classes.push("oc-turnUser-theme-claude")
+  }
+
+  if (panelTheme === "codex") {
+    classes.push("oc-turnUser-theme-codex", "oc-turnUser-compactEnd")
+  }
+
+  return classes.join(" ")
+}
+
+function messageActionsClassNames(panelTheme: PanelTheme) {
+  const classes = ["oc-messageActions"]
+
+  if (panelTheme === "claude") {
+    classes.push("oc-messageActions-topRightExternal")
+  }
+
+  if (panelTheme === "codex") {
+    classes.push("oc-messageActions-belowHover")
+  }
+
+  return classes.join(" ")
 }
 
 function AttachmentPill({
@@ -376,6 +426,7 @@ function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: Timeline
     || prev.onPreviewImageAttachment !== next.onPreviewImageAttachment
     || prev.onRedoSession !== next.onRedoSession
     || prev.onUndoUserMessage !== next.onUndoUserMessage
+    || prev.panelTheme !== next.panelTheme
     || prev.commandPromptInvocations !== next.commandPromptInvocations
     || prev.commands !== next.commands
     || prev.skillCatalog !== next.skillCatalog) {

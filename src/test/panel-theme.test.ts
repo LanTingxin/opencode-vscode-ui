@@ -115,6 +115,17 @@ describe("panel theme settings", () => {
     assert.match(layoutCss, /\.oc-footer\s*\{[\s\S]*padding:\s*8px 0 10px;/)
   })
 
+  test("lets themed transcript shells widen toward the editor edges", () => {
+    const layoutCss = readFileSync(resolve(process.cwd(), "src/panel/webview/layout.css"), "utf8")
+    const themeCss = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+
+    assert.match(layoutCss, /\.oc-transcriptInner\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*var\(--oc-transcript-max-width,\s*none\);[\s\S]*margin:\s*0 auto;[\s\S]*padding:\s*0 var\(--oc-shell-gutter,\s*0px\);/s)
+    assert.match(themeCss, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-transcript-max-width:\s*1280px;[\s\S]*--oc-shell-gutter:\s*10px;/s)
+    assert.match(themeCss, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-transcript-max-width:\s*1280px;[\s\S]*--oc-shell-gutter:\s*10px;/s)
+    assert.match(themeCss, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-transcript-max-width:\s*1160px;[\s\S]*--oc-shell-gutter:\s*12px;/s)
+    assert.match(themeCss, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-transcript-max-width:\s*1160px;[\s\S]*--oc-shell-gutter:\s*12px;/s)
+  })
+
   test("uses a dedicated warm accent for skill pills instead of the old magenta fill", () => {
     const baseCss = readFileSync(resolve(process.cwd(), "src/panel/webview/base.css"), "utf8")
     const themeCss = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
@@ -186,9 +197,17 @@ describe("panel theme settings", () => {
     const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
 
-    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*max-width:\s*min\(72ch,\s*100%\);/)
-    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*justify-self:\s*end;/)
-    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*padding:\s*10px 16px;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*padding:\s*10px 14px;/)
+    assert.match(timelineCss, /\.oc-turnUserWrap:hover\s+\.oc-messageActions,/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser-compactEnd\s*\{[\s\S]*width:\s*fit-content;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUserWrap-compactEnd\s*\{[\s\S]*max-width:\s*min\(72ch,\s*calc\(100%\s*-\s*8px\)\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUserWrap-compactEnd\s*\{[\s\S]*justify-self:\s*end;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser-compactEnd\s*\{[\s\S]*max-width:\s*100%;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUserWrap-compactEnd\s*\{[\s\S]*padding-bottom:\s*\d+px;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-messageActions-belowHover\s*\{[\s\S]*top:\s*auto;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-messageActions-belowHover\s*\{[\s\S]*bottom:\s*0;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUserWrap-theme-claude\s*\{[\s\S]*padding-right:\s*\d+px;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-messageActions-topRightExternal\s*\{[\s\S]*right:\s*0;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem\s*\{/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::before\s*\{/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{/)
@@ -197,6 +216,7 @@ describe("panel theme settings", () => {
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{[\s\S]*width:\s*8px;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{[\s\S]*height:\s*8px;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::after\s*\{[\s\S]*border:\s*0;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-part-tool\s*\{[\s\S]*--oc-chain-anchor-y:\s*50%;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-question\s*\{/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-todowrite\s*\{/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-bash,\s*[\s\S]*?\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-write,/)
