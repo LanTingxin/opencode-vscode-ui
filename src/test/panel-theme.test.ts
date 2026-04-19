@@ -168,11 +168,30 @@ describe("panel theme settings", () => {
 
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-composerBody\s*\{/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-composerPrimaryAction\s*\{/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-composerErrorText\s*\{/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-composerBody\s*\{/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-composerErrorText\s*\{/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-statusBadge\s*\{/)
 
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-assistantError\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-assistantError\s*\{/)
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolRowWrap\s*\{/)
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-toolPanel\.is-active\s*\{/)
+  })
+
+  test("gives codex and claude distinct themed treatments for composer and transcript errors", () => {
+    const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
+    const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
+
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-composerErrorText\s*\{[\s\S]*border-radius:\s*999px;/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-composerErrorText\s*\{[\s\S]*background:\s*color-mix\(in srgb,\s*var\(--oc-error\)\s*10%,\s*var\(--oc-surface-block\)\s*90%\);/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-composerErrorText\s*\{[\s\S]*border:\s*1px solid color-mix\(in srgb,\s*var\(--oc-error\)\s*34%,\s*var\(--oc-border-strong\)\s*66%\);/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-composerErrorText\s*\{[\s\S]*font-family:\s*var\(--oc-mono\);/)
+
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-assistantError\s*\{[\s\S]*box-shadow:\s*var\(--oc-card-shadow\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-assistantError\s*\{[\s\S]*border:\s*1px solid color-mix\(in srgb,\s*var\(--oc-error\)\s*18%,\s*var\(--oc-border-strong\)\s*82%\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-assistantError\s*\{[\s\S]*background:\s*linear-gradient\(180deg,\s*color-mix\(in srgb,\s*var\(--oc-message-assistant-bg\)\s*94%,\s*var\(--oc-surface-elevated\)\s*6%\)\s*0%,\s*color-mix\(in srgb,\s*var\(--oc-error\)\s*6%,\s*var\(--oc-message-assistant-bg\)\s*94%\)\s*100%\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-assistantError\s*\{[\s\S]*border:\s*1px solid color-mix\(in srgb,\s*var\(--oc-error\)\s*24%,\s*var\(--oc-border-strong\)\s*76%\);/)
   })
 
   test("keeps codex and claude on the default full-width outer layout", () => {

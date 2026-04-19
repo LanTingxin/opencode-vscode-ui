@@ -539,6 +539,18 @@
   box-shadow: var(--oc-card-shadow);
 }
 
+.oc-shell[data-oc-theme="claude"] .oc-assistantError {
+  padding: 8px 14px 8px 16px;
+  border: 1px solid color-mix(in srgb, var(--oc-error) 18%, var(--oc-border-strong) 82%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--oc-error) 6%, var(--oc-message-assistant-bg) 94%);
+  box-shadow: var(--oc-card-shadow);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-assistantError::before {
+  display: none;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-part-text,
 .oc-shell[data-oc-theme="claude"] .oc-part-inline,
 .oc-shell[data-oc-theme="claude"] .oc-part-compact {
@@ -617,6 +629,18 @@
   border-color: color-mix(in srgb, var(--oc-border) 76%, transparent 24%);
   background: color-mix(in srgb, var(--oc-surface-block) 92%, var(--oc-surface-elevated) 8%);
   box-shadow: var(--oc-tool-shadow);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-assistantError {
+  padding: 8px 14px 8px 16px;
+  border: 1px solid color-mix(in srgb, var(--oc-error) 24%, var(--oc-border-strong) 76%);
+  border-radius: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--oc-message-assistant-bg) 94%, var(--oc-surface-elevated) 6%) 0%, color-mix(in srgb, var(--oc-error) 6%, var(--oc-message-assistant-bg) 94%) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent 92%);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-assistantError::before {
+  display: none;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-part-text,
