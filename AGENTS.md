@@ -1,18 +1,83 @@
-# OpenCode UI
+# OpenCode Enhanced UI
 
-This repo is a standalone VS Code extension for browsing and operating OpenCode sessions per workspace folder. It starts `opencode serve` for each workspace, shows grouped sessions in the Activity Bar sidebar, and opens session tabs with a local webview UI. The local `opencode/` directory is only a symlink to the upstream repo for reference; do not import from it, depend on it at runtime, or commit it.
+This repo is the enhanced standalone VS Code extension for browsing and operating OpenCode sessions per workspace folder. It starts `opencode serve` for each workspace, shows grouped sessions in the Activity Bar sidebar, opens session tabs with a local webview UI, and adds enhanced workflows such as search, tags, subagents, theme presets, and status bar entry points. The local `opencode/` directory is only a symlink to the upstream repo for reference; do not import from it, depend on it at runtime, or commit it.
 
 - `src/`: extension source code
-  - `src/core/`: workspace runtime, SDK access, commands, event streaming, session state, and tab orchestration
-  - `src/sidebar/`: TreeDataProvider, tree items, focused session tracking, and sidebar webviews
-  - `src/panel/`: session panel provider, serializer, host-side controller logic, and webview HTML shell
+  - `src/core/`: workspace runtime, SDK access, capabilities, commands, launch context, event streaming, session state, tags, status bar, and tab orchestration
+  - `src/sidebar/`: TreeDataProvider, tree items, focused session tracking, subagent activity, tree sync, and sidebar webviews for todo, diff, subagents, and session companion views
+  - `src/panel/`: session panel provider, serializer, shared reducers/helpers, host-side controller logic, and the panel webview app and HTML shell
   - `src/bridge/`: typed host/webview message contracts and panel constants
+- `src/test/`: cross-module, integration-style, parity, and extension-level regression tests
 - `images/`: extension icons and activity bar assets
 - `dist/`: compiled extension and webview bundle output
-- `PLAN.md`: implementation plan and milestone tracking
+- `README.md`: user-facing product overview, commands, settings, and workflows
+- `package.json`: extension manifest, commands, views, menus, activation events, settings, and build scripts
 - `AGENTS.md`: instructions for agentic coding agents in this repository
 - `.memory/`: local memory log, git ignored
 - `opencode/`: local upstream symlink for reference only, git ignored
+
+## General Working Principles
+
+These guidelines are intended to reduce common LLM coding mistakes. Apply them together with the repository-specific rules below. When a rule below is more specific, follow the more specific rule.
+
+**Tradeoff**: These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+### 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them instead of picking silently.
+- If a simpler approach exists, say so.
+- If something is unclear, stop, name what is confusing, and ask.
+
+### 2. Simplicity First
+
+**Write the minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No flexibility or configurability that was not requested.
+- No error handling for impossible scenarios.
+- If 200 lines could be 50, simplify.
+
+Ask yourself: would a senior engineer say this is overcomplicated? If yes, simplify.
+
+### 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Do not improve adjacent code, comments, or formatting unless required by the task.
+- Do not refactor things that are not broken.
+- Match the existing style, even if you would do it differently.
+- If you notice unrelated dead code, mention it instead of deleting it.
+
+When your changes create orphans:
+- Remove imports, variables, or functions that your changes made unused.
+- Do not remove pre-existing dead code unless asked.
+
+The test: every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+**Define success criteria and verify them.**
+
+Transform tasks into verifiable goals:
+- Add validation -> write tests for invalid inputs, then make them pass.
+- Fix a bug -> write a test that reproduces it, then make it pass.
+- Refactor code -> ensure tests pass before and after.
+
+For multi-step tasks, state a brief plan:
+
+```text
+1. [Step] -> verify: [check]
+2. [Step] -> verify: [check]
+3. [Step] -> verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria like "make it work" require constant clarification.
 
 ## MOST IMPORTANT RULES
 
@@ -44,6 +109,7 @@ This repo is a standalone VS Code extension for browsing and operating OpenCode 
   - Keep module-local unit tests next to the code they cover, such as `src/panel/**/foo.test.ts`.
   - Put cross-module, integration-style, and parity tests under `src/test/`.
   - Do not add new tests under the local `opencode/` symlink.
+- Commands, views, menus, activation events, and settings are declared in `package.json`. When changing any of them, update the implementation, manifest entries, and impacted tests together.
 - Build pipeline details from `package.json`:
   - `compile`: runs type-check, lint, then `node esbuild.js`
   - `package`: runs type-check, lint, then `node esbuild.js --production`
@@ -108,7 +174,8 @@ This repo is a standalone VS Code extension for browsing and operating OpenCode 
   - Do not leave dead locals, stale imports, or commented-out code behind.
   - Avoid unrelated file churn during focused refactors or bug fixes.
   - Never commit `opencode/` or `.memory/`.
-  - Treat `PLAN.md` as the source of truth for milestone status and architectural constraints.
+  - Treat `package.json`, `README.md`, and the current `src/` structure as the source of truth for commands, views, settings, and architecture. If a future `PLAN.md` is added, use it for milestone status and architectural constraints.
+  - If you change user-visible commands, settings, views, labels, or workflows, update `README.md` and `AGENTS.md` when those descriptions become stale.
   - If you change workflow assumptions or repo commands, update this file accordingly.
 
 ## Git Commit Message Style

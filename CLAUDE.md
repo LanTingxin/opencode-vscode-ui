@@ -2,6 +2,69 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## General Working Principles
+
+These guidelines are intended to reduce common LLM coding mistakes. Apply them together with the project-specific instructions below.
+
+**Tradeoff**: These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+### 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them instead of picking silently.
+- If a simpler approach exists, say so.
+- If something is unclear, stop, name what is confusing, and ask.
+
+### 2. Simplicity First
+
+**Write the minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No flexibility or configurability that was not requested.
+- No error handling for impossible scenarios.
+- If 200 lines could be 50, simplify.
+
+Ask yourself: would a senior engineer say this is overcomplicated? If yes, simplify.
+
+### 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Do not improve adjacent code, comments, or formatting unless required by the task.
+- Do not refactor things that are not broken.
+- Match the existing style, even if you would do it differently.
+- If you notice unrelated dead code, mention it instead of deleting it.
+
+When your changes create orphans:
+- Remove imports, variables, or functions that your changes made unused.
+- Do not remove pre-existing dead code unless asked.
+
+The test: every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+**Define success criteria and verify them.**
+
+Transform tasks into verifiable goals:
+- Add validation -> write tests for invalid inputs, then make them pass.
+- Fix a bug -> write a test that reproduces it, then make it pass.
+- Refactor code -> ensure tests pass before and after.
+
+For multi-step tasks, state a brief plan:
+
+```text
+1. [Step] -> verify: [check]
+2. [Step] -> verify: [check]
+3. [Step] -> verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria like "make it work" require constant clarification.
+
 ## Project Overview
 
 OpenCode UI is a VS Code extension that brings OpenCode sessions into the editor. It manages one `opencode serve` runtime per workspace folder, displays sessions in a sidebar tree, opens each session in a dedicated webview panel, and provides companion views for todos and modified files. The extension works in both local and Remote SSH environments.
