@@ -5,6 +5,13 @@
   justify-self: stretch;
 }
 
+.oc-assistantReplyWrap {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  justify-self: stretch;
+}
+
 .oc-turnUser {
   display: grid;
   gap: 4px;
@@ -109,6 +116,8 @@
 
 .oc-turnUserWrap:hover .oc-messageActions,
 .oc-turnUserWrap:focus-within .oc-messageActions,
+.oc-assistantReplyWrap:hover .oc-messageActions,
+.oc-assistantReplyWrap:focus-within .oc-messageActions,
 .oc-revertNotice:hover .oc-revertActions,
 .oc-revertNotice:focus-within .oc-revertActions {
   opacity: 1;
@@ -116,7 +125,9 @@
 }
 
 .oc-turnUserWrap:hover .oc-messageActions,
-.oc-turnUserWrap:focus-within .oc-messageActions {
+.oc-turnUserWrap:focus-within .oc-messageActions,
+.oc-assistantReplyWrap:hover .oc-messageActions,
+.oc-assistantReplyWrap:focus-within .oc-messageActions {
   transform: translateY(0);
 }
 
@@ -229,6 +240,11 @@
   padding: 6px 10px;
   border: 0;
   background: var(--oc-message-assistant-bg);
+}
+
+.oc-assistantReplyWrap .oc-part-text,
+.oc-assistantReplyWrap .oc-part-inline {
+  padding-right: 46px;
 }
 
 .oc-partText,
@@ -606,6 +622,11 @@
   padding-right: 116px;
 }
 
+.oc-shell[data-oc-theme="claude"] .oc-assistantReplyWrap-theme-claude {
+  box-sizing: border-box;
+  padding-right: 44px;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-turnUser {
   padding: 12px 18px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
@@ -696,6 +717,10 @@
   width: fit-content;
   max-width: min(72ch, calc(100% - 8px));
   justify-self: end;
+  padding-bottom: 30px;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-assistantReplyWrap-theme-codex {
   padding-bottom: 30px;
 }
 

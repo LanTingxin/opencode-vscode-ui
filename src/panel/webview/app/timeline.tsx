@@ -50,6 +50,7 @@ type TimelineProps = {
   compactSkillInvocations: boolean
   diffMode: "unified" | "split"
   messages: SessionMessage[]
+  onCopyAssistantText?: (value: string) => void
   onCopyUserMessage: (message: SessionMessage) => void
   onForkUserMessage: (message: SessionMessage) => void
   onOpenFileAttachment: (filePath: string) => void
@@ -77,6 +78,7 @@ export const Timeline = React.memo(function Timeline({
   compactSkillInvocations,
   diffMode,
   messages,
+  onCopyAssistantText = noopCopyAction,
   onCopyUserMessage,
   onForkUserMessage,
   onOpenFileAttachment,
@@ -134,6 +136,7 @@ export const Timeline = React.memo(function Timeline({
               commands={commands}
               compactSkillInvocations={compactSkillInvocations}
               diffMode={diffMode}
+              onCopyAssistantText={onCopyAssistantText}
               onCopyUserMessage={onCopyUserMessage}
               onForkUserMessage={onForkUserMessage}
               onOpenFileAttachment={onOpenFileAttachment}
@@ -165,6 +168,7 @@ type TimelineBlockViewProps = {
   commands: CommandInfo[]
   compactSkillInvocations: boolean
   diffMode: "unified" | "split"
+  onCopyAssistantText: (value: string) => void
   onCopyUserMessage: (message: SessionMessage) => void
   onForkUserMessage: (message: SessionMessage) => void
   onOpenFileAttachment: (filePath: string) => void
@@ -186,6 +190,7 @@ function TimelineBlockView({
   commands,
   compactSkillInvocations,
   diffMode,
+  onCopyAssistantText,
   onCopyUserMessage,
   onForkUserMessage,
   onOpenFileAttachment,
@@ -313,6 +318,24 @@ function TimelineBlockView({
   }
 
   const part = block.part
+  if (part.type === "text") {
+    const copyValue = assistantCopyText(part, { compactSkillInvocations, skillCatalog })
+    if (!copyValue) {
+      return <PartView part={part} active={active} diffMode={diffMode} />
+    }
+
+    return (
+      <div className={assistantReplyWrapClassNames(panelTheme)}>
+        <PartView part={part} active={active} diffMode={diffMode} />
+        <div className={messageActionsClassNames(panelTheme)} aria-label="Reply actions">
+          <button type="button" className="oc-messageActionBtn" aria-label="Copy reply" data-tooltip="Copy reply" onClick={() => onCopyAssistantText(copyValue)}>
+            <CopyMessageIcon />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return <PartView part={part} active={active} diffMode={diffMode} />
 }
 
@@ -331,6 +354,20 @@ function userTurnWrapClassNames(panelTheme: PanelTheme) {
 
   if (panelTheme === "codex") {
     classes.push("oc-turnUserWrap-theme-codex", "oc-turnUserWrap-compactEnd")
+  }
+
+  return classes.join(" ")
+}
+
+function assistantReplyWrapClassNames(panelTheme: PanelTheme) {
+  const classes = ["oc-assistantReplyWrap"]
+
+  if (panelTheme === "claude") {
+    classes.push("oc-assistantReplyWrap-theme-claude")
+  }
+
+  if (panelTheme === "codex") {
+    classes.push("oc-assistantReplyWrap-theme-codex")
   }
 
   return classes.join(" ")
@@ -421,6 +458,7 @@ function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: Timeline
     || prev.active !== next.active
     || prev.compactSkillInvocations !== next.compactSkillInvocations
     || prev.diffMode !== next.diffMode
+    || prev.onCopyAssistantText !== next.onCopyAssistantText
     || prev.onCopyUserMessage !== next.onCopyUserMessage
     || prev.onForkUserMessage !== next.onForkUserMessage
     || prev.onOpenFileAttachment !== next.onOpenFileAttachment
@@ -800,8 +838,31 @@ function lastPendingAssistantIndex(messages: SessionMessage[]) {
   return -1
 }
 
+const noopCopyAction = () => {}
+
 function primaryUserText(message: SessionMessage) {
   return message.parts.find((part): part is TextPart => part.type === "text" && typeof part.text === "string" && !part.synthetic && !part.ignored)
+}
+
+export function assistantCopyText(
+  part: MessagePart,
+  options?: {
+    compactSkillInvocations?: boolean
+    skillCatalog?: SkillCatalogEntry[]
+  },
+) {
+  if (part.type !== "text" || part.synthetic || part.ignored) {
+    return ""
+  }
+
+  if (options?.compactSkillInvocations) {
+    const match = findSkillInvocationMatch(part.text || "", options.skillCatalog || [])
+    if (match) {
+      return match.remainder || ""
+    }
+  }
+
+  return part.text || ""
 }
 
 function visibleUserText(message: SessionMessage) {

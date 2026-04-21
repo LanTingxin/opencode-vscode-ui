@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import type { FilePart, MessageInfo, MessagePart, SessionMessage, TextPart, ToolPart } from "../../../core/sdk"
-import { attachmentOpenPath, attachmentPreviewSource, createTimelineDerivationCache, findSkillLocation, reconcileTimelineBlocks } from "./timeline"
+import { assistantCopyText, attachmentOpenPath, attachmentPreviewSource, createTimelineDerivationCache, findSkillLocation, reconcileTimelineBlocks } from "./timeline"
 
 function messageInfo(id: string, role: "user" | "assistant", extras?: Partial<MessageInfo>): MessageInfo {
   return {
@@ -142,6 +142,17 @@ describe("timeline block reconciliation", () => {
 })
 
 describe("timeline attachment helpers", () => {
+  test("returns the original assistant markdown text for copy actions", () => {
+    assert.equal(assistantCopyText(textPart("p1", "m1", "# 标题\n\n- 条目")), "# 标题\n\n- 条目")
+  })
+
+  test("does not expose synthetic assistant text to the copy action", () => {
+    assert.equal(assistantCopyText({
+      ...textPart("p2", "m2", "hidden"),
+      synthetic: true,
+    }), "")
+  })
+
   test("finds the configured skill file location", () => {
     assert.equal(findSkillLocation("brainstorming", [
       {

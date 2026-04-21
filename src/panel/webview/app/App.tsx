@@ -918,6 +918,14 @@ export function App() {
     void copyText(value)
   }, [])
 
+  const copyAssistantText = React.useCallback((value: string) => {
+    if (!value.trim()) {
+      return
+    }
+
+    void copyText(value)
+  }, [])
+
   const forkUserMessage = React.useCallback((message: SessionMessage) => {
     vscode.postMessage({ type: "messageAction", action: "forkUserMessage", messageID: message.info.id })
   }, [])
@@ -1280,19 +1288,20 @@ export function App() {
                     commands={state.snapshot.commands}
                     diffMode={state.snapshot.display.diffMode}
                     messages={state.snapshot.messages}
+                    onCopyAssistantText={copyAssistantText}
                     onCopyUserMessage={copyUserMessage}
                     onForkUserMessage={forkUserMessage}
                     onOpenFileAttachment={openFileAttachment}
                     onPreviewImageAttachment={previewAttachmentImage}
                     onRedoSession={redoSession}
                     onUndoUserMessage={undoUserMessage}
-                  revertID={state.snapshot.session?.revert?.messageID}
-                  revertDiff={state.snapshot.session?.revert?.diff}
-                  showInternals={state.snapshot.display.showInternals}
-                  showThinking={state.snapshot.display.showThinking}
-                  panelTheme={panelTheme}
-                  skillCatalog={state.snapshot.skillCatalog}
-                  AgentBadge={AgentBadge}
+                    revertID={state.snapshot.session?.revert?.messageID}
+                    revertDiff={state.snapshot.session?.revert?.diff}
+                    showInternals={state.snapshot.display.showInternals}
+                    showThinking={state.snapshot.display.showThinking}
+                    panelTheme={panelTheme}
+                    skillCatalog={state.snapshot.skillCatalog}
+                    AgentBadge={AgentBadge}
                     CompactionDivider={CompactionDivider}
                     EmptyState={EmptyState}
                     MarkdownBlock={MarkdownBlock}

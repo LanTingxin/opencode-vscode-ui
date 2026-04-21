@@ -248,6 +248,36 @@ describe("Timeline user message rendering", () => {
     assert.ok(html.indexOf("unknown certificate verification error") < html.indexOf("build"))
   })
 
+  test("renders a hover copy action for assistant text replies", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "assistant"), [textPart("p1", "m1", "# 标题\n\n- 条目")])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>rendered:{content}</div>}
+        PartView={({ part }) => <div>{part.type === "text" ? `rendered:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("oc-assistantReplyWrap"), true)
+    assert.equal(html.includes('aria-label="Copy reply"'), true)
+    assert.equal(html.includes('data-tooltip="Copy reply"'), true)
+    assert.equal(html.includes("rendered:# 标题"), true)
+  })
+
   test("wraps claude assistant outputs, including metadata, in unified chain items while leaving user messages unchained", () => {
     const html = renderToStaticMarkup(
       <Timeline
