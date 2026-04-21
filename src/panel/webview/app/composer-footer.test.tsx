@@ -38,6 +38,8 @@ describe("ComposerFooter", () => {
     assert.equal(hintIndex > -1, true)
     assert.equal(contextIndex > -1, true)
     assert.equal(statusIndex < contextIndex, true)
+    assert.equal(html.includes("oc-composerStatusTrack"), true)
+    assert.equal(html.includes("oc-composerStatusTrackGlow"), true)
   })
 
   test("renders a compact context ring before MCP and LSP while hiding footer metric text and formatter badges", () => {

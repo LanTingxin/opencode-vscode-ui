@@ -8,6 +8,9 @@ export function ComposerRunningStrip({ status }: { status: ComposerRunningState 
       <span className="oc-composerStatusDot" aria-hidden="true" />
       <span className="oc-composerStatusLabel">{status.label}</span>
       <span className="oc-composerStatusHint">{status.hint}</span>
+      <span className="oc-composerStatusTrack" aria-hidden="true">
+        <span className="oc-composerStatusTrackGlow" />
+      </span>
     </div>
   )
 }

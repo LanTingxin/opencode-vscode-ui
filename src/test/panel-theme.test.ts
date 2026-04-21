@@ -226,6 +226,17 @@ describe("panel theme settings", () => {
     assert.doesNotMatch(statusCss, /@media\s*\(max-width:\s*480px\)\s*\{[\s\S]*\.oc-composerActions\s*\{/)
   })
 
+  test("gives the composer thinking strip a subtle motion track with reduced-motion fallback", () => {
+    const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
+
+    assert.match(statusCss, /\.oc-composerStatusTrack\s*\{[\s\S]*overflow:\s*hidden;/)
+    assert.match(statusCss, /\.oc-composerStatusTrackGlow\s*\{[\s\S]*animation:\s*oc-composerStatusSweep/)
+    assert.match(statusCss, /\.oc-composerStatusDot\s*\{[\s\S]*animation:\s*oc-composerStatusPulse/)
+    assert.match(statusCss, /@keyframes\s+oc-composerStatusSweep/)
+    assert.match(statusCss, /@keyframes\s+oc-composerStatusPulse/)
+    assert.match(statusCss, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*\.oc-composerStatusTrackGlow[\s\S]*animation:\s*none;/)
+  })
+
   test("adds preset-specific transcript shell, message, and composer styling hooks", () => {
     const layoutCss = readFileSync(resolve(process.cwd(), "src/panel/webview/layout.css"), "utf8")
     const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
