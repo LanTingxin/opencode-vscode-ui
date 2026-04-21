@@ -187,6 +187,39 @@ describe("timeline block reconciliation", () => {
     assert.equal(blocks.filter((block) => block.kind === "assistant-part").length, 3)
     assert.equal(blocks.at(-1)?.kind, "assistant-meta")
   })
+
+  test("ignores codex placeholder text so activity can merge across assistant messages", () => {
+    const first = sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+      toolPartWithState("p1", "m1", "edit", { input: { filePath: "src/a.ts" } }),
+    ])
+    const placeholder = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+      textPart("p2", "m2", "..."),
+    ])
+    const second = sessionMessage(messageInfo("m3", "assistant", { agent: "build" }), [
+      toolPartWithState("p3", "m3", "edit", { input: { filePath: "src/b.ts" } }),
+    ])
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [first, placeholder, second], {
+      ...defaultOptions,
+      panelTheme: "codex",
+    })
+
+    assert.equal(blocks.length, 2)
+    assert.equal(blocks[0]?.kind, "assistant-activity")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "edited 2 files")
+    assert.equal(blocks[1]?.kind, "assistant-meta")
+  })
+
+  test("hides assistant placeholder text in every theme", () => {
+    const placeholder = sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+      textPart("p1", "m1", "。。。"),
+    ])
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [placeholder], defaultOptions)
+
+    assert.equal(blocks.filter((block) => block.kind === "assistant-part").length, 0)
+    assert.equal(blocks.at(-1)?.kind, "assistant-meta")
+  })
 })
 
 describe("timeline attachment helpers", () => {

@@ -434,6 +434,105 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("echo hi"), false)
   })
 
+  test("renders codex assistant copy actions inside the reply block instead of below it", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "assistant"), [textPart("p1", "m1", "Reply body")])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes('class="oc-assistantReplyWrap oc-assistantReplyWrap-theme-codex"'), true)
+    assert.equal(html.includes('class="oc-messageActions oc-messageActions-inlineTopRight"'), true)
+    assert.equal(html.includes('class="oc-messageActions oc-messageActions-belowHover"'), false)
+  })
+
+  test("ignores codex placeholder text so activity summaries stay compact across assistant messages", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[
+          sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+            toolPartWithState("t1", "m1", "edit", { input: { filePath: "src/a.ts" } }),
+          ]),
+          sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+            textPart("p2", "m2", "..."),
+          ]),
+          sessionMessage(messageInfo("m3", "assistant", { agent: "build" }), [
+            toolPartWithState("t3", "m3", "edit", { input: { filePath: "src/b.ts" } }),
+          ]),
+        ]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "tool" ? JSON.stringify(part.state?.input || {}) : part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("edited 2 files"), true)
+    assert.equal(html.includes(">...<"), false)
+  })
+
+  test("hides assistant placeholder text in the default theme too", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+          textPart("p1", "m1", "。。。"),
+        ])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="default"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes(">。。。<"), false)
+  })
+
   test("keeps default-theme assistant tools on the existing inline path", () => {
     const html = renderToStaticMarkup(
       <Timeline

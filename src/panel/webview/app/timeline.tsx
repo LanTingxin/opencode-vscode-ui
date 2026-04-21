@@ -377,7 +377,7 @@ function TimelineBlockView({
     return (
       <div className={assistantReplyWrapClassNames(panelTheme)}>
         <PartView part={part} active={active} diffMode={diffMode} />
-        <div className={messageActionsClassNames(panelTheme)} aria-label="Reply actions">
+        <div className={assistantMessageActionsClassNames(panelTheme)} aria-label="Reply actions">
           <button type="button" className="oc-messageActionBtn" aria-label="Copy reply" data-tooltip="Copy reply" onClick={() => onCopyAssistantText(copyValue)}>
             <CopyMessageIcon />
           </button>
@@ -446,6 +446,20 @@ function messageActionsClassNames(panelTheme: PanelTheme) {
 
   if (panelTheme === "codex") {
     classes.push("oc-messageActions-belowHover")
+  }
+
+  return classes.join(" ")
+}
+
+function assistantMessageActionsClassNames(panelTheme: PanelTheme) {
+  const classes = ["oc-messageActions"]
+
+  if (panelTheme === "claude") {
+    classes.push("oc-messageActions-topRightExternal")
+  }
+
+  if (panelTheme === "codex") {
+    classes.push("oc-messageActions-inlineTopRight")
   }
 
   return classes.join(" ")
@@ -675,9 +689,26 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
   const nextUserBlocks = new Map<string, Extract<TimelineBlock, { kind: "user-message" }>>()
   const blocks: TimelineBlock[] = []
   let assistants: SessionMessage[] = []
+  let pendingActivity: AssistantActivityToolPart[] = []
   const pendingAssistantIndex = lastPendingAssistantIndex(messages)
 
+  const flushActivity = () => {
+    if (pendingActivity.length === 0) {
+      return
+    }
+    const activity = assistantActivityBlock(cache.assistantActivityBlocks, nextAssistantActivityBlocks, pendingActivity)
+    if (activity) {
+      blocks.push(activity)
+    } else {
+      for (const part of pendingActivity) {
+        blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
+      }
+    }
+    pendingActivity = []
+  }
+
   const flush = () => {
+    flushActivity()
     const meta = assistantMetaBlock(cache.assistantMetaBlocks, nextAssistantMetaBlocks, assistants)
     if (meta) {
       blocks.push(meta)
@@ -700,22 +731,6 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
 
     const parts = message.parts.filter((part) => visibleAssistantPart(part, options))
     if (options.panelTheme === "codex") {
-      let pendingActivity: AssistantActivityToolPart[] = []
-      const flushActivity = () => {
-        if (pendingActivity.length === 0) {
-          return
-        }
-        const activity = assistantActivityBlock(cache.assistantActivityBlocks, nextAssistantActivityBlocks, pendingActivity)
-        if (activity) {
-          blocks.push(activity)
-        } else {
-          for (const part of pendingActivity) {
-            blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
-          }
-        }
-        pendingActivity = []
-      }
-
       for (const part of parts) {
         if (part.type === "tool" && isCodexActivityTool(part)) {
           pendingActivity.push(part)
@@ -725,7 +740,6 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
         flushActivity()
         blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
       }
-      flushActivity()
     } else {
       for (const part of parts) {
         blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
@@ -733,6 +747,7 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
     }
     const errorText = assistantErrorText(message.info)
     if (errorText) {
+      flushActivity()
       blocks.push(assistantErrorBlock(cache.assistantErrorBlocks, nextAssistantErrorBlocks, message, errorText))
     }
     assistants.push(message)
@@ -1290,9 +1305,10 @@ function lastStepFinish(messages: SessionMessage[]) {
 
 type PartBucket = "primary" | "secondary" | "divider" | "hidden"
 
-function partBucket(part: MessagePart, options: { showThinking: boolean; showInternals: boolean }): PartBucket {
+function partBucket(part: MessagePart, options: { showThinking: boolean; showInternals: boolean; panelTheme?: PanelTheme }): PartBucket {
   if (part.type === "text") {
-    return part.text?.trim() && !part.synthetic && !part.ignored ? "primary" : "hidden"
+    const text = part.text?.trim() || ""
+    return text && !part.synthetic && !part.ignored && !isAssistantPlaceholderText(text) ? "primary" : "hidden"
   }
   if (part.type === "reasoning") {
     return options.showThinking && cleanReasoning(part.text || "").trim() ? "secondary" : "hidden"
@@ -1312,8 +1328,12 @@ function partBucket(part: MessagePart, options: { showThinking: boolean; showInt
   return options.showInternals ? "secondary" : "hidden"
 }
 
-function visibleAssistantPart(part: MessagePart, options: { showThinking: boolean; showInternals: boolean }) {
+function visibleAssistantPart(part: MessagePart, options: { showThinking: boolean; showInternals: boolean; panelTheme?: PanelTheme }) {
   return partBucket(part, options) !== "hidden"
+}
+
+function isAssistantPlaceholderText(text: string) {
+  return text === "..." || text === "…" || text === "。。。"
 }
 
 function assistantModel(info?: MessageInfo) {

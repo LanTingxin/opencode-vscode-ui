@@ -721,10 +721,6 @@
   padding-bottom: 30px;
 }
 
-.oc-shell[data-oc-theme="codex"] .oc-assistantReplyWrap-theme-codex {
-  padding-bottom: 30px;
-}
-
 .oc-shell[data-oc-theme="codex"] .oc-turnUser-compactEnd {
   width: fit-content;
   max-width: 100%;
@@ -739,6 +735,12 @@
   top: auto;
   right: 16px;
   bottom: 0;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-messageActions-inlineTopRight {
+  top: 8px;
+  right: 8px;
+  bottom: auto;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-messageActionBtn {

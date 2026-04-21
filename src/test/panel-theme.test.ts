@@ -302,6 +302,8 @@ describe("panel theme settings", () => {
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-messageActions-belowHover\s*\{[\s\S]*top:\s*auto;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-messageActions-belowHover\s*\{[\s\S]*bottom:\s*0;/)
     assert.match(timelineCss, /\.oc-assistantReplyWrap:hover\s+\.oc-messageActions,/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-messageActions-inlineTopRight\s*\{[\s\S]*top:\s*8px;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-messageActions-inlineTopRight\s*\{[\s\S]*right:\s*8px;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnUserWrap-theme-claude\s*\{[\s\S]*padding-right:\s*\d+px;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-messageActions-topRightExternal\s*\{[\s\S]*right:\s*0;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem\s*\{/)
