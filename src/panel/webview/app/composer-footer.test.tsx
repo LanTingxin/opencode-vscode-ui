@@ -6,6 +6,40 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { ComposerFooter } from "./composer-footer"
 
 describe("ComposerFooter", () => {
+  test("renders a running status strip before the context ring and badges", () => {
+    const html = renderToStaticMarkup(
+      <ComposerFooter
+        contextStats={{
+          tokens: "6,568",
+          usage: "68%",
+          cost: "$0.5203",
+          percent: 68,
+        }}
+        status={{
+          label: "Thinking",
+          hint: "Esc to interrupt",
+          tone: "running",
+          icon: "stop",
+          title: "Interrupt running session",
+          ariaLabel: "Interrupt running session",
+        }}
+        onOpenContext={() => {}}
+        badges={[
+          { label: "MCP", tone: "gray", items: [] },
+        ]}
+      />,
+    )
+
+    const statusIndex = html.indexOf("Thinking")
+    const hintIndex = html.indexOf("Esc to interrupt")
+    const contextIndex = html.indexOf("Open context")
+
+    assert.equal(statusIndex > -1, true)
+    assert.equal(hintIndex > -1, true)
+    assert.equal(contextIndex > -1, true)
+    assert.equal(statusIndex < contextIndex, true)
+  })
+
   test("renders a compact context ring before MCP and LSP while hiding footer metric text and formatter badges", () => {
     const html = renderToStaticMarkup(
       <ComposerFooter

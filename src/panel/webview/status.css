@@ -567,6 +567,64 @@
   overflow: hidden;
 }
 
+.oc-composerStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 82%, transparent 18%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oc-surface-control) 92%, transparent 8%);
+  color: var(--oc-fg-primary);
+  white-space: nowrap;
+}
+
+.oc-composerStatus.is-running {
+  border-color: color-mix(in srgb, var(--oc-accent) 26%, var(--oc-border-strong) 74%);
+}
+
+.oc-composerStatus.is-retry {
+  border-color: color-mix(in srgb, var(--oc-warning) 30%, var(--oc-border-strong) 70%);
+}
+
+.oc-composerStatus.is-armed {
+  border-color: color-mix(in srgb, var(--oc-error) 36%, var(--oc-border-strong) 64%);
+  background: color-mix(in srgb, var(--oc-error) 8%, var(--oc-surface-control) 92%);
+}
+
+.oc-composerStatusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--oc-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 10%, transparent 90%);
+  flex: 0 0 auto;
+}
+
+.oc-composerStatus.is-retry .oc-composerStatusDot {
+  background: var(--oc-warning);
+}
+
+.oc-composerStatus.is-armed .oc-composerStatusDot {
+  background: var(--oc-error);
+}
+
+.oc-composerStatusLabel {
+  min-width: 0;
+  font-size: var(--oc-font-size-sm);
+  font-weight: 600;
+}
+
+.oc-composerStatusHint {
+  min-width: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .oc-modelPicker {
   position: absolute;
   left: 0;

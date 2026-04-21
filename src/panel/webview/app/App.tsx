@@ -30,6 +30,7 @@ import { captureCommandPromptInvocations, consumeFailedCommandPrompt, shouldTrac
 import { CodexTodoPopover } from "./codex-todo-popover"
 import { ContextPanel } from "./context-panel"
 import { SessionPicker } from "./session-picker"
+import { composerRunningState } from "./composer-running-state"
 import { buildThemePickerItems, ThemePicker } from "./theme-picker"
 import { resolveTranscriptHistoryMode, shouldAutoLoadEarlierMessages, transcriptHistoryScrollThreshold } from "./transcript-history"
 
@@ -880,6 +881,7 @@ export function App() {
     ? "Enter shell command to run in this workspace"
     : "Ask OpenCode to inspect explain or change this workspace"
 
+  const composerRunningStatus = React.useMemo(() => composerRunningState(state.snapshot.sessionStatus, escPending), [escPending, state.snapshot.sessionStatus])
   const composerRunning = isSessionRunning(state.snapshot.sessionStatus)
   const primaryAction = composerPrimaryAction({
     draft: state.draft,
@@ -887,6 +889,7 @@ export function App() {
     blocked,
     running: composerRunning,
     escPending,
+    runningState: composerRunningStatus,
   })
 
   const clearComposerDraft = React.useCallback(() => {
@@ -1956,6 +1959,7 @@ export function App() {
                   </div>
                   <ComposerFooter
                     contextStats={composerFooterContextStats}
+                    status={composerRunningStatus}
                     contextOpen={contextPanelOpen}
                     badges={composerFooterBadges}
                     error={state.error || undefined}

@@ -1,9 +1,12 @@
+import type { ComposerRunningState } from "./composer-running-state"
+
 type ComposerPrimaryActionInput = {
   draft: string
   imageCount: number
   blocked: boolean
   running: boolean
   escPending: boolean
+  runningState?: ComposerRunningState
 }
 
 type ComposerPrimaryActionState = {
@@ -15,23 +18,23 @@ type ComposerPrimaryActionState = {
 }
 
 export function composerPrimaryAction(input: ComposerPrimaryActionInput): ComposerPrimaryActionState {
-  if (input.running) {
-    if (input.escPending) {
-      return {
-        kind: "interrupt",
-        disabled: false,
-        icon: "stop-confirm",
-        title: "Press again to interrupt",
-        ariaLabel: "Interrupt running session now",
-      }
-    }
-
+  if (input.runningState) {
     return {
       kind: "interrupt",
       disabled: false,
-      icon: "stop",
-      title: "Interrupt running session",
-      ariaLabel: "Interrupt running session",
+      icon: input.runningState.icon,
+      title: input.runningState.title,
+      ariaLabel: input.runningState.ariaLabel,
+    }
+  }
+
+  if (input.running) {
+    return {
+      kind: "interrupt",
+      disabled: false,
+      icon: input.escPending ? "stop-confirm" : "stop",
+      title: input.escPending ? "Press again to interrupt" : "Interrupt running session",
+      ariaLabel: input.escPending ? "Interrupt running session now" : "Interrupt running session",
     }
   }
 

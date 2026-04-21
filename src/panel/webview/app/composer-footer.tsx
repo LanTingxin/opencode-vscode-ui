@@ -1,6 +1,8 @@
 import React from "react"
 
 import type { StatusItem, StatusTone } from "../lib/session-meta"
+import type { ComposerRunningState } from "./composer-running-state"
+import { ComposerRunningStrip } from "./composer-running-strip"
 
 export type ComposerFooterBadge = {
   label: string
@@ -17,6 +19,7 @@ export type ComposerFooterContextStats = {
 
 export function ComposerFooter({
   contextStats,
+  status,
   contextOpen = false,
   badges,
   error,
@@ -26,6 +29,7 @@ export function ComposerFooter({
   onBadgeAction,
 }: {
   contextStats: ComposerFooterContextStats
+  status?: ComposerRunningState
   contextOpen?: boolean
   badges: ComposerFooterBadge[]
   error?: string
@@ -39,7 +43,7 @@ export function ComposerFooter({
   return (
     <div className="oc-composerActions">
       <div className="oc-composerActionsMain">
-        {error ? <div className="oc-errorText oc-composerErrorText">{error}</div> : <span />}
+        {error ? <div className="oc-errorText oc-composerErrorText">{error}</div> : status ? <ComposerRunningStrip status={status} /> : <span />}
       </div>
       <div className="oc-composerContextWrap">
         {onOpenContext ? (
