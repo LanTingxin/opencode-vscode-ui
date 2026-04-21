@@ -166,6 +166,14 @@ export function commands(
 
       await sessions.refresh(rt.workspaceId)
     }),
+    vscode.commands.registerCommand("opencode-ui.openWorkspaceInBrowser", async (item?: WorkspaceItem) => {
+      await openWorkspaceInBrowser({
+        runtime: item?.runtime,
+        openExternal: (uri) => vscode.env.openExternal(uri),
+        showInformationMessage: (message) => vscode.window.showInformationMessage(message),
+        showErrorMessage: (message) => vscode.window.showErrorMessage(message),
+      })
+    }),
     vscode.commands.registerCommand("opencode-ui.openSession", async (item?: SessionItem) => {
       if (!item) {
         await vscode.window.showInformationMessage("Pick a session item first.")
@@ -637,6 +645,13 @@ type WorkspaceSessionSearchInput = {
   showErrorMessage: (message: string) => Thenable<unknown>
 }
 
+type OpenWorkspaceInBrowserInput = {
+  runtime: Pick<WorkspaceRuntime, "name" | "state" | "url" | "err"> | undefined
+  openExternal: (uri: vscode.Uri) => Thenable<boolean>
+  showInformationMessage: (message: string) => Thenable<unknown>
+  showErrorMessage: (message: string) => Thenable<unknown>
+}
+
 export function buildWorkspaceSearchInputOptions(runtimeName: string, previousQuery?: string): vscode.InputBoxOptions {
   return {
     prompt: `Search sessions in ${runtimeName}`,
@@ -644,6 +659,20 @@ export function buildWorkspaceSearchInputOptions(runtimeName: string, previousQu
     ignoreFocusOut: true,
     value: previousQuery,
   }
+}
+
+export async function openWorkspaceInBrowser(input: OpenWorkspaceInBrowserInput) {
+  if (!input.runtime) {
+    await input.showInformationMessage("Pick a workspace item to open in the browser.")
+    return
+  }
+
+  if (input.runtime.state !== "ready") {
+    await input.showErrorMessage(runtimeNotReadyMessage(input.runtime))
+    return
+  }
+
+  await input.openExternal(vscode.Uri.parse(input.runtime.url))
 }
 
 export async function runWorkspaceSessionSearch(input: WorkspaceSessionSearchInput) {
@@ -658,7 +687,7 @@ export async function runWorkspaceSessionSearch(input: WorkspaceSessionSearchInp
   }
 
   if (input.runtime.state !== "ready" || !input.runtime.sdk) {
-    await input.showErrorMessage(runtimeNotReadyMessage(input.runtime as WorkspaceRuntime))
+    await input.showErrorMessage(runtimeNotReadyMessage(input.runtime))
     return
   }
 

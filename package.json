@@ -46,6 +46,7 @@
     "onCommand:opencode-ui.openSettings",
     "onCommand:opencode-ui.checkEnvironment",
     "onCommand:opencode-ui.refreshWorkspaceSessions",
+    "onCommand:opencode-ui.openWorkspaceInBrowser",
     "onCommand:opencode-ui.restartWorkspaceServer",
     "onCommand:opencode-ui.quickNewSession",
     "onCommand:opencode-ui.askSelection",
@@ -177,6 +178,12 @@
         "title": "OpenCode: Refresh Workspace Sessions",
         "shortTitle": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "opencode-ui.openWorkspaceInBrowser",
+        "title": "OpenCode: Open Workspace In Browser",
+        "shortTitle": "Open Web",
+        "icon": "$(globe)"
       },
       {
         "command": "opencode-ui.openSession",
@@ -369,6 +376,11 @@
           "command": "opencode-ui.refreshWorkspaceSessions",
           "when": "view == opencode-ui.sessions && (viewItem == workspace || viewItem == workspace-searching || viewItem == workspace-tag-filtered || viewItem == workspace-filtered)",
           "group": "inline@3"
+        },
+        {
+          "command": "opencode-ui.openWorkspaceInBrowser",
+          "when": "view == opencode-ui.sessions && (viewItem == workspace || viewItem == workspace-searching || viewItem == workspace-tag-filtered || viewItem == workspace-filtered)",
+          "group": "inline@4"
         },
         {
           "command": "opencode-ui.filterWorkspaceSessionsByTag",

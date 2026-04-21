@@ -21,7 +21,7 @@ export function missingOpencodeMessage(rt?: Pick<WorkspaceRuntime, "name">) {
   return `OpenCode UI could not start opencode${target}. Install the opencode CLI on the current ${host} host and ensure it is available on PATH.`
 }
 
-export function runtimeNotReadyMessage(rt?: WorkspaceRuntime) {
+export function runtimeNotReadyMessage(rt?: Pick<WorkspaceRuntime, "name" | "err">) {
   if (!rt) {
     return "Workspace server is not available."
   }

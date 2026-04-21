@@ -39,7 +39,7 @@ This enhanced version extends the original OpenCode UI with:
 
 ### Sessions sidebar with search and tags
 
-The sidebar gives you a workspace-first view of your OpenCode sessions. Create, reopen, refresh, tag, filter, and search conversations without leaving VS Code.
+The sidebar gives you a workspace-first view of your OpenCode sessions. Create, reopen, refresh, open the matching web UI, tag, filter, and search conversations without leaving VS Code.
 
 Search sessions within one workspace at a time, or filter by tags to organize your active work.
 
@@ -92,7 +92,7 @@ Open the dedicated session view in VS Code's secondary sidebar for a focused con
 
 ### Organization & Discovery
 - One OpenCode runtime per workspace folder
-- Session browser with create, open, refresh, rename, and archive actions
+- Session browser with create, open, refresh, open-web, rename, and archive actions
 - Workspace-scoped session search from the sidebar
 - Local session tagging with tag-based filtering
 - A dedicated panel for each workspace-session pair
@@ -172,6 +172,7 @@ If you use Remote SSH, **install `opencode` on the remote host** so the extensio
 ### Workspace & Environment
 - `OpenCode: Refresh` - Refresh all workspace sessions
 - `OpenCode: Refresh Workspace Sessions` - Refresh sessions for a specific workspace
+- `OpenCode: Open Workspace In Browser` - Open the matching workspace server in your browser
 - `OpenCode: Restart Workspace Server` - Restart the opencode serve process
 - `OpenCode: Check Environment` - Verify opencode installation and setup
 - `OpenCode: Open Output` - Open the OpenCode output channel
@@ -199,6 +200,7 @@ Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Cod
 - **Monitor subagents** - Keep the Subagents view open to track child sessions spawned during complex tasks
 - **Quick context actions** - Select code and right-click to instantly ask OpenCode about it
 - **Search within workspaces** - Use the search icon on workspace rows to quickly find sessions without affecting other workspaces
+- **Open the web UI when you need it** - Use the globe icon on a workspace row to jump straight to that workspace's opencode web interface
 - **Use the status bar** - Click the OpenCode status bar item for quick access to the active session
 
 ## Notes

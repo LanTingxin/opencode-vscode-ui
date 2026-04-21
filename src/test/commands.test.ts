@@ -4,7 +4,7 @@ import * as vscode from "vscode"
 
 import type { SessionPanelRef } from "../bridge/types"
 import type { SessionInfo, SessionStatus } from "../core/sdk"
-import { forkSessionMessage, manageSessionTags, renameSession, resolveNewSessionOpenColumn, resolveReusableNewSession, resolveSeedSessionTarget } from "../core/commands"
+import { forkSessionMessage, manageSessionTags, openWorkspaceInBrowser, renameSession, resolveNewSessionOpenColumn, resolveReusableNewSession, resolveSeedSessionTarget } from "../core/commands"
 
 function session(id: string, updated: number, title = `New session - ${id}`): SessionInfo {
   return {
@@ -142,6 +142,46 @@ describe("resolveReusableNewSession", () => {
 describe("resolveNewSessionOpenColumn", () => {
   test("opens newly created session panels beside the current editor column", () => {
     assert.equal(resolveNewSessionOpenColumn(), vscode.ViewColumn.Beside)
+  })
+})
+
+describe("openWorkspaceInBrowser", () => {
+  test("opens the ready workspace runtime URL in the external browser", async () => {
+    const calls: string[] = []
+
+    await openWorkspaceInBrowser({
+      runtime: {
+        name: "workspace-a",
+        state: "ready",
+        url: "http://127.0.0.1:60627",
+      },
+      openExternal: async (uri) => {
+        calls.push(uri.toString())
+        return true
+      },
+      showInformationMessage: async () => undefined,
+      showErrorMessage: async () => undefined,
+    })
+
+    assert.deepEqual(calls, ["http://127.0.0.1:60627"])
+  })
+
+  test("shows an informational message when no workspace item was provided", async () => {
+    const messages: string[] = []
+
+    await openWorkspaceInBrowser({
+      runtime: undefined,
+      openExternal: async () => {
+        throw new Error("should not open")
+      },
+      showInformationMessage: async (message) => {
+        messages.push(message)
+        return undefined
+      },
+      showErrorMessage: async () => undefined,
+    })
+
+    assert.deepEqual(messages, ["Pick a workspace item to open in the browser."])
   })
 })
 
