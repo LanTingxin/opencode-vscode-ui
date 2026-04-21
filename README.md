@@ -54,6 +54,8 @@ Choose from three visual presets to match your workflow preference. All themes a
 | ![Default theme](docs/screenshots/theme-default.png) | ![Codex theme](docs/screenshots/theme-codex.png) | ![Claude theme](docs/screenshots/theme-claude.png) |
 | Standard OpenCode styling | Tool-like preset with stronger framing | Softer preset with gentler surfaces |
 
+The footer `Context` entrypoint is available across themes, so you can inspect session usage and raw message data without leaving the current tab.
+
 ### Dedicated conversation tabs
 
 Each session opens in its own tab, making it easier to keep multiple threads organized while you continue editing code in the same window.
@@ -106,6 +108,7 @@ Open the dedicated session view in VS Code's secondary sidebar for a focused con
 - Subagents companion view for tracking child sessions
 - Enhanced todo view with grouped sections
 - Modified files tracking scoped to active session
+- Session context side panel with usage breakdown and raw message inspection
 - Context menu actions for selections and files
 - Session sharing and collaboration support
 
@@ -192,6 +195,7 @@ Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Cod
 
 - **Use tags to organize sessions** - Right-click any session and choose "Manage Session Tags" to add custom tags, then filter by tag to focus on specific work
 - **Try different panel themes** - Switch between default, codex, and claude themes to find your preferred visual style
+- **Open the Context panel when you need details** - Use the footer `Context` entrypoint to inspect session usage, provider/model details, and raw message payloads without leaving the current tab
 - **Monitor subagents** - Keep the Subagents view open to track child sessions spawned during complex tasks
 - **Quick context actions** - Select code and right-click to instantly ask OpenCode about it
 - **Search within workspaces** - Use the search icon on workspace rows to quickly find sessions without affecting other workspaces

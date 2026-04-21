@@ -1,22 +1,41 @@
 .oc-shell {
   height: 100%;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main"
+    "footer";
   width: calc(100% + (var(--oc-webview-body-inset, 20px) * 2));
   margin-inline: calc(var(--oc-webview-body-inset, 20px) * -1);
   background: var(--oc-surface-canvas);
 }
 
+.oc-shell.has-sidePanel {
+  grid-template-columns: minmax(0, 1fr) var(--oc-side-panel-width, 420px);
+  grid-template-areas:
+    "main side"
+    "footer side";
+}
+
 .oc-footer {
+  grid-area: footer;
   padding: 8px 0 10px;
   border-top: 1px solid var(--oc-shell-divider, color-mix(in srgb, var(--oc-border-strong) 52%, var(--oc-border) 48%));
   background: var(--oc-surface-canvas);
 }
 
 .oc-transcript {
+  grid-area: main;
   min-height: 0;
   overflow: auto;
   padding: var(--oc-transcript-pad-y-start, 10px) 0 var(--oc-transcript-pad-y-end, 12px);
+}
+
+.oc-sidePanel {
+  grid-area: side;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .oc-transcriptInner {
@@ -69,5 +88,16 @@
 
   .oc-composerActions {
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 960px) {
+  .oc-shell.has-sidePanel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto minmax(220px, 38vh);
+    grid-template-areas:
+      "main"
+      "footer"
+      "side";
   }
 }

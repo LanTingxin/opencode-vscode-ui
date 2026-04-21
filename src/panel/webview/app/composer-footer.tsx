@@ -11,16 +11,20 @@ export type ComposerFooterBadge = {
 export function ComposerFooter({
   metrics,
   contextPercent,
+  contextOpen = false,
   badges,
   error,
+  onOpenContext,
   pendingActions,
   onActionStart,
   onBadgeAction,
 }: {
   metrics: string[]
   contextPercent?: number
+  contextOpen?: boolean
   badges: ComposerFooterBadge[]
   error?: string
+  onOpenContext?: () => void
   pendingActions?: Record<string, boolean>
   onActionStart?: (name: string) => void
   onBadgeAction?: (item: StatusItem) => void
@@ -44,20 +48,50 @@ export function ComposerFooter({
           ))}
         </div>
       </div>
-      <div className="oc-actionRow oc-composerBadgeRow">
-        {badges.map((badge) => (
-          <StatusBadge
-            key={badge.label}
-            label={badge.label}
-            tone={badge.tone}
-            items={badge.items}
-            pendingActions={pendingActions}
-            onActionStart={onActionStart}
-            onBadgeAction={onBadgeAction}
-          />
-        ))}
+      <div className="oc-composerContextWrap">
+        {onOpenContext ? (
+          <button
+            type="button"
+            className={`oc-contextButton${contextOpen ? " is-open" : ""}`}
+            onClick={onOpenContext}
+            aria-label={`${contextOpen ? "Close" : "Open"} context`}
+            title={`${contextOpen ? "Close" : "Open"} context`}
+          >
+            <ContextButtonRing percent={contextPercent} />
+            <span className="oc-contextButtonLabel">Context</span>
+          </button>
+        ) : null}
+        <div className="oc-actionRow oc-composerBadgeRow">
+          {badges.map((badge) => (
+            <StatusBadge
+              key={badge.label}
+              label={badge.label}
+              tone={badge.tone}
+              items={badge.items}
+              pendingActions={pendingActions}
+              onActionStart={onActionStart}
+              onBadgeAction={onBadgeAction}
+            />
+          ))}
+        </div>
       </div>
     </div>
+  )
+}
+
+function ContextButtonRing({ percent }: { percent?: number }) {
+  const normalized = Number.isFinite(percent) ? Math.max(0, Math.round(percent ?? 0)) : 0
+  const clamped = Math.min(normalized, 100)
+  const toneClass = normalized >= 100 ? " is-critical" : normalized >= 80 ? " is-warning" : ""
+
+  return (
+    <span
+      className={`oc-contextButtonRing${toneClass}`}
+      aria-hidden="true"
+      style={{ "--oc-context-button-percent": `${clamped}%` } as React.CSSProperties}
+    >
+      <span className="oc-contextButtonRingCore" />
+    </span>
   )
 }
 

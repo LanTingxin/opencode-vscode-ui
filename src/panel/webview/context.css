@@ -1,0 +1,213 @@
+.oc-sidePanel {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--oc-shell-divider, color-mix(in srgb, var(--oc-border-strong) 52%, var(--oc-border) 48%));
+  background: color-mix(in srgb, var(--oc-surface-canvas) 90%, var(--oc-surface-secondary) 10%);
+}
+
+.oc-sidePanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--oc-border-strong) 50%, transparent 50%);
+  background: color-mix(in srgb, var(--oc-surface-canvas) 92%, var(--oc-surface-secondary) 8%);
+}
+
+.oc-sidePanelTabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.oc-sidePanelTab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: color-mix(in srgb, var(--oc-surface-control) 90%, transparent 10%);
+  color: var(--oc-fg-primary);
+}
+
+.oc-sidePanelTab.is-active {
+  border-color: color-mix(in srgb, var(--oc-accent) 30%, transparent 70%);
+  background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
+}
+
+.oc-sidePanelClose {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
+  border-radius: var(--oc-radius-sm);
+  padding: 4px 10px;
+  background: color-mix(in srgb, var(--oc-surface-control) 92%, transparent 8%);
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+}
+
+.oc-sidePanelClose:hover {
+  border-color: color-mix(in srgb, var(--oc-accent) 34%, transparent 66%);
+  color: var(--oc-fg-primary);
+}
+
+.oc-sidePanelBody {
+  min-height: 0;
+  overflow: auto;
+}
+
+.oc-contextPanel {
+  display: grid;
+  gap: 20px;
+  padding: 14px 16px 18px;
+}
+
+.oc-contextGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 24px;
+}
+
+.oc-contextStat {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.oc-contextStatLabel,
+.oc-contextSectionTitle,
+.oc-contextLegendValue,
+.oc-contextMessageTime,
+.oc-contextEmpty {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-contextStatValue {
+  min-width: 0;
+  color: var(--oc-fg-primary);
+  font-weight: 600;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.oc-contextSection {
+  display: grid;
+  gap: 10px;
+}
+
+.oc-contextBreakdownBar {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oc-surface-control) 92%, transparent 8%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--oc-border) 72%, transparent 28%);
+}
+
+.oc-contextBreakdownSegment.is-system,
+.oc-contextLegendSwatch.is-system {
+  background: #8ea6ff;
+}
+
+.oc-contextBreakdownSegment.is-user,
+.oc-contextLegendSwatch.is-user {
+  background: #92d36e;
+}
+
+.oc-contextBreakdownSegment.is-assistant,
+.oc-contextLegendSwatch.is-assistant {
+  background: #72d2f5;
+}
+
+.oc-contextBreakdownSegment.is-tool,
+.oc-contextLegendSwatch.is-tool {
+  background: #efc29a;
+}
+
+.oc-contextBreakdownSegment.is-other,
+.oc-contextLegendSwatch.is-other {
+  background: color-mix(in srgb, var(--oc-fg-muted) 62%, transparent 38%);
+}
+
+.oc-contextLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.oc-contextLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-contextLegendSwatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.oc-contextMessages {
+  display: grid;
+  gap: 8px;
+}
+
+.oc-contextMessage {
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 68%, transparent 32%);
+  border-radius: var(--oc-radius-md);
+  background: color-mix(in srgb, var(--oc-surface-block) 92%, transparent 8%);
+  overflow: hidden;
+}
+
+.oc-contextMessageSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.oc-contextMessageSummary::-webkit-details-marker {
+  display: none;
+}
+
+.oc-contextMessageIdentity {
+  min-width: 0;
+  color: var(--oc-fg-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oc-contextMessageID {
+  color: var(--oc-fg-muted);
+  font-weight: 400;
+}
+
+.oc-contextMessageBody {
+  margin: 0;
+  padding: 0 12px 12px;
+  overflow: auto;
+  white-space: pre;
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-mono);
+  font-size: var(--oc-font-size-sm);
+  line-height: 1.55;
+}
+
+@media (max-width: 960px) {
+  .oc-contextGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

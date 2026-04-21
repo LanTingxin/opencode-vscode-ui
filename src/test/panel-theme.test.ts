@@ -5,6 +5,7 @@ import { afterEach, describe, test } from "node:test"
 import * as vscode from "vscode"
 import { affectsDisplaySettings, getDisplaySettings } from "../core/settings"
 import { resolvePanelThemeValue } from "../panel/webview/app/state"
+import { buildThemePickerItems } from "../panel/webview/app/theme-picker"
 
 const originalGetConfiguration = vscode.workspace.getConfiguration
 
@@ -45,6 +46,21 @@ describe("panel theme settings", () => {
     assert.equal(getDisplaySettings().panelTheme, "claude")
   })
 
+  test("normalizes removed opencode-web panel theme values to default", () => {
+    ;(vscode.workspace as typeof vscode.workspace & {
+      getConfiguration: typeof vscode.workspace.getConfiguration
+    }).getConfiguration = ((section?: string) => ({
+      get: <T,>(key: string, fallback: T) => {
+        if (section === "opencode-ui" && key === "panelTheme") {
+          return "opencode-web" as T
+        }
+        return fallback
+      },
+    })) as typeof vscode.workspace.getConfiguration
+
+    assert.equal(getDisplaySettings().panelTheme, "default")
+  })
+
   test("normalizes invalid panelTheme values to default", () => {
     ;(vscode.workspace as typeof vscode.workspace & {
       getConfiguration: typeof vscode.workspace.getConfiguration
@@ -78,7 +94,29 @@ describe("panel theme settings", () => {
 
   test("resolves the panel root theme attribute value", () => {
     assert.equal(resolvePanelThemeValue("codex"), "codex")
+    assert.equal(resolvePanelThemeValue("opencode-web" as never), "default")
     assert.equal(resolvePanelThemeValue(undefined), "default")
+  })
+
+  test("does not offer opencode-web in the theme picker", () => {
+    const items = buildThemePickerItems("default")
+
+    assert.equal(items.map((item) => item.id).includes("opencode-web" as never), false)
+  })
+
+  test("does not declare opencode-web in the extension configuration enum", () => {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      contributes?: {
+        configuration?: {
+          properties?: Record<string, {
+            enum?: string[]
+          }>
+        }
+      }
+    }
+
+    const values = pkg.contributes?.configuration?.properties?.["opencode-ui.panelTheme"]?.enum ?? []
+    assert.deepEqual(values.includes("opencode-web"), false)
   })
 
   test("defines light and dark theme branches for the panel", () => {
@@ -94,6 +132,7 @@ describe("panel theme settings", () => {
 
     assert.match(css, /\[data-oc-theme=\"codex\"\]/)
     assert.match(css, /\[data-oc-theme=\"claude\"\]/)
+    assert.doesNotMatch(css, /\[data-oc-theme=\"opencode-web\"\]/)
   })
 
   test("keeps the default light and dark preset aligned with the original hard-edged look", () => {

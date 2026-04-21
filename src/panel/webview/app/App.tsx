@@ -28,6 +28,7 @@ import { mergeRestoredComposerParts, restoredComposerCursor } from "./composer-s
 import { activeChildSessionId } from "./session-navigation"
 import { captureCommandPromptInvocations, consumeFailedCommandPrompt, shouldTrackCommandPromptInvocation, type CommandPromptInvocation } from "./command-prompt"
 import { CodexTodoPopover } from "./codex-todo-popover"
+import { ContextPanel } from "./context-panel"
 import { SessionPicker } from "./session-picker"
 import { buildThemePickerItems, ThemePicker } from "./theme-picker"
 
@@ -71,6 +72,7 @@ export function App() {
   const [modelPickerOpen, setModelPickerOpen] = React.useState(false)
   const [themePickerOpen, setThemePickerOpen] = React.useState(false)
   const [sessionPickerOpen, setSessionPickerOpen] = React.useState(false)
+  const [sidePanelTab, setSidePanelTab] = React.useState<null | "context">(null)
   const [previewImage, setPreviewImage] = React.useState<PreviewImage | null>(null)
   const [skillPickerOpen, setSkillPickerOpen] = React.useState(false)
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = React.useState(0)
@@ -158,6 +160,7 @@ export function App() {
 
   const blocked = state.snapshot.permissions.length > 0 || state.snapshot.questions.length > 0
   const isChildSession = !!state.bootstrap.session?.parentID
+  const contextPanelOpen = sidePanelTab === "context"
   const firstPermission = state.snapshot.permissions[0]
   const firstQuestion = state.snapshot.questions[0]
 
@@ -811,6 +814,13 @@ export function App() {
     setThemePickerOpen(true)
   }
 
+  const toggleContextPanel = React.useCallback(() => {
+    setSessionPickerOpen(false)
+    setModelPickerOpen(false)
+    setThemePickerOpen(false)
+    setSidePanelTab((current) => current === "context" ? null : "context")
+  }, [])
+
   const toggleModelPicker = React.useCallback(() => {
     setThemePickerOpen(false)
     setModelPickerOpen((current) => !current)
@@ -1263,7 +1273,7 @@ export function App() {
       <ChildMessagesContext.Provider value={state.snapshot.childMessages}>
         <ChildSessionsContext.Provider value={state.snapshot.childSessions}>
           <WebviewBindingsProvider fileRefStatus={fileRefStatus} vscode={vscode}>
-            <div className="oc-shell" data-oc-theme={panelTheme}>
+            <div className={`oc-shell${contextPanelOpen ? " has-sidePanel" : ""}`} data-oc-theme={panelTheme}>
               <main ref={timelineRef} className="oc-transcript">
                 <div className="oc-transcriptInner">
                   <Timeline
@@ -1752,8 +1762,10 @@ export function App() {
                   <ComposerFooter
                     metrics={composerFooterMetrics.items}
                     contextPercent={composerFooterMetrics.contextPercent}
+                    contextOpen={contextPanelOpen}
                     badges={composerFooterBadges}
                     error={state.error || undefined}
+                    onOpenContext={toggleContextPanel}
                     pendingActions={pendingMcpActions}
                     onActionStart={(name) => setPendingMcpActions((current) => ({ ...current, [name]: true }))}
                     onBadgeAction={(item) => {
@@ -1768,8 +1780,32 @@ export function App() {
             ) : null}
 
             {!blocked && isChildSession ? <SubagentNotice /> : null}
-              </div>
-            </footer>
+                </div>
+              </footer>
+              {contextPanelOpen ? (
+                <aside className="oc-sidePanel" aria-label="Session context">
+                  <div className="oc-sidePanelHeader">
+                    <div className="oc-sidePanelTabs" role="tablist" aria-label="Session side panel">
+                      <button type="button" className="oc-sidePanelTab is-active" role="tab" aria-selected="true">
+                        <span className="oc-contextButtonRing" aria-hidden="true" style={{ "--oc-context-button-percent": `${Math.min(Math.max(Math.round(composerFooterMetrics.contextPercent ?? 0), 0), 100)}%` } as React.CSSProperties}>
+                          <span className="oc-contextButtonRingCore" />
+                        </span>
+                        <span>Context</span>
+                      </button>
+                    </div>
+                    <button type="button" className="oc-sidePanelClose" onClick={() => setSidePanelTab(null)} aria-label="Close context">
+                      Close
+                    </button>
+                  </div>
+                  <div className="oc-sidePanelBody">
+                    <ContextPanel
+                      session={state.snapshot.session}
+                      messages={state.snapshot.messages}
+                      providers={state.snapshot.providers}
+                    />
+                  </div>
+                </aside>
+              ) : null}
             {previewImage ? (
               <div className="oc-imagePreviewOverlay" onClick={() => setPreviewImage(null)}>
                 <div className="oc-imagePreviewContent" onClick={(event) => event.stopPropagation()}>

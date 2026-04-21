@@ -248,7 +248,7 @@ describe("Timeline user message rendering", () => {
     assert.ok(html.indexOf("unknown certificate verification error") < html.indexOf("build"))
   })
 
-  test("wraps claude assistant outputs in unified chain items while leaving user messages unchained", () => {
+  test("wraps claude assistant outputs, including metadata, in unified chain items while leaving user messages unchained", () => {
     const html = renderToStaticMarkup(
       <Timeline
         bootstrapStatus="ready"
@@ -281,7 +281,7 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("oc-chainItem-first"), true)
     assert.equal(html.includes("oc-chainItem-last"), true)
     assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-part"), true)
-    assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-meta"), false)
+    assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-meta oc-chainItem-last"), true)
     assert.equal(html.includes("oc-chainItem-tool-webfetch"), true)
     assert.equal(html.includes('<div class="oc-turnUserWrap oc-turnUserWrap-theme-claude">'), true)
     assert.equal(html.includes('<section class="oc-turnUser oc-turnUser-theme-claude">'), true)
