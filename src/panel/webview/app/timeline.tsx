@@ -6,6 +6,7 @@ import type { CommandInfo, FilePart, MessageInfo, MessagePart, SessionMessage, T
 import { findSkillInvocationMatch } from "../../shared/skill-invocation"
 import { commandPromptLabel, findCommandPromptInvocation, previewCommandPromptText, type CommandPromptCatalog } from "./command-prompt"
 import { CommandPill } from "./command-pill"
+import { CollapsiblePrompt } from "./collapsible-prompt"
 import { TranscriptVisibilityContext } from "./contexts"
 import { SkillPill } from "./skill-pill"
 
@@ -251,11 +252,11 @@ function TimelineBlockView({
             {commandPrompt
               ? (commandPromptExpanded ? <PlainTextBlock content={userText?.text || ""} /> : null)
               : skillMatch?.remainder
-              ? <PlainTextBlock content={skillMatch.remainder} />
+              ? <CollapsiblePrompt content={skillMatch.remainder} />
               : skillMatch
                 ? null
               : userText
-                ? <PlainTextBlock content={userText.text || ""} />
+                ? <CollapsiblePrompt content={userText.text || ""} />
               : (showEmptyPrompt ? <div className="oc-partEmpty">No visible prompt text.</div> : null)}
           </section>
           <div className={messageActionsClassName} aria-label="Message actions">

@@ -8,7 +8,8 @@
       "runtimeExecutable": "${execPath}",
       "preLaunchTask": "bun: compile",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}"
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extensions"
       ],
       "outFiles": [
         "${workspaceFolder}/dist/**/*.js"

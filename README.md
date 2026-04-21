@@ -207,4 +207,4 @@ Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Cod
 
 ## Feedback 💬
 
-Have an idea or hit a bug? Open an issue at <https://github.com/LanTingxin/opencode-enhanced/issues>.
+Have an idea or hit a bug? Open an issue at <https://github.com/LanTingxin/opencode-enhanced-ui/issues>.

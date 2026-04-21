@@ -174,7 +174,7 @@ Strong success criteria let you loop independently. Weak criteria like "make it 
   - Do not leave dead locals, stale imports, or commented-out code behind.
   - Avoid unrelated file churn during focused refactors or bug fixes.
   - Never commit `opencode/` or `.memory/`.
-  - Treat `package.json`, `README.md`, and the current `src/` structure as the source of truth for commands, views, settings, and architecture. If a future `PLAN.md` is added, use it for milestone status and architectural constraints.
+  - Treat `package.json`, `README.md`, and the current `src/` structure as the source of truth for commands, views, settings, and architecture.
   - If you change user-visible commands, settings, views, labels, or workflows, update `README.md` and `AGENTS.md` when those descriptions become stale.
   - If you change workflow assumptions or repo commands, update this file accordingly.
 
