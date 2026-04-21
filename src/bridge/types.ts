@@ -28,9 +28,15 @@ export type SessionBootstrap = {
   message?: string
 }
 
+export type SessionMessageHistory = {
+  limit: number
+  hasEarlier: boolean
+}
+
 export type SessionSnapshot = SessionBootstrap & {
   display: DisplaySettings
   skillCatalog?: SkillCatalogEntry[]
+  messageHistory?: SessionMessageHistory
   sessionStatus?: SessionStatus
   messages: SessionMessage[]
   childMessages: Record<string, SessionMessage[]>
@@ -301,4 +307,7 @@ export type WebviewMessage =
   | {
       type: "openDocs"
       target: "providers"
+    }
+  | {
+      type: "loadEarlierMessages"
     }

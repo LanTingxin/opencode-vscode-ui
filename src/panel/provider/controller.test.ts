@@ -755,6 +755,36 @@ describe("SessionPanelController.actionContext", () => {
     }
   })
 
+  test("expands the loaded message window when the webview requests earlier messages", async () => {
+    const { controller, send } = createWebviewMessageHarness({
+      state: "ready",
+      dir: "/workspace",
+      sdk: {},
+    })
+    const pushes: Array<{ force: boolean | undefined; reason: string | undefined }> = []
+
+    ;(controller as any).current = {
+      ...snapshot(),
+      messageHistory: {
+        limit: 200,
+        hasEarlier: true,
+      },
+    }
+    ;(controller as any).push = async (force: boolean | undefined, reason: string | undefined) => {
+      pushes.push({ force, reason })
+    }
+
+    send({ type: "loadEarlierMessages" })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    assert.equal((controller as any).messageLimit, 400)
+    assert.deepEqual(pushes, [{
+      force: true,
+      reason: "webview:loadEarlierMessages",
+    }])
+    controller.dispose()
+  })
+
   test("forwards picker switch and row actions to extension commands", async () => {
     const originalExecuteCommand = vscode.commands.executeCommand
     const executed: unknown[][] = []

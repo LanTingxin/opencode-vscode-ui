@@ -49,6 +49,7 @@ type TimelineProps = {
   commands?: CommandInfo[]
   compactSkillInvocations: boolean
   diffMode: "unified" | "split"
+  historyStatus?: "hidden" | "ready" | "loading"
   messages: SessionMessage[]
   onCopyAssistantText?: (value: string) => void
   onCopyUserMessage: (message: SessionMessage) => void
@@ -77,6 +78,7 @@ export const Timeline = React.memo(function Timeline({
   commands = [],
   compactSkillInvocations,
   diffMode,
+  historyStatus = "hidden",
   messages,
   onCopyAssistantText = noopCopyAction,
   onCopyUserMessage,
@@ -122,6 +124,13 @@ export const Timeline = React.memo(function Timeline({
   return (
     <TranscriptVisibilityContext.Provider value={{ showThinking, showInternals, compactSkillInvocations, panelTheme, skillCatalog }}>
       <div className="oc-log">
+        {historyStatus !== "hidden" ? (
+          <div className={`oc-transcriptHistory${historyStatus === "loading" ? " is-loading" : ""}`} aria-live="polite">
+            <div className="oc-transcriptHistoryBadge">
+              {historyStatus === "loading" ? "Loading earlier messages..." : "Scroll up to load earlier messages"}
+            </div>
+          </div>
+        ) : null}
         {blocks.map((block, index) => {
           const content = (
             <MemoTimelineBlockView

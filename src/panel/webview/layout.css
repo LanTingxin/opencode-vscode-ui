@@ -79,6 +79,43 @@
   padding: 24px 0;
 }
 
+.oc-transcriptHistory {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.oc-transcriptHistoryBadge {
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--vscode-editorInfo-background, var(--vscode-button-secondaryBackground)) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)) 14%, transparent);
+  color: var(--oc-text-muted, var(--vscode-descriptionForeground));
+  font-size: 12px;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--vscode-editorInfo-background, var(--vscode-button-secondaryBackground)) 18%, transparent);
+}
+
+.oc-transcriptHistory.is-loading .oc-transcriptHistoryBadge {
+  opacity: 0.92;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-transcriptHistoryBadge {
+  background: color-mix(in srgb, #f6eee1 84%, transparent);
+  border-color: color-mix(in srgb, #b9915a 18%, transparent);
+  color: #8c6d48;
+  box-shadow: 0 14px 32px rgba(191, 157, 112, 0.14);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-transcriptHistoryBadge {
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--vscode-editorWidget-background) 92%, transparent);
+  border-color: color-mix(in srgb, var(--vscode-focusBorder) 22%, transparent);
+  color: color-mix(in srgb, var(--vscode-foreground) 74%, var(--vscode-descriptionForeground) 26%);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
+}
+
 @media (max-width: 720px) {
   .oc-footer,
   .oc-transcript {

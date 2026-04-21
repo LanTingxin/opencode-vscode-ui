@@ -15,6 +15,7 @@ type SnapshotContext = {
   mgr: WorkspaceManager
   log: (message: string) => void
   isSubmitting: () => boolean
+  messageLimit?: number
 }
 
 type DeferredSnapshotData = Pick<SessionSnapshot, "sessionStatus" | "permissions" | "questions" | "providerAuth" | "mcp" | "mcpResources" | "lsp" | "formatter" | "commands">
@@ -24,10 +25,13 @@ export type SessionSnapshotBuild = {
   deferred?: Promise<DeferredSnapshotData>
 }
 
-export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: SnapshotContext): Promise<SessionSnapshotBuild> {
+export const DEFAULT_SESSION_MESSAGE_LIMIT = 200
+
+export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting, messageLimit: requestedMessageLimit }: SnapshotContext): Promise<SessionSnapshotBuild> {
   const display = getDisplaySettings()
   const rt = mgr.get(ref.workspaceId)
   const workspaceName = rt?.name || path.basename(ref.dir)
+  const messageLimit = Math.max(1, requestedMessageLimit ?? DEFAULT_SESSION_MESSAGE_LIMIT)
 
   if (!rt) {
     return {
@@ -62,7 +66,7 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       rt.sdk.session.messages({
         sessionID: ref.sessionId,
         directory: rt.dir,
-        limit: 200,
+        limit: messageLimit,
       }),
       rt.sdk.session.todo({
         sessionID: ref.sessionId,
@@ -91,7 +95,8 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
 
     syncTrackedSession(rt.sessions, rt.sessionStatuses, session)
     const tree = await sessionTree(rt.sdk, rt.dir, session)
-    const [messages, childMessages] = await relatedMessages(rt.sdk, rt.dir, session.id, tree.relatedSessionIds, rootMessageRes.data ?? [])
+    const rootMessages = rootMessageRes.data ?? []
+    const [messages, childMessages, childHasEarlier] = await relatedMessages(rt.sdk, rt.dir, session.id, tree.relatedSessionIds, rootMessages, messageLimit)
     const childSessions = relatedSessionMap(tree.sessions, session.id, tree.relatedSessionIds)
     const navigation = nav(session, tree.navSessions)
     const agents = agentList(agentRes.data)
@@ -115,6 +120,10 @@ export async function buildSessionSnapshot({ ref, mgr, log, isSubmitting }: Snap
       status: "ready",
       display,
       skillCatalog,
+      messageHistory: {
+        limit: messageLimit,
+        hasEarlier: rootMessages.length >= messageLimit || childHasEarlier,
+      },
       sessionRef: ref,
       workspaceName,
       session,
@@ -299,10 +308,11 @@ async function relatedMessages(
   rootSessionID: string,
   relatedSessionIds: string[],
   rootMessages: SessionMessage[],
-): Promise<[SessionMessage[], Record<string, SessionMessage[]>]> {
+  limit: number,
+): Promise<[SessionMessage[], Record<string, SessionMessage[]>, boolean]> {
   const children = relatedSessionIds.filter((item) => item !== rootSessionID)
   if (children.length === 0) {
-    return [sortMessages(rootMessages), {}]
+    return [sortMessages(rootMessages), {}, false]
   }
 
   const results = await Promise.all(children.map(async (sessionID) => ({
@@ -310,16 +320,18 @@ async function relatedMessages(
     data: await sdk.session.messages({
       sessionID,
       directory: dir,
-      limit: 200,
+      limit,
     }),
   })))
 
   const childMessages: Record<string, SessionMessage[]> = {}
+  let hasEarlier = false
   for (const item of results) {
+    hasEarlier = hasEarlier || (item.data.data?.length ?? 0) >= limit
     childMessages[item.sessionID] = sortMessages(item.data.data ?? [])
   }
 
-  return [sortMessages(rootMessages), childMessages]
+  return [sortMessages(rootMessages), childMessages, hasEarlier]
 }
 
 function fallbackSnapshot(
@@ -337,6 +349,10 @@ function fallbackSnapshot(
     workspaceName,
     message,
     skillCatalog: [],
+    messageHistory: {
+      limit: DEFAULT_SESSION_MESSAGE_LIMIT,
+      hasEarlier: false,
+    },
     messages: [],
     childMessages: {},
     childSessions: {},

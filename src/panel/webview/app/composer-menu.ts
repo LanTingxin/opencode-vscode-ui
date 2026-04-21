@@ -3,7 +3,13 @@ import type { AppState } from "./state"
 import type { ComposerAutocompleteItem } from "../hooks/useComposerAutocomplete"
 import { formatComposerFileContent, formatComposerFileDisplay, parseComposerFileQuery } from "../lib/composer-file-selection"
 
-export function buildComposerMenuItems(state: AppState, files: ComposerPathResult[]): ComposerAutocompleteItem[] {
+type ComposerMenuState = {
+  composerAgentOverride?: AppState["composerAgentOverride"]
+  composerMentionAgentOverride?: AppState["composerMentionAgentOverride"]
+  snapshot: Pick<AppState["snapshot"], "display" | "session" | "commands" | "agents" | "mcpResources">
+}
+
+export function buildComposerMenuItems(state: ComposerMenuState, files: ComposerPathResult[]): ComposerAutocompleteItem[] {
   const slashItems: ComposerAutocompleteItem[] = [
     {
       id: "slash-new",

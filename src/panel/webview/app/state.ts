@@ -1,4 +1,4 @@
-import type { ComposerFileSelection, ComposerPathKind, SessionBootstrap, SessionPickerPayload, SessionSnapshot, SkillCatalogEntry } from "../../../bridge/types"
+import type { ComposerFileSelection, ComposerPathKind, SessionBootstrap, SessionMessageHistory, SessionPickerPayload, SessionSnapshot, SkillCatalogEntry } from "../../../bridge/types"
 import type { DisplaySettings, PanelTheme } from "../../../core/settings"
 import type { AgentInfo, CommandInfo, FileDiff, FormatterStatus, LspStatus, McpResource, McpStatus, MessageInfo, PermissionRequest, ProviderAuthMethod, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 import type { CommandPromptCatalog, CommandPromptInvocation } from "./command-prompt"
@@ -74,6 +74,7 @@ export type AppState = {
     session?: SessionInfo
     display: DisplaySettings
     skillCatalog: SkillCatalogEntry[]
+    messageHistory: SessionMessageHistory
     messages: SessionMessage[]
     childMessages: Record<string, SessionMessage[]>
     childSessions: Record<string, SessionInfo>
@@ -157,6 +158,10 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
         panelTheme: "default",
       },
       skillCatalog: [],
+      messageHistory: {
+        limit: 0,
+        hasEarlier: false,
+      },
       childMessages: {},
       childSessions: {},
       sessionStatus: undefined,
@@ -288,6 +293,7 @@ export function normalizeSnapshotPayload(payload: SessionSnapshot, previous?: Ap
       panelTheme: resolvePanelThemeValue(payload.display?.panelTheme),
     },
     skillCatalog: Array.isArray(payload.skillCatalog) ? payload.skillCatalog : [],
+    messageHistory: normalizeMessageHistory(payload.messageHistory),
     messages: reconcileMessageList(Array.isArray(payload.messages) ? payload.messages : [], previous?.messages),
     childMessages: recordOfMessageLists(payload.childMessages, previous?.childMessages),
     childSessions: recordOfSessions(payload.childSessions),
@@ -326,6 +332,13 @@ function recordOfMessageLists(value: unknown, previous?: Record<string, SessionM
       : []
   }
   return out
+}
+
+function normalizeMessageHistory(value: SessionSnapshot["messageHistory"] | undefined): SessionMessageHistory {
+  return {
+    limit: typeof value?.limit === "number" && value.limit > 0 ? value.limit : 0,
+    hasEarlier: value?.hasEarlier === true,
+  }
 }
 
 function reconcileMessageList(next: SessionMessage[], previous?: SessionMessage[]) {

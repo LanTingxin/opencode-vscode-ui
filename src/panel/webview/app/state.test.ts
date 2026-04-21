@@ -111,6 +111,51 @@ describe("panel webview persisted state", () => {
 })
 
 describe("normalizeSnapshotPayload", () => {
+  test("preserves message history metadata from incoming snapshots", () => {
+    const snapshot = {
+      status: "ready",
+      workspaceName: "workspace",
+      sessionRef: {
+        workspaceId: initialRef.workspaceId,
+        dir: initialRef.dir,
+        sessionId: initialRef.sessionId,
+      },
+      display: {
+        showInternals: false,
+        showThinking: true,
+        diffMode: "unified",
+        compactSkillInvocations: true,
+        panelTheme: "default",
+      },
+      messageHistory: {
+        limit: 400,
+        hasEarlier: true,
+      },
+      messages: [],
+      childMessages: {},
+      childSessions: {},
+      submitting: false,
+      todos: [],
+      diff: [],
+      permissions: [],
+      questions: [],
+      agents: [],
+      providers: [],
+      mcp: {},
+      mcpResources: {},
+      lsp: [],
+      commands: [],
+      relatedSessionIds: [],
+      agentMode: "build",
+      navigation: {},
+    } satisfies SessionSnapshot
+
+    assert.deepEqual(normalizeSnapshotPayload(snapshot).messageHistory, {
+      limit: 400,
+      hasEarlier: true,
+    })
+  })
+
   test("preserves panelTheme from incoming snapshots", () => {
     const snapshot = {
       status: "ready",
@@ -222,6 +267,47 @@ describe("normalizeSnapshotPayload", () => {
     } as unknown as SessionSnapshot
 
     assert.equal(normalizeSnapshotPayload(snapshot).display.showSkillsInSlashAutocomplete, false)
+  })
+
+  test("defaults missing message history metadata for older snapshots", () => {
+    const snapshot = {
+      status: "ready",
+      workspaceName: "workspace",
+      sessionRef: {
+        workspaceId: initialRef.workspaceId,
+        dir: initialRef.dir,
+        sessionId: initialRef.sessionId,
+      },
+      display: {
+        showInternals: false,
+        showThinking: true,
+        diffMode: "unified",
+        compactSkillInvocations: true,
+        panelTheme: "default",
+      },
+      messages: [],
+      childMessages: {},
+      childSessions: {},
+      submitting: false,
+      todos: [],
+      diff: [],
+      permissions: [],
+      questions: [],
+      agents: [],
+      providers: [],
+      mcp: {},
+      mcpResources: {},
+      lsp: [],
+      commands: [],
+      relatedSessionIds: [],
+      agentMode: "build",
+      navigation: {},
+    } as unknown as SessionSnapshot
+
+    assert.deepEqual(normalizeSnapshotPayload(snapshot).messageHistory, {
+      limit: 0,
+      hasEarlier: false,
+    })
   })
 })
 

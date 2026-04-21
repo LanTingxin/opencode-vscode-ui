@@ -31,6 +31,7 @@ import { CodexTodoPopover } from "./codex-todo-popover"
 import { ContextPanel } from "./context-panel"
 import { SessionPicker } from "./session-picker"
 import { buildThemePickerItems, ThemePicker } from "./theme-picker"
+import { resolveTranscriptHistoryMode, shouldAutoLoadEarlierMessages, transcriptHistoryScrollThreshold } from "./transcript-history"
 
 declare global {
   interface Window {
@@ -45,6 +46,8 @@ const initialRef = window.__OPENCODE_INITIAL_STATE__ ?? null
 const persistedState = normalizePersistedState(vscode.getState<PersistedAppState | SessionBootstrap["sessionRef"]>())
 const fileRefStatus = new Map<string, boolean>()
 const ESC_INTERRUPT_WINDOW_MS = 5000
+const INITIAL_RENDERED_MESSAGE_COUNT = 120
+const RENDER_EARLIER_MESSAGE_COUNT = 120
 
 type PreviewImage = {
   src: string
@@ -77,6 +80,8 @@ export function App() {
   const [skillPickerOpen, setSkillPickerOpen] = React.useState(false)
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = React.useState(0)
   const [codexTodoCollapsed, setCodexTodoCollapsed] = React.useState(false)
+  const [renderedMessageCount, setRenderedMessageCount] = React.useState(INITIAL_RENDERED_MESSAGE_COUNT)
+  const [loadingEarlierMessages, setLoadingEarlierMessages] = React.useState(false)
   const timelineRef = React.useRef<HTMLDivElement | null>(null)
   const composerRef = React.useRef<HTMLDivElement | null>(null)
   const modelPickerRef = React.useRef<HTMLDivElement | null>(null)
@@ -90,6 +95,13 @@ export function App() {
   const leaderTimerRef = React.useRef<number | null>(null)
   const leaderPendingRef = React.useRef(false)
   const previousMessagesRef = React.useRef<SessionMessage[]>([])
+  const pendingTranscriptOffsetRef = React.useRef<null | { scrollTop: number; scrollHeight: number }>(null)
+  const transcriptHistoryArmedRef = React.useRef(true)
+  const previousTranscriptStateRef = React.useRef({
+    sessionKey: "",
+    loadedCount: 0,
+    historyLimit: 0,
+  })
   const onHostErrorMessage = React.useCallback(() => {
     setState((current) => ({
       ...current,
@@ -106,9 +118,30 @@ export function App() {
     setFileResults(payload.results)
     setFileSearch({ status: "done", query: payload.query })
   }, [])
-  const composerMenuItems = React.useMemo(() => buildComposerMenuItems(state, fileResults), [fileResults, state])
+  const composerMenuItems = React.useMemo(() => buildComposerMenuItems({
+    composerAgentOverride: state.composerAgentOverride,
+    composerMentionAgentOverride: state.composerMentionAgentOverride,
+    snapshot: {
+      display: state.snapshot.display,
+      session: state.snapshot.session,
+      commands: state.snapshot.commands,
+      agents: state.snapshot.agents,
+      mcpResources: state.snapshot.mcpResources,
+    },
+  }, fileResults), [
+    fileResults,
+    state.composerAgentOverride,
+    state.composerMentionAgentOverride,
+    state.snapshot.agents,
+    state.snapshot.commands,
+    state.snapshot.display,
+    state.snapshot.mcpResources,
+    state.snapshot.session,
+  ])
   const composerAutocomplete = useComposerAutocomplete(composerMenuItems)
-  const skillPickerItems = React.useMemo(() => filterItems(composerMenuItems, "skill", state.draft), [composerMenuItems, state.draft])
+  const skillPickerItems = React.useMemo(() => skillPickerOpen
+    ? filterItems(composerMenuItems, "skill", state.draft)
+    : [], [composerMenuItems, skillPickerOpen, state.draft])
   React.useEffect(() => {
     setSkillPickerSelectedIndex((current) => skillPickerItems.length === 0 ? 0 : Math.min(current, skillPickerItems.length - 1))
   }, [skillPickerItems])
@@ -163,10 +196,166 @@ export function App() {
   const contextPanelOpen = sidePanelTab === "context"
   const firstPermission = state.snapshot.permissions[0]
   const firstQuestion = state.snapshot.questions[0]
+  const transcriptSessionKey = `${state.bootstrap.sessionRef.workspaceId}:${state.bootstrap.sessionRef.sessionId}`
+  const visibleTranscriptMessages = React.useMemo(() => {
+    if (renderedMessageCount >= state.snapshot.messages.length) {
+      return state.snapshot.messages
+    }
+
+    const start = Math.max(0, state.snapshot.messages.length - renderedMessageCount)
+    return state.snapshot.messages.slice(start)
+  }, [renderedMessageCount, state.snapshot.messages])
+  const transcriptHistoryMode = React.useMemo(() => resolveTranscriptHistoryMode({
+    renderedCount: visibleTranscriptMessages.length,
+    loadedCount: state.snapshot.messages.length,
+    hasEarlier: state.snapshot.messageHistory.hasEarlier,
+  }), [state.snapshot.messageHistory.hasEarlier, state.snapshot.messages.length, visibleTranscriptMessages.length])
+  const transcriptHistoryStatus = loadingEarlierMessages
+    ? "loading"
+    : transcriptHistoryMode === "idle"
+      ? "hidden"
+      : "ready"
+  const captureTranscriptOffset = React.useCallback(() => {
+    const node = timelineRef.current
+    if (!node) {
+      return
+    }
+
+    pendingTranscriptOffsetRef.current = {
+      scrollTop: node.scrollTop,
+      scrollHeight: node.scrollHeight,
+    }
+  }, [])
+  const renderEarlierMessages = React.useCallback(() => {
+    captureTranscriptOffset()
+    setRenderedMessageCount((current) => Math.min(
+      state.snapshot.messages.length,
+      Math.max(0, current) + RENDER_EARLIER_MESSAGE_COUNT,
+    ))
+  }, [captureTranscriptOffset, state.snapshot.messages.length])
+  const loadEarlierMessages = React.useCallback(() => {
+    if (loadingEarlierMessages || !state.snapshot.messageHistory.hasEarlier) {
+      return
+    }
+
+    captureTranscriptOffset()
+    setRenderedMessageCount((current) => Math.max(current, state.snapshot.messages.length))
+    setLoadingEarlierMessages(true)
+    vscode.postMessage({ type: "loadEarlierMessages" })
+  }, [captureTranscriptOffset, loadingEarlierMessages, state.snapshot.messageHistory.hasEarlier, state.snapshot.messages.length])
 
   useComposerResize(composerRef, state.draft)
-  useTimelineScroll(timelineRef, [state.snapshot.messages, state.snapshot.submitting, state.snapshot.permissions, state.snapshot.questions])
+  useTimelineScroll(timelineRef, [visibleTranscriptMessages, state.snapshot.submitting, state.snapshot.permissions, state.snapshot.questions])
   useModifierState()
+
+  React.useEffect(() => {
+    transcriptHistoryArmedRef.current = true
+  }, [transcriptSessionKey])
+
+  React.useEffect(() => {
+    const node = timelineRef.current
+    if (!node) {
+      return
+    }
+
+    const handleScroll = () => {
+      const threshold = transcriptHistoryScrollThreshold(Number.parseFloat(window.getComputedStyle(node).lineHeight || ""))
+      if (node.scrollTop > threshold) {
+        transcriptHistoryArmedRef.current = true
+        return
+      }
+
+      if (!shouldAutoLoadEarlierMessages({
+        scrollTop: node.scrollTop,
+        threshold,
+        mode: transcriptHistoryMode,
+        loading: loadingEarlierMessages,
+        armed: transcriptHistoryArmedRef.current,
+      })) {
+        return
+      }
+
+      transcriptHistoryArmedRef.current = false
+      if (transcriptHistoryMode === "render") {
+        renderEarlierMessages()
+        return
+      }
+
+      if (transcriptHistoryMode === "load") {
+        loadEarlierMessages()
+      }
+    }
+
+    node.addEventListener("scroll", handleScroll)
+    return () => node.removeEventListener("scroll", handleScroll)
+  }, [loadEarlierMessages, loadingEarlierMessages, renderEarlierMessages, transcriptHistoryMode])
+
+  React.useEffect(() => {
+    const previous = previousTranscriptStateRef.current
+    const loadedCount = state.snapshot.messages.length
+
+    if (previous.sessionKey !== transcriptSessionKey) {
+      previousTranscriptStateRef.current = {
+        sessionKey: transcriptSessionKey,
+        loadedCount,
+        historyLimit: state.snapshot.messageHistory.limit,
+      }
+      pendingTranscriptOffsetRef.current = null
+      transcriptHistoryArmedRef.current = true
+      setLoadingEarlierMessages(false)
+      if (loadedCount > 0) {
+        setRenderedMessageCount(loadedCount > INITIAL_RENDERED_MESSAGE_COUNT ? INITIAL_RENDERED_MESSAGE_COUNT : loadedCount)
+      }
+      return
+    }
+
+    if (loadedCount > 0) {
+      setRenderedMessageCount((current) => {
+        if (loadedCount <= INITIAL_RENDERED_MESSAGE_COUNT) {
+          return loadedCount
+        }
+
+        if (previous.loadedCount === 0) {
+          return INITIAL_RENDERED_MESSAGE_COUNT
+        }
+
+        return current >= previous.loadedCount ? loadedCount : current
+      })
+    }
+
+    if (
+      loadedCount !== previous.loadedCount
+      || state.snapshot.messageHistory.limit !== previous.historyLimit
+      || !state.snapshot.messageHistory.hasEarlier
+    ) {
+      setLoadingEarlierMessages(false)
+    }
+
+    previousTranscriptStateRef.current = {
+      sessionKey: transcriptSessionKey,
+      loadedCount,
+      historyLimit: state.snapshot.messageHistory.limit,
+    }
+  }, [
+    state.snapshot.messageHistory.hasEarlier,
+    state.snapshot.messageHistory.limit,
+    state.snapshot.messages.length,
+    transcriptSessionKey,
+  ])
+
+  React.useLayoutEffect(() => {
+    const pending = pendingTranscriptOffsetRef.current
+    const node = timelineRef.current
+    if (!pending || !node) {
+      return
+    }
+
+    pendingTranscriptOffsetRef.current = null
+    const delta = node.scrollHeight - pending.scrollHeight
+    if (delta !== 0) {
+      node.scrollTop = pending.scrollTop + delta
+    }
+  }, [transcriptSessionKey, visibleTranscriptMessages.length, state.snapshot.messageHistory.limit])
 
   React.useEffect(() => {
     document.title = `OpenCode: ${sessionTitle(state.bootstrap)}`
@@ -1287,7 +1476,8 @@ export function App() {
                     commandPromptInvocations={state.commandPromptInvocations}
                     commands={state.snapshot.commands}
                     diffMode={state.snapshot.display.diffMode}
-                    messages={state.snapshot.messages}
+                    historyStatus={transcriptHistoryStatus}
+                    messages={visibleTranscriptMessages}
                     onCopyAssistantText={copyAssistantText}
                     onCopyUserMessage={copyUserMessage}
                     onForkUserMessage={forkUserMessage}

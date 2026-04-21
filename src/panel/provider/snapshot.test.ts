@@ -37,7 +37,29 @@ Help turn ideas into fully formed designs and specs through natural collaborativ
   location: "/Users/lantingxin/.codex/superpowers/skills/brainstorming/SKILL.md",
 }
 
-function createSdk(current: SessionInfo, skills: Array<{ name: string; description: string; location: string; content: string }> = []) {
+function sessionMessage(sessionID: string, id: string): SessionMessage {
+  return {
+    info: {
+      id,
+      sessionID,
+      role: "assistant",
+      time: { created: 1 },
+    },
+    parts: [{
+      id: `${id}-part`,
+      sessionID,
+      messageID: id,
+      type: "text",
+      text: id,
+    }],
+  }
+}
+
+function createSdk(
+  current: SessionInfo,
+  skills: Array<{ name: string; description: string; location: string; content: string }> = [],
+  messagesBySessionId: Record<string, SessionMessage[]> = {},
+) {
   const root = session("root")
 
   return {
@@ -51,7 +73,9 @@ function createSdk(current: SessionInfo, skills: Array<{ name: string; descripti
         }
         return { data: undefined }
       },
-      messages: async (_input: { sessionID: string; directory: string; limit: number }) => ({ data: [] as SessionMessage[] }),
+      messages: async (input: { sessionID: string; directory: string; limit: number }) => ({
+        data: (messagesBySessionId[input.sessionID] ?? []).slice(-input.limit),
+      }),
       todo: async () => ({ data: [] }),
       diff: async () => ({ data: [] }),
       status: async () => ({ data: {} }),
@@ -202,5 +226,67 @@ describe("buildSessionSnapshot session list filtering", () => {
       hints: [],
       source: "command",
     }])
+  })
+
+  test("tracks whether earlier session messages still need to be loaded", async () => {
+    const current = session("child", "root")
+    const allMessages = Array.from({ length: 250 }, (_, index) =>
+      sessionMessage(current.id, `m${String(index).padStart(4, "0")}`),
+    )
+    const rt: Runtime = {
+      workspaceId: "ws-1",
+      dir: "/workspace",
+      name: "workspace",
+      state: "ready",
+      sdk: createSdk(current, [], {
+        [current.id]: allMessages,
+      }),
+      sessions: new Map(),
+      sessionStatuses: new Map(),
+    }
+
+    const clipped = await buildSessionSnapshot({
+      ref: {
+        workspaceId: rt.workspaceId,
+        dir: rt.dir,
+        sessionId: current.id,
+      },
+      mgr: {
+        get(id: string) {
+          return id === rt.workspaceId ? rt : undefined
+        },
+      } as any,
+      log() {},
+      isSubmitting: () => false,
+      messageLimit: 200,
+    })
+
+    assert.equal(clipped.snapshot.messages.length, 200)
+    assert.deepEqual(clipped.snapshot.messageHistory, {
+      limit: 200,
+      hasEarlier: true,
+    })
+
+    const expanded = await buildSessionSnapshot({
+      ref: {
+        workspaceId: rt.workspaceId,
+        dir: rt.dir,
+        sessionId: current.id,
+      },
+      mgr: {
+        get(id: string) {
+          return id === rt.workspaceId ? rt : undefined
+        },
+      } as any,
+      log() {},
+      isSubmitting: () => false,
+      messageLimit: 400,
+    })
+
+    assert.equal(expanded.snapshot.messages.length, 250)
+    assert.deepEqual(expanded.snapshot.messageHistory, {
+      limit: 400,
+      hasEarlier: false,
+    })
   })
 })

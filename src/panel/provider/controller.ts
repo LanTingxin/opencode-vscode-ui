@@ -8,13 +8,14 @@ import { WorkspaceManager } from "../../core/workspace"
 import { providerAuthAction, rejectQuestion, replyPermission, replyQuestion, runComposerAction, runMcpAction, runShellCommand, runSlashCommand, submit, type PanelActionState } from "./actions"
 import { openFile, resolveFileRefs, searchFiles } from "./files"
 import { needsRefresh, reduce } from "./reducer"
-import { buildSessionSnapshot, patch } from "./snapshot"
+import { buildSessionSnapshot, DEFAULT_SESSION_MESSAGE_LIMIT, patch } from "./snapshot"
 import { boot, panelIconPath, panelTitle } from "./utils"
 import { sessionPanelHtml } from "../html"
 
 export class SessionPanelController implements vscode.Disposable {
   ref: SessionPanelRef
   key: string
+  private messageLimit = DEFAULT_SESSION_MESSAGE_LIMIT
   private ready = false
   private incrementalReady = false
   private pending: Promise<void> | undefined
@@ -141,6 +142,16 @@ export class SessionPanelController implements vscode.Disposable {
           if (message.target === "providers") {
             void vscode.commands.executeCommand("opencode-ui.openProviderDocs")
           }
+          return
+        }
+
+        if (message?.type === "loadEarlierMessages") {
+          if (!this.current?.messageHistory?.hasEarlier) {
+            return
+          }
+
+          this.messageLimit += DEFAULT_SESSION_MESSAGE_LIMIT
+          void this.push(true, "webview:loadEarlierMessages")
           return
         }
 
@@ -274,6 +285,7 @@ export class SessionPanelController implements vscode.Disposable {
     this.refreshSeq += 1
     this.state.run += 1
     this.state.pendingSubmitCount = 0
+    this.messageLimit = DEFAULT_SESSION_MESSAGE_LIMIT
     this.pending = undefined
     this.pendingComposerParts = undefined
     this.pendingComposerFocus = false
@@ -307,6 +319,7 @@ export class SessionPanelController implements vscode.Disposable {
         this.log(message)
       },
       isSubmitting: () => this.isSubmitting(),
+      messageLimit: this.messageLimit,
     })
     // Snapshot build returns the core session payload immediately, while status,
     // permission, question, MCP, LSP, and command data arrives through the

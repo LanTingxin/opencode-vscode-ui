@@ -51,6 +51,9 @@ type ComposerAutocompleteMatch = {
   end: number
 }
 
+const MAX_SLASH_AUTOCOMPLETE_ITEMS = 50
+const MAX_MENTION_AUTOCOMPLETE_ITEMS = 10
+
 export function useComposerAutocomplete(sources: ComposerAutocompleteItem[]) {
   const [state, setState] = React.useState<ComposerAutocompleteState | null>(null)
 
@@ -212,31 +215,14 @@ export function filterItems(items: ComposerAutocompleteItem[], trigger: Composer
         .sort((a, b) => a.label.localeCompare(b.label))
     }
 
-    return source
-      .map((item, index) => ({
-        item: withMatch(item, normalized),
-        index,
-        rank: matchRankSlash(item, normalized),
-      }))
-      .filter((item): item is { item: ComposerAutocompleteItem; index: number; rank: number } => item.rank !== undefined)
-      .sort((a, b) => a.rank - b.rank || a.index - b.index)
-      .map((item) => item.item)
+    return rankItems(source, normalized, matchRankSlash, MAX_SLASH_AUTOCOMPLETE_ITEMS)
   }
 
   if (!normalized) {
     return source.map((item) => ({ ...item, match: undefined }))
   }
 
-  return source
-    .map((item, index) => ({
-      item: withMatch(item, normalized),
-      index,
-      rank: matchRankMention(item, normalized),
-    }))
-    .filter((item): item is { item: ComposerAutocompleteItem; index: number; rank: number } => item.rank !== undefined)
-    .sort((a, b) => a.rank - b.rank || a.index - b.index)
-    .slice(0, 10)
-    .map((item) => item.item)
+  return rankItems(source, normalized, matchRankMention, MAX_MENTION_AUTOCOMPLETE_ITEMS)
 }
 
 function sameItems(next: ComposerAutocompleteItem[], current: ComposerAutocompleteItem[]) {
@@ -288,6 +274,24 @@ function matchRankMention(item: ComposerAutocompleteItem, query: string) {
   const best = Math.min(...fields)
   const visible = prefixValue(item)
   return primaryValue(item, query).startsWith(visible + normalized) ? best / 2 : best
+}
+
+function rankItems(
+  items: ComposerAutocompleteItem[],
+  query: string,
+  ranker: (item: ComposerAutocompleteItem, query: string) => number | undefined,
+  limit: number,
+) {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      rank: ranker(item, query),
+    }))
+    .filter((item): item is { item: ComposerAutocompleteItem; index: number; rank: number } => item.rank !== undefined)
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .slice(0, limit)
+    .map((item) => withMatch(item.item, query))
 }
 
 function withMatch(item: ComposerAutocompleteItem, query: string): ComposerAutocompleteItem {
