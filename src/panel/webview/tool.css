@@ -876,3 +876,162 @@
   background: var(--oc-hover-block);
   box-shadow: inset 0 0 0 1px var(--oc-hover-block-inset);
 }
+
+.oc-shellBlock {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--oc-outputWindow-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--oc-outputWindow-body-bg);
+}
+
+.oc-shellBlock.is-active {
+  border-color: color-mix(in srgb, var(--oc-accent) 56%, var(--oc-outputWindow-border) 44%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--oc-accent) 18%, transparent 82%);
+}
+
+.oc-shellBlockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  background: var(--oc-outputWindow-head-bg);
+  color: var(--oc-outputWindow-head-fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.oc-shellBlockHeader:hover {
+  background: color-mix(in srgb, var(--oc-outputWindow-head-bg) 92%, var(--oc-accent) 8%);
+}
+
+.oc-shellBlockHeaderMain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.oc-shellBlockHeaderMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.oc-shellBlockAction,
+.oc-shellBlockTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oc-shellBlockAction {
+  flex: 0 0 auto;
+  font-size: var(--oc-font-size-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.oc-shellBlockTitle {
+  font-size: var(--oc-font-size);
+  font-weight: 600;
+}
+
+.oc-shellBlockSpinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  min-width: 14px;
+  height: 14px;
+}
+
+.oc-shellBlockToggleIcon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.oc-shellBlockBody {
+  background: var(--oc-outputWindow-body-bg);
+  color: var(--oc-outputWindow-body-fg);
+}
+
+.oc-shellBlockContent {
+  margin: 0;
+  padding: 8px 10px;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.65;
+  font-size: var(--oc-font-size);
+  font-family: var(--oc-mono);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-shellBlock {
+  border-color: color-mix(in srgb, var(--oc-border-strong) 48%, transparent 52%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--oc-outputWindow-body-bg) 94%, var(--oc-surface-elevated) 6%);
+  box-shadow: var(--oc-card-shadow);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-shellBlockHeader {
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--oc-outputWindow-head-bg) 84%, var(--oc-surface-elevated) 16%);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-shellBlockAction {
+  letter-spacing: 0.04em;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-shellBlockContent {
+  padding: 10px 12px 12px;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-shellBlock {
+  border-color: color-mix(in srgb, var(--oc-outputWindow-border) 88%, transparent 12%);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 5%, transparent 95%);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-shellBlockHeader {
+  padding: 4px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--oc-outputWindow-border) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--oc-outputWindow-head-bg) 92%, var(--oc-surface-control) 8%);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-shellBlockTitle {
+  font-weight: 500;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-shellBlockAction {
+  color: color-mix(in srgb, var(--oc-accent-strong) 82%, var(--oc-outputWindow-head-fg) 18%);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-shellBlockAction::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oc-accent) 78%, transparent 22%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--oc-accent) 18%, transparent 82%);
+  vertical-align: middle;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-shellBlockContent {
+  padding: 7px 10px;
+  line-height: 1.58;
+}

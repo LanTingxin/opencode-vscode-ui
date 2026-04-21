@@ -8,6 +8,7 @@ import { renderToolRowExtra, renderToolRowTitle, taskAgentName, taskBody, taskSe
 import { TaskToolRow as BaseTaskToolRow, ToolRow as BaseToolRow, ToolStatus } from "./tool-rows"
 import { extractSkillInvocationName, findSkillInvocationMatch } from "../../shared/skill-invocation"
 import { CodeBlock as BaseCodeBlock } from "../renderers/CodeBlock"
+import { CollapsibleShellBlock as BaseCollapsibleShellBlock } from "../renderers/CollapsibleShellBlock"
 import { DiffBlock as BaseDiffBlock, DiffWindowBody as BaseDiffWindowBody, diffOutputLineCount } from "../renderers/DiffBlock"
 import { FileRefText as BaseFileRefText } from "../renderers/FileRefText"
 import { MarkdownBlock as BaseMarkdownBlock } from "../renderers/MarkdownBlock"
@@ -127,9 +128,14 @@ export function ToolShellPanel({ part, active = false }: { part: Extract<Message
   const body = toolTextBody(part)
   const status = part.state?.status || "pending"
   return (
-    <OutputWindow action={toolLabel(part.tool)} title={details.title} running={status === "running"} lineCount={normalizedLineCount(body)} className={active ? "is-active" : ""}>
-      <pre className="oc-outputWindowContent oc-outputWindowContent-shell">{body || " "}</pre>
-    </OutputWindow>
+    <BaseCollapsibleShellBlock
+      ToolStatus={ToolStatus}
+      action={toolLabel(part.tool)}
+      title={details.title}
+      running={status === "running"}
+      body={body}
+      className={active ? "is-active" : ""}
+    />
   )
 }
 
