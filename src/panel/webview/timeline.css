@@ -65,6 +65,7 @@
 }
 
 .oc-turnUser,
+.oc-codexActivityGroup,
 .oc-assistantError,
 .oc-turnMeta,
 .oc-revertNotice,
@@ -792,4 +793,33 @@
   border-left: 0;
   border-radius: calc(var(--oc-radius-md) + 2px);
   background: color-mix(in srgb, var(--oc-surface-block) 88%, var(--oc-surface-canvas) 12%);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityGroup {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--oc-fg-muted) 90%, var(--oc-fg-primary) 10%);
+  text-align: left;
+  cursor: pointer;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityText {
+  min-width: 0;
+  font-size: var(--oc-font-size-sm);
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

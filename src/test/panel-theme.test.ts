@@ -325,6 +325,16 @@ describe("panel theme settings", () => {
     assert.doesNotMatch(toolCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-toolPanel\s*\{[\s\S]*width:\s*calc\(100%\s*-\s*28px\);/)
   })
 
+  test("adds codex activity summary hooks for collapsed assistant tool groups", () => {
+    const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
+    const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
+
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityGroup\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivitySummary\s*\{/)
+    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityToggle\s*\{/)
+    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityDetails\s*\{/)
+  })
+
   test("adds theme-specific pills, markdown, and output window treatments", () => {
     const baseCss = readFileSync(resolve(process.cwd(), "src/panel/webview/base.css"), "utf8")
     const markdownCss = readFileSync(resolve(process.cwd(), "src/panel/webview/markdown.css"), "utf8")

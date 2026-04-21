@@ -49,6 +49,26 @@ function toolPart(id: string, messageID: string, tool = "webfetch"): Extract<Mes
   }
 }
 
+function toolPartWithState(
+  id: string,
+  messageID: string,
+  tool: string,
+  state: Partial<Extract<MessagePart, { type: "tool" }>["state"]>,
+): Extract<MessagePart, { type: "tool" }> {
+  return {
+    id,
+    sessionID: "session-1",
+    messageID,
+    type: "tool",
+    tool,
+    callID: `${id}-call`,
+    state: {
+      status: "completed",
+      ...state,
+    },
+  }
+}
+
 const WRAPPED_SKILL_OUTPUT = `<skill_content name="using-superpowers">
 # Skill: using-superpowers
 
@@ -375,6 +395,76 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes('class="oc-turnUserWrap oc-turnUserWrap-theme-codex oc-turnUserWrap-compactEnd"'), true)
     assert.equal(html.includes('class="oc-turnUser oc-turnUser-theme-codex oc-turnUser-compactEnd"'), true)
     assert.equal(html.includes('class="oc-messageActions oc-messageActions-belowHover"'), true)
+  })
+
+  test("renders codex assistant activity as a collapsed summary row", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+          textPart("p1", "m1", "I checked the current UI."),
+          toolPartWithState("t1", "m1", "read", { input: { filePath: "src/panel/webview/app/timeline.tsx" } }),
+          toolPartWithState("t2", "m1", "grep", { input: { pattern: "oc-toolRowWrap" } }),
+          toolPartWithState("t3", "m1", "bash", { input: { command: "echo hi" }, metadata: { output: "hi" } }),
+        ])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "tool" ? JSON.stringify(part.state?.input || {}) : part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("text:I checked the current UI."), true)
+    assert.equal(html.includes("oc-codexActivityGroup"), true)
+    assert.equal(html.includes("explored 1 file, 1 search, ran 1 command"), true)
+    assert.equal(html.includes('aria-expanded="false"'), true)
+    assert.equal(html.includes("echo hi"), false)
+  })
+
+  test("keeps default-theme assistant tools on the existing inline path", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+          textPart("p1", "m1", "I checked the current UI."),
+          toolPartWithState("t1", "m1", "read", { input: { filePath: "src/panel/webview/app/timeline.tsx" } }),
+          toolPartWithState("t2", "m1", "bash", { input: { command: "echo hi" }, metadata: { output: "hi" } }),
+        ])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="default"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "tool" ? JSON.stringify(part.state?.input || {}) : part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("oc-codexActivityGroup"), false)
+    assert.equal(html.includes("echo hi"), true)
   })
 
   test("renders a compact skill marker for wrapped user text", () => {

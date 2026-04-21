@@ -39,6 +39,20 @@ function toolPart(id: string, messageID: string, tool: string, status: ToolPart[
   }
 }
 
+function toolPartWithState(id: string, messageID: string, tool: string, state: Partial<ToolPart["state"]>): ToolPart {
+  return {
+    id,
+    sessionID: "session-1",
+    messageID,
+    type: "tool",
+    tool,
+    state: {
+      status: "completed",
+      ...state,
+    },
+  }
+}
+
 function filePart(id: string, messageID: string, extras?: Partial<FilePart>): FilePart {
   return {
     id,
@@ -138,6 +152,40 @@ describe("timeline block reconciliation", () => {
     assert.equal(blocks[1]?.kind, "assistant-error")
     assert.equal(blocks[1]?.kind === "assistant-error" ? blocks[1].message.info.id : undefined, "m2")
     assert.equal(blocks[2]?.kind, "assistant-meta")
+  })
+
+  test("groups codex assistant exploration, search, and command tools into one activity block", () => {
+    const assistant = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+      toolPartWithState("p1", "m2", "read", { input: { filePath: "src/a.ts" } }),
+      toolPartWithState("p2", "m2", "read", { input: { filePath: "src/b.ts" } }),
+      toolPartWithState("p3", "m2", "glob", { input: { pattern: "**/*.tsx" } }),
+      toolPartWithState("p4", "m2", "grep", { input: { pattern: "renderToolRowTitle" } }),
+      toolPartWithState("p5", "m2", "bash", { input: { command: "echo hi" }, metadata: { output: "hi" } }),
+    ])
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [assistant], {
+      ...defaultOptions,
+      panelTheme: "codex",
+    })
+
+    assert.equal(blocks[0]?.kind, "assistant-activity")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "explored 2 files, 2 searches, ran 1 command")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].parts.length : undefined, 5)
+    assert.equal(blocks[1]?.kind, "assistant-meta")
+  })
+
+  test("keeps assistant tools on the existing part path outside codex theme", () => {
+    const assistant = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+      toolPartWithState("p1", "m2", "read", { input: { filePath: "src/a.ts" } }),
+      toolPartWithState("p2", "m2", "grep", { input: { pattern: "renderToolRowTitle" } }),
+      toolPartWithState("p3", "m2", "bash", { input: { command: "echo hi" }, metadata: { output: "hi" } }),
+    ])
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [assistant], defaultOptions)
+
+    assert.equal(blocks.filter((block) => block.kind === "assistant-activity").length, 0)
+    assert.equal(blocks.filter((block) => block.kind === "assistant-part").length, 3)
+    assert.equal(blocks.at(-1)?.kind, "assistant-meta")
   })
 })
 

@@ -877,6 +877,37 @@
   box-shadow: inset 0 0 0 1px var(--oc-hover-block-inset);
 }
 
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 60%, transparent 40%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oc-surface-elevated) 82%, var(--oc-surface-block) 18%);
+  color: var(--oc-fg-muted);
+  box-shadow: var(--oc-tool-shadow);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityToggle svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityDetails {
+  display: grid;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px solid color-mix(in srgb, var(--oc-border) 74%, transparent 26%);
+}
+
 .oc-shellBlock {
   display: grid;
   gap: 0;

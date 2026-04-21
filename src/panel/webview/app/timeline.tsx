@@ -4,20 +4,26 @@ import type { SkillCatalogEntry } from "../../../bridge/types"
 import type { PanelTheme } from "../../../core/settings"
 import type { CommandInfo, FilePart, MessageInfo, MessagePart, SessionMessage, TextPart } from "../../../core/sdk"
 import { findSkillInvocationMatch } from "../../shared/skill-invocation"
+import { recordValue, stringValue } from "../lib/part-utils"
+import { toolFiles } from "../lib/tool-meta"
 import { commandPromptLabel, findCommandPromptInvocation, previewCommandPromptText, type CommandPromptCatalog } from "./command-prompt"
 import { CommandPill } from "./command-pill"
 import { CollapsiblePrompt } from "./collapsible-prompt"
 import { TranscriptVisibilityContext } from "./contexts"
 import { SkillPill } from "./skill-pill"
 
+type AssistantActivityToolPart = Extract<MessagePart, { type: "tool" }>
+
 export type TimelineBlock =
   | { kind: "user-message"; key: string; message: SessionMessage; queued: boolean }
+  | { kind: "assistant-activity"; key: string; parts: AssistantActivityToolPart[]; summary: string }
   | { kind: "assistant-part"; key: string; part: MessagePart }
   | { kind: "assistant-error"; key: string; message: SessionMessage; text: string }
   | { kind: "assistant-meta"; key: string; messages: SessionMessage[] }
   | { kind: "revert"; key: string; count: number; files: Array<{ filename: string; additions: number; deletions: number }> }
 
 type TimelineDerivationOptions = {
+  panelTheme?: PanelTheme
   showThinking: boolean
   showInternals: boolean
   revertID?: string
@@ -25,6 +31,7 @@ type TimelineDerivationOptions = {
 }
 
 export type TimelineDerivationCache = {
+  assistantActivityBlocks: Map<string, Extract<TimelineBlock, { kind: "assistant-activity" }>>
   assistantErrorBlocks: Map<string, Extract<TimelineBlock, { kind: "assistant-error" }>>
   assistantMetaBlocks: Map<string, Extract<TimelineBlock, { kind: "assistant-meta" }>>
   assistantPartBlocks: Map<string, Extract<TimelineBlock, { kind: "assistant-part" }>>
@@ -34,6 +41,7 @@ export type TimelineDerivationCache = {
 
 export function createTimelineDerivationCache(): TimelineDerivationCache {
   return {
+    assistantActivityBlocks: new Map(),
     assistantErrorBlocks: new Map(),
     assistantMetaBlocks: new Map(),
     assistantPartBlocks: new Map(),
@@ -100,12 +108,21 @@ export const Timeline = React.memo(function Timeline({
   const cacheRef = React.useRef<TimelineDerivationCache>(createTimelineDerivationCache())
 
   const blocks = React.useMemo(() => reconcileTimelineBlocks(cacheRef.current, messages, {
+    panelTheme,
     showThinking,
     showInternals,
     revertID,
     revertDiff,
-  }), [messages, revertDiff, revertID, showInternals, showThinking])
-  const activeToolID = React.useMemo(() => latestActiveToolId(blocks.flatMap((block) => block.kind === "assistant-part" ? [block.part] : [])), [blocks])
+  }), [messages, panelTheme, revertDiff, revertID, showInternals, showThinking])
+  const activeToolID = React.useMemo(() => latestActiveToolId(blocks.flatMap((block) => {
+    if (block.kind === "assistant-part") {
+      return [block.part]
+    }
+    if (block.kind === "assistant-activity") {
+      return block.parts
+    }
+    return []
+  })), [blocks])
 
   if (bootstrapStatus === "error") {
     return <EmptyState title="Session unavailable" text={bootstrapMessage || "The workspace runtime is not ready."} />
@@ -130,6 +147,7 @@ export const Timeline = React.memo(function Timeline({
               CompactionDivider={CompactionDivider}
               MarkdownBlock={MarkdownBlock}
               PartView={PartView}
+              activeToolID={activeToolID}
               active={block.kind === "assistant-part" && block.part.type === "tool" && block.part.id === activeToolID}
               block={block}
               commandPromptInvocations={commandPromptInvocations}
@@ -162,6 +180,7 @@ type TimelineBlockViewProps = {
   CompactionDivider: () => React.JSX.Element
   MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
   PartView: ({ part, active, diffMode }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
+  activeToolID: string
   active: boolean
   block: TimelineBlock
   commandPromptInvocations: CommandPromptCatalog
@@ -184,6 +203,7 @@ function TimelineBlockView({
   CompactionDivider,
   MarkdownBlock: _MarkdownBlock,
   PartView,
+  activeToolID,
   active,
   block,
   commandPromptInvocations,
@@ -200,9 +220,11 @@ function TimelineBlockView({
   panelTheme,
   skillCatalog,
 }: TimelineBlockViewProps) {
+  const [activityExpanded, setActivityExpanded] = React.useState(false)
   const [commandPromptExpanded, setCommandPromptExpanded] = React.useState(false)
 
   React.useEffect(() => {
+    setActivityExpanded(false)
     setCommandPromptExpanded(false)
   }, [block.kind === "user-message" ? block.message.info.id : block.key])
 
@@ -282,6 +304,34 @@ function TimelineBlockView({
 
   if (block.kind === "assistant-meta") {
     return <AssistantTurnMeta AgentBadge={AgentBadge} messages={block.messages} />
+  }
+
+  if (block.kind === "assistant-activity") {
+    return (
+      <section className="oc-codexActivityGroup">
+        <button
+          type="button"
+          className="oc-codexActivitySummary"
+          aria-expanded={activityExpanded}
+          aria-label={activityExpanded ? "Collapse activity details" : "Expand activity details"}
+          onClick={() => setActivityExpanded((current) => !current)}
+        >
+          <span className="oc-codexActivityText">{block.summary}</span>
+          <span className="oc-codexActivityToggle" aria-hidden="true">
+            <svg viewBox="0 0 16 16">
+              {activityExpanded ? <path d="M4 10l4-4 4 4" /> : <path d="M4 6l4 4 4-4" />}
+            </svg>
+          </span>
+        </button>
+        {activityExpanded ? (
+          <div className="oc-codexActivityDetails">
+            {block.parts.map((part) => (
+              <PartView key={part.id} part={part} active={part.id === activeToolID} diffMode={diffMode} />
+            ))}
+          </div>
+        ) : null}
+      </section>
+    )
   }
 
   if (block.kind === "revert") {
@@ -455,6 +505,7 @@ function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: Timeline
     || prev.CompactionDivider !== next.CompactionDivider
     || prev.MarkdownBlock !== next.MarkdownBlock
     || prev.PartView !== next.PartView
+    || prev.activeToolID !== next.activeToolID
     || prev.active !== next.active
     || prev.compactSkillInvocations !== next.compactSkillInvocations
     || prev.diffMode !== next.diffMode
@@ -488,6 +539,10 @@ function sameTimelineBlock(prev: TimelineBlock, next: TimelineBlock) {
     return prev.part === next.part
   }
 
+  if (prev.kind === "assistant-activity" && next.kind === "assistant-activity") {
+    return prev.summary === next.summary && sameToolPartList(prev.parts, next.parts)
+  }
+
   if (prev.kind === "assistant-error" && next.kind === "assistant-error") {
     return prev.message === next.message && prev.text === next.text
   }
@@ -504,6 +559,20 @@ function sameTimelineBlock(prev: TimelineBlock, next: TimelineBlock) {
 }
 
 function sameMessageList(prev: SessionMessage[], next: SessionMessage[]) {
+  if (prev.length !== next.length) {
+    return false
+  }
+
+  for (let index = 0; index < prev.length; index += 1) {
+    if (prev[index] !== next[index]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function sameToolPartList(prev: AssistantActivityToolPart[], next: AssistantActivityToolPart[]) {
   if (prev.length !== next.length) {
     return false
   }
@@ -598,6 +667,7 @@ function isAssistantChainable(block?: TimelineBlock) {
 }
 
 export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages: SessionMessage[], options: TimelineDerivationOptions) {
+  const nextAssistantActivityBlocks = new Map<string, Extract<TimelineBlock, { kind: "assistant-activity" }>>()
   const nextAssistantErrorBlocks = new Map<string, Extract<TimelineBlock, { kind: "assistant-error" }>>()
   const nextAssistantMetaBlocks = new Map<string, Extract<TimelineBlock, { kind: "assistant-meta" }>>()
   const nextAssistantPartBlocks = new Map<string, Extract<TimelineBlock, { kind: "assistant-part" }>>()
@@ -629,8 +699,37 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
     }
 
     const parts = message.parts.filter((part) => visibleAssistantPart(part, options))
-    for (const part of parts) {
-      blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
+    if (options.panelTheme === "codex") {
+      let pendingActivity: AssistantActivityToolPart[] = []
+      const flushActivity = () => {
+        if (pendingActivity.length === 0) {
+          return
+        }
+        const activity = assistantActivityBlock(cache.assistantActivityBlocks, nextAssistantActivityBlocks, pendingActivity)
+        if (activity) {
+          blocks.push(activity)
+        } else {
+          for (const part of pendingActivity) {
+            blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
+          }
+        }
+        pendingActivity = []
+      }
+
+      for (const part of parts) {
+        if (part.type === "tool" && isCodexActivityTool(part)) {
+          pendingActivity.push(part)
+          continue
+        }
+
+        flushActivity()
+        blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
+      }
+      flushActivity()
+    } else {
+      for (const part of parts) {
+        blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
+      }
     }
     const errorText = assistantErrorText(message.info)
     if (errorText) {
@@ -640,6 +739,7 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
   }
 
   flush()
+  cache.assistantActivityBlocks = nextAssistantActivityBlocks
   cache.assistantErrorBlocks = nextAssistantErrorBlocks
   cache.assistantMetaBlocks = nextAssistantMetaBlocks
   cache.assistantPartBlocks = nextAssistantPartBlocks
@@ -666,6 +766,35 @@ function userBlock(
     key,
     message,
     queued,
+  }
+  nextCache.set(key, next)
+  return next
+}
+
+function assistantActivityBlock(
+  cache: Map<string, Extract<TimelineBlock, { kind: "assistant-activity" }>>,
+  nextCache: Map<string, Extract<TimelineBlock, { kind: "assistant-activity" }>>,
+  parts: AssistantActivityToolPart[],
+) {
+  const summary = codexActivitySummary(parts)
+  if (!summary) {
+    return undefined
+  }
+
+  const firstID = parts[0]?.id || "start"
+  const lastID = parts[parts.length - 1]?.id || "end"
+  const key = `activity:${firstID}:${lastID}:${parts.length}`
+  const prev = cache.get(key)
+  if (prev && prev.summary === summary && sameToolPartList(prev.parts, parts)) {
+    nextCache.set(key, prev)
+    return prev
+  }
+
+  const next: Extract<TimelineBlock, { kind: "assistant-activity" }> = {
+    kind: "assistant-activity",
+    key,
+    parts,
+    summary,
   }
   nextCache.set(key, next)
   return next
@@ -1019,6 +1148,83 @@ function latestActiveToolId(parts: MessagePart[]) {
     }
   }
   return ""
+}
+
+function isCodexActivityTool(part: AssistantActivityToolPart) {
+  return codexActivityKind(part) !== ""
+}
+
+function codexActivitySummary(parts: AssistantActivityToolPart[]) {
+  const edited = new Set<string>()
+  const explored = new Set<string>()
+  let searches = 0
+  let commands = 0
+
+  for (const part of parts) {
+    const kind = codexActivityKind(part)
+    if (kind === "edited") {
+      const files = toolFiles(part)
+      if (files.length === 0) {
+        edited.add(`tool:${part.id}`)
+      } else {
+        for (const file of files) {
+          edited.add(file.path || `tool:${part.id}`)
+        }
+      }
+      continue
+    }
+
+    if (kind === "explored") {
+      explored.add(codexActivityPath(part) || `tool:${part.id}`)
+      continue
+    }
+
+    if (kind === "search") {
+      searches += 1
+      continue
+    }
+
+    if (kind === "command") {
+      commands += 1
+    }
+  }
+
+  const segments: string[] = []
+  if (edited.size > 0) {
+    segments.push(`edited ${edited.size} ${edited.size === 1 ? "file" : "files"}`)
+  }
+  if (explored.size > 0) {
+    segments.push(`explored ${explored.size} ${explored.size === 1 ? "file" : "files"}`)
+  }
+  if (searches > 0) {
+    segments.push(`${searches} ${searches === 1 ? "search" : "searches"}`)
+  }
+  if (commands > 0) {
+    segments.push(`ran ${commands} ${commands === 1 ? "command" : "commands"}`)
+  }
+
+  return segments.join(", ")
+}
+
+function codexActivityKind(part: AssistantActivityToolPart) {
+  if (part.tool === "edit" || part.tool === "write" || part.tool === "apply_patch") {
+    return "edited"
+  }
+  if (part.tool === "read" || part.tool === "list") {
+    return "explored"
+  }
+  if (part.tool === "glob" || part.tool === "grep" || part.tool === "websearch" || part.tool === "codesearch") {
+    return "search"
+  }
+  if (part.tool === "bash") {
+    return "command"
+  }
+  return ""
+}
+
+function codexActivityPath(part: AssistantActivityToolPart) {
+  const input = recordValue(part.state?.input)
+  return stringValue(input.filePath) || stringValue(input.path)
 }
 
 function assistantSummary(messages: SessionMessage[]) {
