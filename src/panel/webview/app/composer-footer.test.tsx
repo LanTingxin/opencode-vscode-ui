@@ -6,10 +6,16 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { ComposerFooter } from "./composer-footer"
 
 describe("ComposerFooter", () => {
-  test("renders metrics on the left and status badges on the right in the same footer", () => {
+  test("renders a compact context ring before MCP and LSP while hiding footer metric text and formatter badges", () => {
     const html = renderToStaticMarkup(
       <ComposerFooter
-        metrics={["6,568 tokens", "$0.5203"]}
+        contextStats={{
+          tokens: "6,568",
+          usage: "68%",
+          cost: "$0.5203",
+          percent: 68,
+        }}
+        onOpenContext={() => {}}
         badges={[
           { label: "MCP", tone: "gray", items: [] },
           { label: "LSP", tone: "green", items: [] },
@@ -18,24 +24,31 @@ describe("ComposerFooter", () => {
       />,
     )
 
-    const metricsIndex = html.indexOf("6,568 tokens")
+    const contextIndex = html.indexOf("Open context")
     const mcpIndex = html.indexOf("MCP")
     const lspIndex = html.indexOf("LSP")
     const fmtIndex = html.indexOf("FMT")
 
-    assert.equal(metricsIndex > -1, true)
+    assert.equal(contextIndex > -1, true)
     assert.equal(mcpIndex > -1, true)
     assert.equal(lspIndex > -1, true)
-    assert.equal(fmtIndex > -1, true)
-    assert.equal(metricsIndex < mcpIndex, true)
+    assert.equal(fmtIndex > -1, false)
+    assert.equal(html.includes("oc-contextRow"), false)
+    assert.equal(html.includes(">Context<"), false)
+    assert.equal(html.includes("oc-contextButtonRingCore"), false)
+    assert.equal(contextIndex < mcpIndex, true)
     assert.equal(mcpIndex < lspIndex, true)
-    assert.equal(lspIndex < fmtIndex, true)
   })
 
   test("renders inline errors without dropping the status badges", () => {
     const html = renderToStaticMarkup(
       <ComposerFooter
-        metrics={["6,568 tokens"]}
+        contextStats={{
+          tokens: "6,568",
+          usage: "68%",
+          cost: "$0.5203",
+          percent: 68,
+        }}
         error="Network unavailable"
         badges={[
           { label: "MCP", tone: "gray", items: [] },
@@ -47,42 +60,15 @@ describe("ComposerFooter", () => {
     assert.equal(html.includes("MCP"), true)
   })
 
-  test("renders a context usage progress bar when a usage percent is available", () => {
+  test("renders a hover card with token usage and cost details for the context ring", () => {
     const html = renderToStaticMarkup(
       <ComposerFooter
-        metrics={["6,568 tokens", "68%", "$0.5203"]}
-        contextPercent={68}
-        badges={[
-          { label: "MCP", tone: "gray", items: [] },
-        ]}
-      />,
-    )
-
-    assert.equal(html.includes("oc-contextUsage"), true)
-    assert.equal(html.includes("role=\"progressbar\""), true)
-    assert.equal(html.includes("aria-valuenow=\"68\""), true)
-    assert.equal(html.includes("width:68%"), true)
-  })
-
-  test("omits the context usage progress bar when no usage percent is available", () => {
-    const html = renderToStaticMarkup(
-      <ComposerFooter
-        metrics={["6,568 tokens", "$0.5203"]}
-        badges={[
-          { label: "MCP", tone: "gray", items: [] },
-        ]}
-      />,
-    )
-
-    assert.equal(html.includes("oc-contextUsage"), false)
-  })
-
-  test("renders a context entrypoint when the footer can open the context panel", () => {
-    const Footer = ComposerFooter as unknown as (props: Record<string, unknown>) => React.JSX.Element
-    const html = renderToStaticMarkup(
-      <Footer
-        metrics={["6,568 tokens", "68%", "$0.5203"]}
-        contextPercent={68}
+        contextStats={{
+          tokens: "6,568",
+          usage: "68%",
+          cost: "$0.5203",
+          percent: 68,
+        }}
         onOpenContext={() => {}}
         badges={[
           { label: "MCP", tone: "gray", items: [] },
@@ -90,6 +76,31 @@ describe("ComposerFooter", () => {
       />,
     )
 
-    assert.equal(html.includes("Open context"), true)
+    assert.equal(html.includes("oc-contextButtonTooltip"), true)
+    assert.equal(html.includes("Token"), true)
+    assert.equal(html.includes("Usage"), true)
+    assert.equal(html.includes("Cost"), true)
+    assert.equal(html.includes("6,568"), true)
+    assert.equal(html.includes("68%"), true)
+    assert.equal(html.includes("$0.5203"), true)
+  })
+
+  test("falls back to placeholder details when context stats are missing usage data", () => {
+    const html = renderToStaticMarkup(
+      <ComposerFooter
+        contextStats={{
+          tokens: "0",
+          usage: "—",
+          cost: "$0.0000",
+        }}
+        onOpenContext={() => {}}
+        badges={[
+          { label: "MCP", tone: "gray", items: [] },
+        ]}
+      />,
+    )
+
+    assert.equal(html.includes("aria-valuenow=\"0\""), true)
+    assert.equal(html.includes(">—<"), true)
   })
 })

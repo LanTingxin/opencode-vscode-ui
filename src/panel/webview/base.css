@@ -116,7 +116,7 @@ button {
 .oc-composerContextWrap {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
   flex: 0 1 auto;
 }
@@ -127,18 +127,6 @@ button {
   gap: 12px;
   min-width: 0;
   flex: 1 1 auto;
-}
-
-.oc-contextRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: nowrap;
-  color: var(--oc-fg-muted);
-  font-size: var(--oc-font-size-sm);
-  line-height: 1.5;
-  min-width: 0;
-  flex: 0 1 auto;
 }
 
 .oc-entryTime {

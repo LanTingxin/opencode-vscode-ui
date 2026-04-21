@@ -12,9 +12,9 @@ import { useHostMessages } from "../hooks/useHostMessages"
 import { useModifierState } from "../hooks/useModifierState"
 import { useTimelineScroll } from "../hooks/useTimelineScroll"
 import { formatComposerFileContent, parseComposerFileQuery } from "../lib/composer-file-selection"
-import { agentColorClass, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallFormatterStatus, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel } from "../lib/session-meta"
+import { agentColorClass, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel } from "../lib/session-meta"
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
-import { ComposerFooter } from "./composer-footer"
+import { ComposerFooter, ContextButtonRing } from "./composer-footer"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
 import { isCompletedSlashCommand, resolveComposerAutocompleteAction, resolveComposerSlashAction } from "./composer-actions"
@@ -971,31 +971,27 @@ export function App() {
     submit()
   }, [clearEscPending, postComposerAction, primaryAction.disabled, primaryAction.kind, startEscPending, submit])
 
-  const composerFooterMetrics = React.useMemo(() => {
+  const composerFooterContextStats = React.useMemo(() => {
     const metrics = composerMetrics({
       ...state.snapshot,
       model: currentSelection.model,
     })
     return {
-      items: [
-        `${metrics.tokens.toLocaleString()} tokens`,
-        typeof metrics.percent === "number" ? `${metrics.percent}%` : "",
-        formatUsd(metrics.cost),
-      ].filter(Boolean),
-      contextPercent: metrics.percent,
+      tokens: metrics.tokens.toLocaleString(),
+      usage: typeof metrics.percent === "number" ? `${metrics.percent}%` : "—",
+      cost: formatUsd(metrics.cost),
+      percent: metrics.percent,
     }
   }, [currentSelection.model, state.snapshot])
 
   const composerFooterBadges = React.useMemo(() => {
     const mcp = overallMcpStatus(state.snapshot.mcp)
     const lsp = overallLspStatus(state.snapshot.lsp)
-    const formatter = overallFormatterStatus(state.snapshot.formatter)
     return [
       { label: "MCP", tone: mcp.tone, items: mcp.items },
       { label: "LSP", tone: lsp.tone, items: lsp.items },
-      { label: "FMT", tone: formatter.tone, items: formatter.items },
     ]
-  }, [state.snapshot.formatter, state.snapshot.lsp, state.snapshot.mcp])
+  }, [state.snapshot.lsp, state.snapshot.mcp])
 
   const cycleComposerAgent = React.useCallback(() => {
     const next = cycleAgentName(state.snapshot.agents, currentSelection.agent)
@@ -1760,8 +1756,7 @@ export function App() {
                     {activeAutocomplete ? <ComposerAutocompletePopup state={activeAutocomplete} fileSearch={fileSearch} onSelect={acceptComposerAutocomplete} /> : null}
                   </div>
                   <ComposerFooter
-                    metrics={composerFooterMetrics.items}
-                    contextPercent={composerFooterMetrics.contextPercent}
+                    contextStats={composerFooterContextStats}
                     contextOpen={contextPanelOpen}
                     badges={composerFooterBadges}
                     error={state.error || undefined}
@@ -1787,9 +1782,7 @@ export function App() {
                   <div className="oc-sidePanelHeader">
                     <div className="oc-sidePanelTabs" role="tablist" aria-label="Session side panel">
                       <button type="button" className="oc-sidePanelTab is-active" role="tab" aria-selected="true">
-                        <span className="oc-contextButtonRing" aria-hidden="true" style={{ "--oc-context-button-percent": `${Math.min(Math.max(Math.round(composerFooterMetrics.contextPercent ?? 0), 0), 100)}%` } as React.CSSProperties}>
-                          <span className="oc-contextButtonRingCore" />
-                        </span>
+                        <ContextButtonRing percent={composerFooterContextStats.percent} decorative={true} />
                         <span>Context</span>
                       </button>
                     </div>

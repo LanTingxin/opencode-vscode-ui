@@ -8,9 +8,15 @@ export type ComposerFooterBadge = {
   items: StatusItem[]
 }
 
+export type ComposerFooterContextStats = {
+  tokens: string
+  usage: string
+  cost: string
+  percent?: number
+}
+
 export function ComposerFooter({
-  metrics,
-  contextPercent,
+  contextStats,
   contextOpen = false,
   badges,
   error,
@@ -19,8 +25,7 @@ export function ComposerFooter({
   onActionStart,
   onBadgeAction,
 }: {
-  metrics: string[]
-  contextPercent?: number
+  contextStats: ComposerFooterContextStats
   contextOpen?: boolean
   badges: ComposerFooterBadge[]
   error?: string
@@ -29,40 +34,34 @@ export function ComposerFooter({
   onActionStart?: (name: string) => void
   onBadgeAction?: (item: StatusItem) => void
 }) {
+  const visibleBadges = badges.filter((badge) => badge.label === "MCP" || badge.label === "LSP")
+
   return (
     <div className="oc-composerActions">
       <div className="oc-composerActionsMain">
-        {error ? <div className="oc-errorText oc-composerErrorText">{error}</div> : null}
-        <div className="oc-contextRow">
-          {metrics.map((item, index) => (
-            <React.Fragment key={item}>
-              {index > 0 ? <span aria-hidden="true">·</span> : null}
-              <span>{item}</span>
-              {index === 0 && typeof contextPercent === "number" ? (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <ContextUsageBar percent={contextPercent} />
-                </>
-              ) : null}
-            </React.Fragment>
-          ))}
-        </div>
+        {error ? <div className="oc-errorText oc-composerErrorText">{error}</div> : <span />}
       </div>
       <div className="oc-composerContextWrap">
         {onOpenContext ? (
-          <button
-            type="button"
-            className={`oc-contextButton${contextOpen ? " is-open" : ""}`}
-            onClick={onOpenContext}
-            aria-label={`${contextOpen ? "Close" : "Open"} context`}
-            title={`${contextOpen ? "Close" : "Open"} context`}
-          >
-            <ContextButtonRing percent={contextPercent} />
-            <span className="oc-contextButtonLabel">Context</span>
-          </button>
+          <div className="oc-contextButtonWrap">
+            <button
+              type="button"
+              className={`oc-contextButton${contextOpen ? " is-open" : ""}`}
+              onClick={onOpenContext}
+              aria-label={`${contextOpen ? "Close" : "Open"} context`}
+              title={`${contextOpen ? "Close" : "Open"} context`}
+            >
+              <ContextButtonRing percent={contextStats.percent} />
+            </button>
+            <div className="oc-contextButtonTooltip" role="tooltip">
+              <ContextButtonTooltipRow value={contextStats.tokens} label="Token" />
+              <ContextButtonTooltipRow value={contextStats.usage} label="Usage" />
+              <ContextButtonTooltipRow value={contextStats.cost} label="Cost" />
+            </div>
+          </div>
         ) : null}
         <div className="oc-actionRow oc-composerBadgeRow">
-          {badges.map((badge) => (
+          {visibleBadges.map((badge) => (
             <StatusBadge
               key={badge.label}
               label={badge.label}
@@ -79,40 +78,42 @@ export function ComposerFooter({
   )
 }
 
-function ContextButtonRing({ percent }: { percent?: number }) {
+function ContextButtonTooltipRow({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="oc-contextButtonTooltipRow">
+      <span className="oc-contextButtonTooltipValue">{value}</span>
+      <span className="oc-contextButtonTooltipLabel">{label}</span>
+    </div>
+  )
+}
+
+export function ContextButtonRing({
+  percent,
+  decorative = false,
+}: {
+  percent?: number
+  decorative?: boolean
+}) {
   const normalized = Number.isFinite(percent) ? Math.max(0, Math.round(percent ?? 0)) : 0
   const clamped = Math.min(normalized, 100)
   const toneClass = normalized >= 100 ? " is-critical" : normalized >= 80 ? " is-warning" : ""
+  const accessibilityProps = decorative
+    ? { "aria-hidden": true }
+    : {
+      role: "progressbar",
+      "aria-label": "Context usage",
+      "aria-valuemin": 0,
+      "aria-valuemax": 100,
+      "aria-valuenow": clamped,
+      "aria-valuetext": `${normalized}% used`,
+    }
 
   return (
     <span
       className={`oc-contextButtonRing${toneClass}`}
-      aria-hidden="true"
+      {...accessibilityProps}
       style={{ "--oc-context-button-percent": `${clamped}%` } as React.CSSProperties}
-    >
-      <span className="oc-contextButtonRingCore" />
-    </span>
-  )
-}
-
-function ContextUsageBar({ percent }: { percent: number }) {
-  const normalized = Number.isFinite(percent) ? Math.max(0, Math.round(percent)) : 0
-  const clamped = Math.min(normalized, 100)
-  const toneClass = normalized >= 100 ? " is-critical" : normalized >= 80 ? " is-warning" : ""
-
-  return (
-    <span
-      className={`oc-contextUsage${toneClass}`}
-      role="progressbar"
-      aria-label="Context usage"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={clamped}
-      aria-valuetext={`${normalized}% used`}
-      title={`Context usage ${normalized}%`}
-    >
-      <span className="oc-contextUsageFill" style={{ width: `${clamped}%` }} />
-    </span>
+    />
   )
 }
 
