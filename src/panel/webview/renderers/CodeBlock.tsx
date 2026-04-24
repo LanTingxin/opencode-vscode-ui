@@ -75,7 +75,11 @@ function normalizeCodeLanguage(value: string) {
 }
 
 function normalizedLines(value: string) {
-  return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
+  const lines = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
+  while (lines.length > 1 && lines[lines.length - 1] === "") {
+    lines.pop()
+  }
+  return lines
 }
 
 function codeWindowGutterDigits(value: string) {

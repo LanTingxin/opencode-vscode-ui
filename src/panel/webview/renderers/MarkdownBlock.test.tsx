@@ -63,4 +63,18 @@ describe("MarkdownBlock file links", () => {
     assert.doesNotMatch(html, /\[x\] done/)
     assert.doesNotMatch(html, /\[ \] pending/)
   })
+
+  test("does not render trailing blank lines in fenced code blocks", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownBlock
+        fileRefStatus={new Map()}
+        onOpenFile={() => {}}
+        onResolveFileRefs={() => {}}
+        content={"```text\nfirst\n\nsecond\n\n```"}
+      />,
+    )
+
+    const renderedLines = html.match(/class="oc-codeWindowLine"/g) ?? []
+    assert.equal(renderedLines.length, 3)
+  })
 })
