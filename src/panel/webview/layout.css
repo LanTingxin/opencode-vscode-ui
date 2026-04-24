@@ -66,6 +66,47 @@
   gap: 8px;
 }
 
+.oc-scrollToBottom {
+  appearance: none;
+  position: absolute;
+  right: 8px;
+  top: -48px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oc-surface-elevated, var(--oc-surface-canvas)) 86%, var(--oc-surface-block) 14%);
+  color: var(--oc-fg-muted);
+  box-shadow: var(--oc-shadow-floating);
+  cursor: pointer;
+}
+
+.oc-scrollToBottom:hover,
+.oc-scrollToBottom:focus-visible {
+  border-color: color-mix(in srgb, var(--oc-accent) 54%, var(--oc-border-strong) 46%);
+  background: color-mix(in srgb, var(--oc-accent) 18%, var(--oc-surface-block) 82%);
+  color: var(--oc-fg-primary);
+  outline: none;
+}
+
+.oc-scrollToBottom svg {
+  width: 16px;
+  height: 16px;
+}
+
+.oc-scrollToBottom path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .oc-transcriptToggleGroup {
   display: inline-flex;
   align-items: center;

@@ -242,7 +242,7 @@ export function App() {
   }, [captureTranscriptOffset, loadingEarlierMessages, state.snapshot.messageHistory.hasEarlier, state.snapshot.messages.length])
 
   useComposerResize(composerRef, state.draft)
-  useTimelineScroll(timelineRef, [visibleTranscriptMessages, state.snapshot.submitting, state.snapshot.permissions, state.snapshot.questions])
+  const timelineScroll = useTimelineScroll(timelineRef, [visibleTranscriptMessages, state.snapshot.submitting, state.snapshot.permissions, state.snapshot.questions])
   useModifierState()
 
   React.useEffect(() => {
@@ -1541,6 +1541,19 @@ export function App() {
 
               <footer className="oc-footer">
                 <div className="oc-transcriptInner oc-footerInner">
+            {!timelineScroll.isAtBottom ? (
+              <button
+                type="button"
+                className="oc-scrollToBottom"
+                onClick={timelineScroll.scrollToBottom}
+                aria-label="Scroll to bottom"
+                title="Scroll to bottom"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M8 3v9M4.5 8.5 8 12l3.5-3.5" />
+                </svg>
+              </button>
+            ) : null}
             {firstPermission ? (
               <PermissionDock
                 request={firstPermission}
