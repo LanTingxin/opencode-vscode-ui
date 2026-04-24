@@ -4,7 +4,7 @@
   "displayName": "OpenCode Enhanced UI",
   "description": "VS Code enhanced UI for opencode",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "LanTingxin",
   "icon": "images/logo.png",
   "license": "MIT",

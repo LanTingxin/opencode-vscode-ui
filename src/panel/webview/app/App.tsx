@@ -22,6 +22,7 @@ import { collectDroppedFilePaths, shouldHandleComposerFileDrop } from "./compose
 import { autocompleteItemView, buildComposerMenuItems, mentionForQuery } from "./composer-menu"
 import { composerPrimaryAction } from "./composer-primary-action"
 import { composerEnterIntent, composerTabIntent, cycleAgentName, isShortcutTarget, leaderAction, shouldEnterShellMode, shouldExitShellModeOnBackspace, type ComposerMode } from "./keyboard-shortcuts"
+import { HIDDEN_CODEX_TODO_DOCK_STATE, nextCodexTodoDockState, sameCodexTodoDockState, type CodexTodoDockState } from "./codex-todo-dock-state"
 import { buildModelPickerRecoveryActions, buildModelPickerSections, ModelPicker } from "./model-picker"
 import { buildComposerHostMessage } from "./composer-submit"
 import { mergeRestoredComposerParts, restoredComposerCursor } from "./composer-seed"
@@ -77,7 +78,7 @@ export function App() {
   const [skillPickerOpen, setSkillPickerOpen] = React.useState(false)
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = React.useState(0)
   const [codexTodoCollapsed, setCodexTodoCollapsed] = React.useState(false)
-  const [codexTodoDock, setCodexTodoDock] = React.useState({ visible: false, closing: false, opening: false })
+  const [codexTodoDock, setCodexTodoDock] = React.useState<CodexTodoDockState>(HIDDEN_CODEX_TODO_DOCK_STATE)
   const [renderedMessageCount, setRenderedMessageCount] = React.useState(INITIAL_RENDERED_MESSAGE_COUNT)
   const [loadingEarlierMessages, setLoadingEarlierMessages] = React.useState(false)
   const timelineRef = React.useRef<HTMLDivElement | null>(null)
@@ -1494,12 +1495,19 @@ export function App() {
   }, [state.form.custom, state.form.selected])
 
   const panelTheme = resolvePanelThemeValue(state.snapshot.display.panelTheme)
+  const hasCodexTodos = state.snapshot.todos.length > 0
   const codexTodosComplete = state.snapshot.todos.length > 0
     && state.snapshot.todos.every((todo) => todo.status === "completed" || todo.status === "cancelled")
-  const showCodexTodoPopover = panelTheme === "codex" && codexTodoDock.visible && state.snapshot.todos.length > 0
+  const showCodexTodoPopover = panelTheme === "codex" && codexTodoDock.visible && hasCodexTodos
 
   React.useEffect(() => {
-    if (panelTheme !== "codex" || state.snapshot.todos.length === 0) {
+    const nextDock = nextCodexTodoDockState(codexTodoDock, {
+      hasTodos: hasCodexTodos,
+      complete: codexTodosComplete,
+      theme: panelTheme,
+    })
+
+    if (panelTheme !== "codex" || !hasCodexTodos) {
       if (codexTodoCloseTimerRef.current) {
         window.clearTimeout(codexTodoCloseTimerRef.current)
         codexTodoCloseTimerRef.current = null
@@ -1509,7 +1517,9 @@ export function App() {
         codexTodoOpenFrameRef.current = null
       }
       setCodexTodoCollapsed(false)
-      setCodexTodoDock({ visible: false, closing: false, opening: false })
+      if (nextDock !== codexTodoDock) {
+        setCodexTodoDock(nextDock)
+      }
       return
     }
 
@@ -1523,28 +1533,36 @@ export function App() {
         codexTodoOpenFrameRef.current = null
       }
 
-      const hidden = !codexTodoDock.visible || codexTodoDock.closing
-      setCodexTodoDock({ visible: true, closing: false, opening: hidden })
-      if (hidden) {
+      if (nextDock !== codexTodoDock) {
+        setCodexTodoDock(nextDock)
+      }
+      if (nextDock.opening && nextDock !== codexTodoDock) {
         codexTodoOpenFrameRef.current = window.requestAnimationFrame(() => {
-          setCodexTodoDock((current) => current.visible && !current.closing ? { ...current, opening: false } : current)
+          setCodexTodoDock((current) => {
+            if (!current.visible || current.closing || !current.opening) {
+              return current
+            }
+            return { ...current, opening: false }
+          })
           codexTodoOpenFrameRef.current = null
         })
       }
       return
     }
 
-    if (codexTodoDock.closing) {
+    if (nextDock === codexTodoDock) {
       return
     }
 
     setCodexTodoCollapsed(false)
-    setCodexTodoDock({ visible: true, closing: true, opening: false })
-    codexTodoCloseTimerRef.current = window.setTimeout(() => {
-      setCodexTodoDock({ visible: false, closing: false, opening: false })
-      codexTodoCloseTimerRef.current = null
-    }, 400)
-  }, [codexTodoDock.closing, codexTodoDock.visible, codexTodosComplete, panelTheme, state.snapshot.todos])
+    setCodexTodoDock(nextDock)
+    if (nextDock.closing && !codexTodoDock.closing) {
+      codexTodoCloseTimerRef.current = window.setTimeout(() => {
+        setCodexTodoDock((current) => sameCodexTodoDockState(current, nextDock) ? HIDDEN_CODEX_TODO_DOCK_STATE : current)
+        codexTodoCloseTimerRef.current = null
+      }, 400)
+    }
+  }, [codexTodoDock, codexTodosComplete, hasCodexTodos, panelTheme])
 
   React.useEffect(() => {
     return () => {
