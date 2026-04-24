@@ -33,12 +33,13 @@ describe("CodexTodoPopover", () => {
     assert.equal(html.includes("oc-codexTodoItem is-pending"), true)
   })
 
-  test("renders a collapsed floating summary state", () => {
+  test("renders a collapsed summary state with the active task preview", () => {
     const html = renderToStaticMarkup(
       <CodexTodoPopover
         todos={[
           todo("Write tests", "completed"),
           todo("Implement popover", "in_progress"),
+          todo("Verify compile", "pending"),
         ]}
         collapsed
       />,
@@ -46,6 +47,7 @@ describe("CodexTodoPopover", () => {
 
     assert.equal(html.includes("oc-codexTodoPopover is-collapsed"), true)
     assert.equal(html.includes("Expand task list"), true)
+    assert.equal(html.includes("Implement popover"), true)
     assert.equal(html.includes("oc-codexTodoList"), false)
   })
 

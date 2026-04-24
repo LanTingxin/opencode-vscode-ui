@@ -77,6 +77,7 @@ export function App() {
   const [skillPickerOpen, setSkillPickerOpen] = React.useState(false)
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = React.useState(0)
   const [codexTodoCollapsed, setCodexTodoCollapsed] = React.useState(false)
+  const [codexTodoDock, setCodexTodoDock] = React.useState({ visible: false, closing: false, opening: false })
   const [renderedMessageCount, setRenderedMessageCount] = React.useState(INITIAL_RENDERED_MESSAGE_COUNT)
   const [loadingEarlierMessages, setLoadingEarlierMessages] = React.useState(false)
   const timelineRef = React.useRef<HTMLDivElement | null>(null)
@@ -91,6 +92,8 @@ export function App() {
   const autocompleteDismissedRef = React.useRef<null | { trigger: ComposerAutocompleteState["trigger"]; query: string; start: number; end: number }>(null)
   const leaderTimerRef = React.useRef<number | null>(null)
   const leaderPendingRef = React.useRef(false)
+  const codexTodoCloseTimerRef = React.useRef<number | null>(null)
+  const codexTodoOpenFrameRef = React.useRef<number | null>(null)
   const previousMessagesRef = React.useRef<SessionMessage[]>([])
   const pendingTranscriptOffsetRef = React.useRef<null | { scrollTop: number; scrollHeight: number }>(null)
   const transcriptHistoryArmedRef = React.useRef(true)
@@ -1491,14 +1494,68 @@ export function App() {
   }, [state.form.custom, state.form.selected])
 
   const panelTheme = resolvePanelThemeValue(state.snapshot.display.panelTheme)
-  const hasIncompleteTodos = state.snapshot.todos.some((todo) => todo.status !== "completed")
-  const showCodexTodoPopover = panelTheme === "codex" && state.snapshot.todos.length > 0 && hasIncompleteTodos
+  const codexTodosComplete = state.snapshot.todos.length > 0
+    && state.snapshot.todos.every((todo) => todo.status === "completed" || todo.status === "cancelled")
+  const showCodexTodoPopover = panelTheme === "codex" && codexTodoDock.visible && state.snapshot.todos.length > 0
 
   React.useEffect(() => {
-    if (!showCodexTodoPopover) {
+    if (panelTheme !== "codex" || state.snapshot.todos.length === 0) {
+      if (codexTodoCloseTimerRef.current) {
+        window.clearTimeout(codexTodoCloseTimerRef.current)
+        codexTodoCloseTimerRef.current = null
+      }
+      if (codexTodoOpenFrameRef.current) {
+        window.cancelAnimationFrame(codexTodoOpenFrameRef.current)
+        codexTodoOpenFrameRef.current = null
+      }
       setCodexTodoCollapsed(false)
+      setCodexTodoDock({ visible: false, closing: false, opening: false })
+      return
     }
-  }, [showCodexTodoPopover])
+
+    if (!codexTodosComplete) {
+      if (codexTodoCloseTimerRef.current) {
+        window.clearTimeout(codexTodoCloseTimerRef.current)
+        codexTodoCloseTimerRef.current = null
+      }
+      if (codexTodoOpenFrameRef.current) {
+        window.cancelAnimationFrame(codexTodoOpenFrameRef.current)
+        codexTodoOpenFrameRef.current = null
+      }
+
+      const hidden = !codexTodoDock.visible || codexTodoDock.closing
+      setCodexTodoDock({ visible: true, closing: false, opening: hidden })
+      if (hidden) {
+        codexTodoOpenFrameRef.current = window.requestAnimationFrame(() => {
+          setCodexTodoDock((current) => current.visible && !current.closing ? { ...current, opening: false } : current)
+          codexTodoOpenFrameRef.current = null
+        })
+      }
+      return
+    }
+
+    if (codexTodoDock.closing) {
+      return
+    }
+
+    setCodexTodoCollapsed(false)
+    setCodexTodoDock({ visible: true, closing: true, opening: false })
+    codexTodoCloseTimerRef.current = window.setTimeout(() => {
+      setCodexTodoDock({ visible: false, closing: false, opening: false })
+      codexTodoCloseTimerRef.current = null
+    }, 400)
+  }, [codexTodoDock.closing, codexTodoDock.visible, codexTodosComplete, panelTheme, state.snapshot.todos])
+
+  React.useEffect(() => {
+    return () => {
+      if (codexTodoCloseTimerRef.current) {
+        window.clearTimeout(codexTodoCloseTimerRef.current)
+      }
+      if (codexTodoOpenFrameRef.current) {
+        window.cancelAnimationFrame(codexTodoOpenFrameRef.current)
+      }
+    }
+  }, [])
 
   return (
     <WorkspaceDirContext.Provider value={state.bootstrap.sessionRef.dir || ""}>
@@ -1644,7 +1701,7 @@ export function App() {
             {!blocked && !isChildSession ? (
               <>
                 {showCodexTodoPopover ? (
-                  <div className={`oc-codexTodoDock${codexTodoCollapsed ? " is-collapsed" : ""}`}>
+                  <div className={`oc-codexTodoDock${codexTodoCollapsed ? " is-collapsed" : ""}${codexTodoDock.closing ? " is-closing" : ""}${codexTodoDock.opening ? " is-opening" : ""}`}>
                     <CodexTodoPopover
                       todos={state.snapshot.todos}
                       collapsed={codexTodoCollapsed}

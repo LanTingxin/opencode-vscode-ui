@@ -262,6 +262,8 @@ describe("panel theme settings", () => {
     assert.match(statusCss, /\.oc-composerActions\s*\{[\s\S]*align-items:\s*center;/)
     assert.match(statusCss, /\.oc-composerActions\s*\{[\s\S]*gap:\s*12px;/)
     assert.match(statusCss, /\.oc-composerActions\s*\{[\s\S]*padding:\s*0 4px;/)
+    assert.match(statusCss, /\.oc-composerActions\s*\{[\s\S]*position:\s*relative;/)
+    assert.match(statusCss, /\.oc-composerActions\s*\{[\s\S]*z-index:\s*7;/)
     assert.match(statusCss, /\.oc-composerActionsMain\s*\{[\s\S]*display:\s*flex;/)
     assert.match(layoutCss, /@media\s*\(max-width:\s*720px\)\s*\{/)
     assert.doesNotMatch(statusCss, /@media\s*\(max-width:\s*480px\)\s*\{[\s\S]*\.oc-composerActions\s*\{/)
@@ -470,12 +472,14 @@ describe("panel theme settings", () => {
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-outputWindowAction::before\s*\{[\s\S]*content:\s*\"\";/)
   })
 
-  test("adds a codex todo popover and hides transcript todo panels for codex", () => {
+  test("adds an inline codex todo dock and hides transcript todo panels for codex", () => {
     const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
 
-    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*position:\s*absolute;/)
-    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*pointer-events:\s*none;/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*position:\s*relative;/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*overflow:\s*hidden;/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*transition:\s*max-height\s+400ms\s+ease-out,\s*opacity\s+400ms\s+ease-out,\s*transform\s+400ms\s+ease-out;/)
+    assert.doesNotMatch(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoDock\s*\{[\s\S]*position:\s*absolute;/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoPopover\s*\{/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoPopover\s*\{[\s\S]*pointer-events:\s*auto;/)
     assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoPopover\.is-collapsed\s*\{/)

@@ -9,11 +9,53 @@ type CodexTodoPopoverProps = {
 }
 
 export function CodexTodoPopover({ todos, collapsed = false, onToggle }: CodexTodoPopoverProps) {
+  const listRef = React.useRef<HTMLDivElement | null>(null)
+  const scrollingRef = React.useRef(false)
+  const scrollTimerRef = React.useRef<number | null>(null)
+  const completed = todos.filter((item) => item.status === "completed").length
+  const active = todos.find((item) => item.status === "in_progress")
+    ?? todos.find((item) => item.status === "pending")
+    ?? [...todos].reverse().find((item) => item.status === "completed")
+    ?? todos[0]
+
+  React.useEffect(() => {
+    if (collapsed || scrollingRef.current) {
+      return
+    }
+
+    const list = listRef.current
+    const activeItem = list?.querySelector("[data-in-progress]")
+    if (!list || !(activeItem instanceof HTMLElement)) {
+      return
+    }
+
+    const topFade = 16
+    const bottomFade = 44
+    const container = list.getBoundingClientRect()
+    const rect = activeItem.getBoundingClientRect()
+    const top = rect.top - container.top + list.scrollTop
+    const bottom = rect.bottom - container.top + list.scrollTop
+    const viewTop = list.scrollTop + topFade
+    const viewBottom = list.scrollTop + list.clientHeight - bottomFade
+
+    if (top < viewTop) {
+      list.scrollTop = Math.max(0, top - topFade)
+    } else if (bottom > viewBottom) {
+      list.scrollTop = bottom - (list.clientHeight - bottomFade)
+    }
+  }, [collapsed, todos])
+
+  React.useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) {
+        window.clearTimeout(scrollTimerRef.current)
+      }
+    }
+  }, [])
+
   if (todos.length === 0) {
     return null
   }
-
-  const completed = todos.filter((item) => item.status === "completed").length
 
   return (
     <section className={`oc-codexTodoPopover${collapsed ? " is-collapsed" : ""}`} aria-label="Tracked tasks">
@@ -21,6 +63,7 @@ export function CodexTodoPopover({ todos, collapsed = false, onToggle }: CodexTo
         <div className="oc-codexTodoHeaderText">
           <span className="oc-codexTodoEyebrow">ACTIVE TASKS</span>
           <span className="oc-codexTodoSummary">共 {todos.length} 个任务，已经完成 {completed} 个</span>
+          {collapsed && active?.content ? <span className="oc-codexTodoPreview">{active.content}</span> : null}
         </div>
         <button
           type="button"
@@ -41,9 +84,25 @@ export function CodexTodoPopover({ todos, collapsed = false, onToggle }: CodexTo
         </button>
       </div>
       {!collapsed ? (
-        <div className="oc-codexTodoList">
+        <div
+          className="oc-codexTodoList"
+          ref={listRef}
+          onScroll={() => {
+            scrollingRef.current = true
+            if (scrollTimerRef.current) {
+              window.clearTimeout(scrollTimerRef.current)
+            }
+            scrollTimerRef.current = window.setTimeout(() => {
+              scrollingRef.current = false
+            }, 250)
+          }}
+        >
           {todos.map((item) => (
-            <div key={`${item.status}:${item.content}`} className={`oc-codexTodoItem is-${item.status}`}>
+            <div
+              key={`${item.status}:${item.content}`}
+              className={`oc-codexTodoItem is-${item.status}`}
+              data-in-progress={item.status === "in_progress" ? "" : undefined}
+            >
               <span className="oc-codexTodoMarker" aria-hidden="true" />
               <span className={`oc-codexTodoText is-${item.status}`}>{item.content}</span>
             </div>

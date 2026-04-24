@@ -551,6 +551,8 @@
 }
 
 .oc-composerActions {
+  position: relative;
+  z-index: 7;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -1447,26 +1449,26 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoDock {
-  position: absolute;
-  z-index: 6;
+  position: relative;
   display: flex;
+  max-height: 360px;
+  overflow: hidden;
+  justify-content: center;
+  opacity: 1;
+  transform: translateY(0);
   pointer-events: none;
+  transition: max-height 400ms ease-out, opacity 400ms ease-out, transform 400ms ease-out;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoDock.is-collapsed {
-  left: var(--oc-shell-gutter);
-  right: var(--oc-shell-gutter);
-  bottom: calc(100% + 8px);
-  top: auto;
-  justify-content: center;
+  max-height: 78px;
 }
 
-.oc-shell[data-oc-theme="codex"] .oc-codexTodoDock:not(.is-collapsed) {
-  left: var(--oc-shell-gutter);
-  right: var(--oc-shell-gutter);
-  bottom: calc(100% + 12px);
-  top: auto;
-  justify-content: center;
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoDock.is-closing,
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoDock.is-opening {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(36px);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover {
@@ -1476,7 +1478,7 @@
   gap: 0;
   width: min(560px, calc(100vw - 84px));
   max-height: min(46vh, 420px);
-  margin: 0;
+  margin: 0 0 -9px;
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
   border-radius: 12px;
   overflow: hidden;
@@ -1498,19 +1500,6 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover::after {
-  content: "";
-  position: absolute;
-  left: 24px;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
-  border-right: 1px solid color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
-  border-bottom: 1px solid color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
-  background: color-mix(in srgb, var(--oc-surface-block) 98%, var(--oc-surface-elevated) 2%);
-  transform: rotate(45deg);
-}
-
-.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed::after {
   display: none;
 }
 
@@ -1538,9 +1527,8 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoHeaderText {
-  display: flex;
-  align-items: center;
-  gap: 0;
+  display: grid;
+  gap: 3px;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoEyebrow {
@@ -1564,9 +1552,19 @@
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoSummary {
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.15;
   white-space: nowrap;
   color: var(--oc-fg-primary);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexTodoPreview {
+  max-width: min(420px, calc(100vw - 160px));
+  color: var(--oc-fg-muted);
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoToggle {
