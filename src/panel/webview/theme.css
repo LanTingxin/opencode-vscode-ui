@@ -157,6 +157,8 @@ body.vscode-dark .oc-shell[data-oc-theme="codex"] {
   --oc-text-accent: #edf2fb;
   --oc-border-soft: color-mix(in srgb, #91a4c1 28%, transparent 72%);
   --oc-border-stronger: color-mix(in srgb, #edf2fb 28%, transparent 72%);
+  --oc-native-edge: color-mix(in srgb, #8ea5c0 34%, transparent 66%);
+  --oc-native-inset: inset 0 1px 0 rgba(255, 255, 255, 0.055), inset 0 -1px 0 rgba(0, 0, 0, 0.28);
   --oc-accent-fill: #d7e6ff;
   --oc-accent-strong: #63a6ff;
   --oc-message-user-bg: #0f1824;
@@ -194,6 +196,8 @@ body.vscode-light .oc-shell[data-oc-theme="codex"] {
   --oc-text-accent: #fbfcfe;
   --oc-border-soft: color-mix(in srgb, #667388 24%, transparent 76%);
   --oc-border-stronger: color-mix(in srgb, #1e2733 22%, transparent 78%);
+  --oc-native-edge: color-mix(in srgb, #405066 24%, transparent 76%);
+  --oc-native-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(54, 73, 100, 0.08);
   --oc-accent-fill: #1e2733;
   --oc-accent-strong: #0b6bcb;
   --oc-message-user-bg: #e4eefb;

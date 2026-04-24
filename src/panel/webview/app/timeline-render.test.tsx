@@ -353,8 +353,8 @@ describe("Timeline user message rendering", () => {
     )
 
     assert.equal(html.includes("oc-assistantReplyWrap"), true)
-    assert.equal(html.includes('aria-label="Copy reply"'), true)
-    assert.equal(html.includes('data-tooltip="Copy reply"'), true)
+    assert.equal(html.includes('aria-label="Copy"'), true)
+    assert.equal(html.includes('data-tooltip="Copy"'), true)
     assert.equal(html.includes("rendered:# 标题"), true)
   })
 
@@ -457,7 +457,7 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes('class="oc-messageActions oc-messageActions-belowHover"'), true)
   })
 
-  test("renders codex assistant activity as a collapsed summary row", () => {
+  test("renders codex assistant activity expanded until text follows", () => {
     const html = renderToStaticMarkup(
       <Timeline
         bootstrapStatus="ready"
@@ -489,9 +489,41 @@ describe("Timeline user message rendering", () => {
 
     assert.equal(html.includes("text:I checked the current UI."), true)
     assert.equal(html.includes("oc-codexActivityGroup"), true)
-    assert.equal(html.includes("explored 1 file, 1 search, ran 1 command"), true)
-    assert.equal(html.includes('aria-expanded="false"'), true)
-    assert.equal(html.includes("echo hi"), false)
+    assert.equal(html.includes("Explored 1 file, 1 search, Ran 1 command"), true)
+    assert.equal(html.includes('aria-expanded="true"'), true)
+    assert.equal(html.includes("echo hi"), true)
+  })
+
+  test("renders codex assistant activity expanded before the next text reply", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+          toolPartWithState("t1", "m1", "bash", { status: "completed", input: { command: "bun test" } }),
+        ])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "tool" ? JSON.stringify(part.state?.input || {}) : part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("Ran 1 command"), true)
+    assert.equal(html.includes('aria-expanded="true"'), true)
+    assert.equal(html.includes("bun test"), true)
   })
 
   test("renders codex assistant copy actions inside the reply block instead of below it", () => {
@@ -559,7 +591,7 @@ describe("Timeline user message rendering", () => {
       />,
     )
 
-    assert.equal(html.includes("edited 2 files"), true)
+    assert.equal(html.includes("Edited 2 files"), true)
     assert.equal(html.includes(">...<"), false)
   })
 

@@ -16,7 +16,7 @@ type AssistantActivityToolPart = Extract<MessagePart, { type: "tool" }>
 
 export type TimelineBlock =
   | { kind: "user-message"; key: string; message: SessionMessage; queued: boolean }
-  | { kind: "assistant-activity"; key: string; parts: AssistantActivityToolPart[]; summary: string }
+  | { kind: "assistant-activity"; key: string; parts: AssistantActivityToolPart[]; summary: string; initiallyExpanded: boolean }
   | { kind: "assistant-part"; key: string; part: MessagePart }
   | { kind: "assistant-error"; key: string; message: SessionMessage; text: string }
   | { kind: "assistant-meta"; key: string; messages: SessionMessage[] }
@@ -229,13 +229,13 @@ function TimelineBlockView({
   panelTheme,
   skillCatalog,
 }: TimelineBlockViewProps) {
-  const [activityExpanded, setActivityExpanded] = React.useState(false)
+  const [activityExpanded, setActivityExpanded] = React.useState(block.kind === "assistant-activity" ? block.initiallyExpanded : false)
   const [commandPromptExpanded, setCommandPromptExpanded] = React.useState(false)
 
   React.useEffect(() => {
-    setActivityExpanded(false)
+    setActivityExpanded(block.kind === "assistant-activity" ? block.initiallyExpanded : false)
     setCommandPromptExpanded(false)
-  }, [block.kind === "user-message" ? block.message.info.id : block.key])
+  }, [block.kind === "assistant-activity" ? block.initiallyExpanded : false, block.kind === "user-message" ? block.message.info.id : block.key])
 
   if (block.kind === "user-message") {
     const userTurnWrapClassName = userTurnWrapClassNames(panelTheme)
@@ -328,7 +328,7 @@ function TimelineBlockView({
           <span className="oc-codexActivityText">{block.summary}</span>
           <span className="oc-codexActivityToggle" aria-hidden="true">
             <svg viewBox="0 0 16 16">
-              {activityExpanded ? <path d="M4 10l4-4 4 4" /> : <path d="M4 6l4 4 4-4" />}
+              <path d="M6 4l4 4-4 4" />
             </svg>
           </span>
         </button>
@@ -387,7 +387,7 @@ function TimelineBlockView({
       <div className={assistantReplyWrapClassNames(panelTheme)}>
         <PartView part={part} active={active} diffMode={diffMode} />
         <div className={assistantMessageActionsClassNames(panelTheme)} aria-label="Reply actions">
-          <button type="button" className="oc-messageActionBtn" aria-label="Copy reply" data-tooltip="Copy reply" onClick={() => onCopyAssistantText(copyValue)}>
+          <button type="button" className="oc-messageActionBtn" aria-label="Copy" data-tooltip="Copy" onClick={() => onCopyAssistantText(copyValue)}>
             <CopyMessageIcon />
           </button>
         </div>
@@ -563,7 +563,7 @@ function sameTimelineBlock(prev: TimelineBlock, next: TimelineBlock) {
   }
 
   if (prev.kind === "assistant-activity" && next.kind === "assistant-activity") {
-    return prev.summary === next.summary && sameToolPartList(prev.parts, next.parts)
+    return prev.summary === next.summary && prev.initiallyExpanded === next.initiallyExpanded && sameToolPartList(prev.parts, next.parts)
   }
 
   if (prev.kind === "assistant-error" && next.kind === "assistant-error") {
@@ -701,11 +701,11 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
   let pendingActivity: AssistantActivityToolPart[] = []
   const pendingAssistantIndex = lastPendingAssistantIndex(messages)
 
-  const flushActivity = () => {
+  const flushActivity = (initiallyExpanded = false) => {
     if (pendingActivity.length === 0) {
       return
     }
-    const activity = assistantActivityBlock(cache.assistantActivityBlocks, nextAssistantActivityBlocks, pendingActivity)
+    const activity = assistantActivityBlock(cache.assistantActivityBlocks, nextAssistantActivityBlocks, pendingActivity, initiallyExpanded)
     if (activity) {
       blocks.push(activity)
     } else {
@@ -717,7 +717,7 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
   }
 
   const flush = () => {
-    flushActivity()
+    flushActivity(true)
     const meta = assistantMetaBlock(cache.assistantMetaBlocks, nextAssistantMetaBlocks, assistants)
     if (meta) {
       blocks.push(meta)
@@ -746,7 +746,7 @@ export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages
           continue
         }
 
-        flushActivity()
+        flushActivity(false)
         blocks.push(assistantPartBlock(cache.assistantPartBlocks, nextAssistantPartBlocks, part))
       }
     } else {
@@ -799,6 +799,7 @@ function assistantActivityBlock(
   cache: Map<string, Extract<TimelineBlock, { kind: "assistant-activity" }>>,
   nextCache: Map<string, Extract<TimelineBlock, { kind: "assistant-activity" }>>,
   parts: AssistantActivityToolPart[],
+  initiallyExpanded: boolean,
 ) {
   const summary = codexActivitySummary(parts)
   if (!summary) {
@@ -809,7 +810,7 @@ function assistantActivityBlock(
   const lastID = parts[parts.length - 1]?.id || "end"
   const key = `activity:${firstID}:${lastID}:${parts.length}`
   const prev = cache.get(key)
-  if (prev && prev.summary === summary && sameToolPartList(prev.parts, parts)) {
+  if (prev && prev.summary === summary && prev.initiallyExpanded === initiallyExpanded && sameToolPartList(prev.parts, parts)) {
     nextCache.set(key, prev)
     return prev
   }
@@ -819,6 +820,7 @@ function assistantActivityBlock(
     key,
     parts,
     summary,
+    initiallyExpanded,
   }
   nextCache.set(key, next)
   return next
@@ -1215,19 +1217,23 @@ function codexActivitySummary(parts: AssistantActivityToolPart[]) {
 
   const segments: string[] = []
   if (edited.size > 0) {
-    segments.push(`edited ${edited.size} ${edited.size === 1 ? "file" : "files"}`)
+    segments.push(`Edited ${edited.size} ${edited.size === 1 ? "file" : "files"}`)
   }
   if (explored.size > 0) {
-    segments.push(`explored ${explored.size} ${explored.size === 1 ? "file" : "files"}`)
+    segments.push(`Explored ${explored.size} ${explored.size === 1 ? "file" : "files"}`)
   }
   if (searches > 0) {
     segments.push(`${searches} ${searches === 1 ? "search" : "searches"}`)
   }
   if (commands > 0) {
-    segments.push(`ran ${commands} ${commands === 1 ? "command" : "commands"}`)
+    segments.push(`Ran ${commands} ${commands === 1 ? "command" : "commands"}`)
   }
 
-  return segments.join(", ")
+  return sentenceCaseActivitySummary(segments.join(", "))
+}
+
+function sentenceCaseActivitySummary(summary: string) {
+  return summary ? summary.charAt(0).toUpperCase() + summary.slice(1) : summary
 }
 
 function codexActivityKind(part: AssistantActivityToolPart) {

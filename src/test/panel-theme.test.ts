@@ -343,9 +343,44 @@ describe("panel theme settings", () => {
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
 
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityGroup\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityGroup\s*\{[\s\S]*padding-left:\s*10px;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivitySummary\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivitySummary\s*\{[\s\S]*width:\s*fit-content;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivitySummary\s*\{[\s\S]*justify-content:\s*flex-start;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivitySummary:hover,[\s\S]*?\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivitySummary:focus-visible\s*\{/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityDetails\s*\{[\s\S]*padding-left:\s*0;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityDetails\s*\{[\s\S]*border-left:\s*0;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityDetails\s*\{[\s\S]*animation:\s*oc-codexActivityDetailsIn/)
+    assert.match(timelineCss, /@keyframes\s+oc-codexActivityDetailsIn/)
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityToggle\s*\{/)
+    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityToggle\s*\{[\s\S]*border:\s*0;/)
+    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivitySummary\[aria-expanded=\"true\"\]\s+\.oc-codexActivityToggle\s*\{[\s\S]*transform:\s*rotate\(90deg\);/)
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexActivityDetails\s*\{/)
+  })
+
+  test("gives codex a native-tool surface treatment with stateful motion", () => {
+    const themeCss = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+    const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
+    const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
+    const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
+
+    assert.match(themeCss, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-native-edge:\s*color-mix\(in srgb,\s*#8ea5c0\s*34%,\s*transparent\s*66%\);/)
+    assert.match(themeCss, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-native-edge:\s*color-mix\(in srgb,\s*#405066\s*24%,\s*transparent\s*76%\);/)
+    assert.match(themeCss, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-native-inset:\s*inset 0 1px 0/)
+    assert.match(themeCss, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-native-inset:\s*inset 0 1px 0/)
+
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-turnUser\s*\{[\s\S]*box-shadow:\s*var\(--oc-native-inset\),\s*var\(--oc-card-shadow\);/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-part-text,[\s\S]*?\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-part-compact\s*\{[\s\S]*box-shadow:\s*var\(--oc-native-inset\);/)
+
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-composerBody\s*\{[\s\S]*box-shadow:\s*var\(--oc-native-inset\),\s*var\(--oc-composer-shadow\);/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-composerBody:focus-within\s*\{[\s\S]*transform:\s*translateY\(-1px\);/)
+    assert.match(statusCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-codexTodoPopover\s*\{[\s\S]*animation:\s*oc-codexPopoverIn/)
+    assert.match(statusCss, /@keyframes\s+oc-codexPopoverIn/)
+
+    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-toolPanel\s*\{[\s\S]*position:\s*relative;/)
+    assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-toolPanel\.is-active::after\s*\{[\s\S]*animation:\s*oc-codexToolSweep/)
+    assert.match(toolCss, /@keyframes\s+oc-codexToolSweep/)
+    assert.match(toolCss, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*oc-codexToolSweep[\s\S]*animation:\s*none;/)
   })
 
   test("adds theme-specific pills, markdown, and output window treatments", () => {

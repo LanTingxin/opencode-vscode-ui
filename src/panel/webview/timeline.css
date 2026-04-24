@@ -708,10 +708,11 @@
 
 .oc-shell[data-oc-theme="codex"] .oc-turnUser {
   padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 58%, transparent 42%);
+  border: 1px solid var(--oc-native-edge);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--oc-message-user-bg) 96%, var(--oc-surface-elevated) 4%);
-  box-shadow: var(--oc-card-shadow);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--oc-message-user-bg) 94%, var(--oc-surface-elevated) 6%) 0%, var(--oc-message-user-bg) 100%);
+  box-shadow: var(--oc-native-inset), var(--oc-card-shadow);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-turnUserWrap-compactEnd {
@@ -753,7 +754,7 @@
 .oc-shell[data-oc-theme="codex"] .oc-questionCard,
 .oc-shell[data-oc-theme="codex"] .oc-emptyState,
 .oc-shell[data-oc-theme="codex"] .oc-revertNotice {
-  border-color: color-mix(in srgb, var(--oc-border) 76%, transparent 24%);
+  border-color: var(--oc-native-edge);
   background: color-mix(in srgb, var(--oc-surface-block) 92%, var(--oc-surface-elevated) 8%);
   box-shadow: var(--oc-tool-shadow);
 }
@@ -775,15 +776,18 @@
 .oc-shell[data-oc-theme="codex"] .oc-part-compact {
   padding: 10px 12px;
   border-radius: calc(var(--oc-radius-md) + 4px);
-  background: color-mix(in srgb, var(--oc-message-assistant-bg) 84%, var(--oc-surface-elevated) 16%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--oc-message-assistant-bg) 88%, var(--oc-surface-elevated) 12%) 0%, var(--oc-message-assistant-bg) 100%);
+  box-shadow: var(--oc-native-inset);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-part-reasoning {
   padding: 10px 12px;
   border-left: 0;
-  border-top: 1px solid color-mix(in srgb, var(--oc-accent) 16%, transparent 84%);
+  border-top: 1px solid color-mix(in srgb, var(--oc-accent) 18%, var(--oc-native-edge) 82%);
   border-radius: calc(var(--oc-radius-md) + 4px);
   background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-message-assistant-bg) 92%);
+  box-shadow: var(--oc-native-inset);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-dividerPart {
@@ -801,20 +805,32 @@
   display: grid;
   gap: 8px;
   width: 100%;
+  padding-left: 10px;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 0;
+  justify-content: flex-start;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 4px;
   border: 0;
+  border-radius: 8px;
   background: transparent;
-  color: color-mix(in srgb, var(--oc-fg-muted) 90%, var(--oc-fg-primary) 10%);
+  color: color-mix(in srgb, var(--oc-fg-muted) 82%, transparent 18%);
   text-align: left;
   cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary:hover,
+.oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary:focus-visible {
+  background: color-mix(in srgb, var(--oc-accent-strong) 8%, transparent 92%);
+  color: color-mix(in srgb, var(--oc-fg-primary) 88%, var(--oc-fg-muted) 12%);
+  outline: none;
+  transform: translateX(2px);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexActivityText {
@@ -824,4 +840,31 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityDetails {
+  padding-left: 0;
+  border-left: 0;
+  animation: oc-codexActivityDetailsIn 180ms ease-out;
+}
+
+@keyframes oc-codexActivityDetailsIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary,
+  .oc-shell[data-oc-theme="codex"] .oc-codexActivityDetails {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
 }

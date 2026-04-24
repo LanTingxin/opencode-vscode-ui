@@ -295,8 +295,13 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-toolPanel {
+  position: relative;
+  overflow: hidden;
   border-radius: calc(var(--oc-radius-md) + 2px);
-  background: color-mix(in srgb, var(--oc-surface-block) 94%, var(--oc-surface-elevated) 6%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--oc-surface-block) 92%, var(--oc-surface-elevated) 8%) 0%, var(--oc-surface-block) 100%);
+  box-shadow: var(--oc-native-inset);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-toolPanel-todos {
@@ -305,7 +310,19 @@
 
 .oc-shell[data-oc-theme="codex"] .oc-toolPanel.is-active {
   border-color: color-mix(in srgb, var(--oc-accent) 40%, var(--oc-border) 60%);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 5%, transparent 95%), 0 0 0 1px color-mix(in srgb, var(--oc-accent) 10%, transparent 90%);
+  box-shadow: var(--oc-native-inset), 0 0 0 1px color-mix(in srgb, var(--oc-accent) 10%, transparent 90%);
+  transform: translateY(-1px);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-toolPanel.is-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, color-mix(in srgb, var(--oc-accent-strong) 14%, transparent 86%) 42%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-100%);
+  animation: oc-codexToolSweep 900ms ease-out;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-outputWindow {
@@ -378,6 +395,41 @@
 
 .oc-shell[data-oc-theme="codex"] .oc-outputWindowCopyBtn:hover {
   background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
+}
+
+@keyframes oc-codexToolSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+
+  18% {
+    opacity: 0.8;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-shell[data-oc-theme="codex"] .oc-toolPanel,
+  .oc-shell[data-oc-theme="codex"] .oc-toolPanel.is-active {
+    transition: none;
+    transform: none;
+  }
+
+  .oc-shell[data-oc-theme="codex"] .oc-toolPanel.is-active::after {
+    animation-name: oc-codexToolSweep;
+    animation: none;
+  }
+
+  .oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary,
+  .oc-shell[data-oc-theme="codex"] .oc-codexActivityToggle {
+    transition: none;
+    transform: none;
+  }
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-outputWindowContent-shell,
@@ -881,21 +933,31 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   flex: 0 0 auto;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 60%, transparent 40%);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--oc-surface-elevated) 82%, var(--oc-surface-block) 18%);
-  color: var(--oc-fg-muted);
-  box-shadow: var(--oc-tool-shadow);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.72;
+  transition: opacity 140ms ease, transform 160ms ease;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary:hover .oc-codexActivityToggle,
+.oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary:focus-visible .oc-codexActivityToggle {
+  opacity: 1;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary[aria-expanded="true"] .oc-codexActivityToggle {
+  transform: rotate(90deg);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexActivityToggle svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   stroke: currentColor;
-  stroke-width: 1.75;
+  stroke-width: 2;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;

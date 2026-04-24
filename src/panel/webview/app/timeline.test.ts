@@ -169,9 +169,34 @@ describe("timeline block reconciliation", () => {
     })
 
     assert.equal(blocks[0]?.kind, "assistant-activity")
-    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "explored 2 files, 2 searches, ran 1 command")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "Explored 2 files, 2 searches, Ran 1 command")
     assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].parts.length : undefined, 5)
     assert.equal(blocks[1]?.kind, "assistant-meta")
+  })
+
+  test("keeps codex activity expanded until text arrives", () => {
+    const toolOnly = sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+      toolPartWithState("p1", "m1", "bash", { status: "completed", input: { command: "bun test" } }),
+    ])
+    const toolThenText = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+      toolPartWithState("p2", "m2", "bash", { status: "completed", input: { command: "bun test" } }),
+      textPart("p3", "m2", "Tests are still running."),
+    ])
+
+    const toolOnlyBlocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [toolOnly], {
+      ...defaultOptions,
+      panelTheme: "codex",
+    })
+    const textBlocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [toolThenText], {
+      ...defaultOptions,
+      panelTheme: "codex",
+    })
+
+    assert.equal(toolOnlyBlocks[0]?.kind, "assistant-activity")
+    assert.equal(toolOnlyBlocks[0]?.kind === "assistant-activity" ? toolOnlyBlocks[0].initiallyExpanded : undefined, true)
+    assert.equal(textBlocks[0]?.kind, "assistant-activity")
+    assert.equal(textBlocks[0]?.kind === "assistant-activity" ? textBlocks[0].initiallyExpanded : undefined, false)
+    assert.equal(textBlocks[1]?.kind, "assistant-part")
   })
 
   test("keeps assistant tools on the existing part path outside codex theme", () => {
@@ -206,7 +231,7 @@ describe("timeline block reconciliation", () => {
 
     assert.equal(blocks.length, 2)
     assert.equal(blocks[0]?.kind, "assistant-activity")
-    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "edited 2 files")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "Edited 2 files")
     assert.equal(blocks[1]?.kind, "assistant-meta")
   })
 

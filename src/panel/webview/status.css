@@ -1432,10 +1432,18 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-composerBody {
-  border-color: color-mix(in srgb, var(--oc-border-strong) 66%, transparent 34%);
+  border-color: var(--oc-native-edge);
   border-radius: calc(var(--oc-radius-md) + 6px);
   background: color-mix(in srgb, var(--oc-composer-surface) 94%, var(--oc-surface-elevated) 6%);
+  box-shadow: var(--oc-native-inset), var(--oc-composer-shadow);
   padding-bottom: 62px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-composerBody:focus-within {
+  border-color: color-mix(in srgb, var(--oc-accent-strong) 44%, var(--oc-native-edge) 56%);
+  box-shadow: var(--oc-native-inset), var(--oc-composer-shadow), 0 0 0 1px color-mix(in srgb, var(--oc-accent-strong) 12%, transparent 88%);
+  transform: translateY(-1px);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoDock {
@@ -1478,6 +1486,7 @@
   -webkit-backdrop-filter: blur(10px) saturate(1.04);
   box-shadow: 0 14px 28px color-mix(in srgb, black 20%, transparent 80%), 0 0 0 1px color-mix(in srgb, white 3%, transparent 97%);
   pointer-events: auto;
+  animation: oc-codexPopoverIn 160ms ease-out;
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed {
@@ -1702,4 +1711,25 @@
 .oc-shell[data-oc-theme="codex"] .oc-statusPopover {
   border-radius: calc(var(--oc-radius-md) + 2px);
   background: color-mix(in srgb, var(--oc-status-popover-bg) 96%, var(--oc-surface-elevated) 4%);
+}
+
+@keyframes oc-codexPopoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-shell[data-oc-theme="codex"] .oc-composerBody,
+  .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
 }
