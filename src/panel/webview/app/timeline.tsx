@@ -149,10 +149,12 @@ export const Timeline = React.memo(function Timeline({
           </div>
         ) : null}
         {blocks.map((block, index) => {
+          const footerOptions = { compactSkillInvocations, skillCatalog }
           const content = (
             <MemoTimelineBlockView
               key={block.key}
               AgentBadge={AgentBadge}
+              assistantFooterMetaMessages={assistantFooterMetaMessages(blocks, index, footerOptions)}
               CompactionDivider={CompactionDivider}
               MarkdownBlock={MarkdownBlock}
               PartView={PartView}
@@ -171,10 +173,14 @@ export const Timeline = React.memo(function Timeline({
               onRedoSession={onRedoSession}
               onUndoUserMessage={onUndoUserMessage}
               panelTheme={panelTheme}
+              showAssistantCopy={showAssistantCopy(blocks, index, footerOptions)}
               skillCatalog={skillCatalog}
             />
           )
-          const chainClassName = panelTheme === "claude" ? assistantChainClassName(blocks, index) : ""
+          if (shouldHideAssistantMetaBlock(blocks, index, footerOptions)) {
+            return null
+          }
+          const chainClassName = panelTheme === "claude" ? assistantChainClassName(blocks, index, footerOptions) : ""
           return chainClassName
             ? <div key={block.key} className={chainClassName}>{content}</div>
             : content
@@ -186,6 +192,7 @@ export const Timeline = React.memo(function Timeline({
 
 type TimelineBlockViewProps = {
   AgentBadge: ({ name }: { name: string }) => React.JSX.Element
+  assistantFooterMetaMessages?: SessionMessage[]
   CompactionDivider: () => React.JSX.Element
   MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
   PartView: ({ part, active, diffMode }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
@@ -204,11 +211,13 @@ type TimelineBlockViewProps = {
   onRedoSession: () => void
   onUndoUserMessage: (message: SessionMessage) => void
   panelTheme: PanelTheme
+  showAssistantCopy: boolean
   skillCatalog: SkillCatalogEntry[]
 }
 
 function TimelineBlockView({
   AgentBadge,
+  assistantFooterMetaMessages,
   CompactionDivider,
   MarkdownBlock: _MarkdownBlock,
   PartView,
@@ -227,6 +236,7 @@ function TimelineBlockView({
   onRedoSession,
   onUndoUserMessage,
   panelTheme,
+  showAssistantCopy,
   skillCatalog,
 }: TimelineBlockViewProps) {
   const [activityExpanded, setActivityExpanded] = React.useState(block.kind === "assistant-activity" ? block.initiallyExpanded : false)
@@ -312,9 +322,7 @@ function TimelineBlockView({
               : (showEmptyPrompt ? <div className="oc-partEmpty">No visible prompt text.</div> : null)}
           </section>
           <div className={messageActionsClassName} aria-label="Message actions">
-            <button type="button" className="oc-messageActionBtn" aria-label="Copy" data-tooltip="Copy" onClick={() => onCopyUserMessage(block.message)}>
-              <CopyMessageIcon />
-            </button>
+            <CopyMessageButton onCopy={() => onCopyUserMessage(block.message)} />
             <button type="button" className="oc-messageActionBtn" aria-label="Fork" data-tooltip="Fork" onClick={() => onForkUserMessage(block.message)} disabled={block.queued}>
               <ForkMessageIcon />
             </button>
@@ -395,17 +403,16 @@ function TimelineBlockView({
   const part = block.part
   if (part.type === "text") {
     const copyValue = assistantCopyText(part, { compactSkillInvocations, skillCatalog })
-    if (!copyValue) {
+    if (!copyValue || !showAssistantCopy) {
       return <PartView part={part} active={active} diffMode={diffMode} />
     }
 
     return (
       <div className={assistantReplyWrapClassNames(panelTheme)}>
         <PartView part={part} active={active} diffMode={diffMode} />
-        <div className={assistantMessageActionsClassNames(panelTheme)} aria-label="Reply actions">
-          <button type="button" className="oc-messageActionBtn" aria-label="Copy" data-tooltip="Copy" onClick={() => onCopyAssistantText(copyValue)}>
-            <CopyMessageIcon />
-          </button>
+        <div className={assistantReplyFooterClassNames(panelTheme)} aria-label="Reply actions">
+          {assistantFooterMetaMessages ? <AssistantReplyMeta AgentBadge={AgentBadge} messages={assistantFooterMetaMessages} /> : null}
+          <CopyMessageButton className="oc-assistantReplyCopyBtn" onCopy={() => onCopyAssistantText(copyValue)} />
         </div>
       </div>
     )
@@ -418,6 +425,35 @@ const MemoTimelineBlockView = React.memo(TimelineBlockView, areTimelineBlockProp
 
 function PlainTextBlock({ content }: { content: string }) {
   return <div className="oc-partText">{content}</div>
+}
+
+function CopyMessageButton({ className = "", onCopy }: { className?: string; onCopy: () => void }) {
+  const [copied, setCopied] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!copied) {
+      return
+    }
+    const timer = window.setTimeout(() => setCopied(false), 1200)
+    return () => window.clearTimeout(timer)
+  }, [copied])
+
+  return (
+    <button
+      type="button"
+      className={`oc-messageActionBtn${className ? ` ${className}` : ""}`}
+      aria-label={copied ? "Copied" : "Copy"}
+      data-copied={copied ? "true" : undefined}
+      data-tooltip={copied ? undefined : "Copy"}
+      onClick={() => {
+        onCopy()
+        setCopied(true)
+      }}
+    >
+      <CopyMessageIcon />
+      <span className="oc-messageActionCopiedTip">Copied!</span>
+    </button>
+  )
 }
 
 function userTurnWrapClassNames(panelTheme: PanelTheme) {
@@ -476,15 +512,15 @@ function messageActionsClassNames(panelTheme: PanelTheme) {
   return classes.join(" ")
 }
 
-function assistantMessageActionsClassNames(panelTheme: PanelTheme) {
-  const classes = ["oc-messageActions"]
+function assistantReplyFooterClassNames(panelTheme: PanelTheme) {
+  const classes = ["oc-assistantReplyFooter"]
 
   if (panelTheme === "claude") {
-    classes.push("oc-messageActions-topRightExternal")
+    classes.push("oc-assistantReplyFooter-theme-claude")
   }
 
   if (panelTheme === "codex") {
-    classes.push("oc-messageActions-inlineTopRight")
+    classes.push("oc-assistantReplyFooter-theme-codex")
   }
 
   return classes.join(" ")
@@ -573,6 +609,7 @@ function AttachmentThumbnail({
 
 function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: TimelineBlockViewProps) {
   if (prev.AgentBadge !== next.AgentBadge
+    || prev.assistantFooterMetaMessages !== next.assistantFooterMetaMessages
     || prev.CompactionDivider !== next.CompactionDivider
     || prev.MarkdownBlock !== next.MarkdownBlock
     || prev.PartView !== next.PartView
@@ -588,6 +625,7 @@ function areTimelineBlockPropsEqual(prev: TimelineBlockViewProps, next: Timeline
     || prev.onRedoSession !== next.onRedoSession
     || prev.onUndoUserMessage !== next.onUndoUserMessage
     || prev.panelTheme !== next.panelTheme
+    || prev.showAssistantCopy !== next.showAssistantCopy
     || prev.commandPromptInvocations !== next.commandPromptInvocations
     || prev.commands !== next.commands
     || prev.skillCatalog !== next.skillCatalog) {
@@ -676,6 +714,34 @@ function sameRevertFiles(
   return true
 }
 
+function AssistantReplyMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { name: string }) => React.JSX.Element; messages: SessionMessage[] }) {
+  const first = messages[0]?.info
+  const agent = first?.agent?.trim()
+  const summary = assistantSummary(messages)
+  const items: React.ReactNode[] = []
+
+  if (agent) {
+    items.push(<AgentBadge key="agent" name={agent} />)
+  }
+  if (summary) {
+    items.push(<span key="summary">{summary}</span>)
+  }
+  if (items.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="oc-assistantReplyMeta">
+      {items.map((item, index) => (
+        <React.Fragment key={index}>
+          {index > 0 ? <span className="oc-turnMetaSep">·</span> : null}
+          {item}
+        </React.Fragment>
+      ))}
+    </div>
+  )
+}
+
 function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { name: string }) => React.JSX.Element; messages: SessionMessage[] }) {
   const first = messages[0]?.info
   const agent = first?.agent?.trim()
@@ -710,9 +776,94 @@ function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { 
   )
 }
 
-function assistantChainClassName(blocks: TimelineBlock[], index: number) {
+function showAssistantCopy(
+  blocks: TimelineBlock[],
+  index: number,
+  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+) {
+  const block = blocks[index]
+  if (!block || block.kind !== "assistant-part" || block.part.type !== "text") {
+    return false
+  }
+  return finalAssistantCopyPartID(blocks, index, options) === block.part.id
+}
+
+function assistantFooterMetaMessages(
+  blocks: TimelineBlock[],
+  index: number,
+  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+) {
+  if (!showAssistantCopy(blocks, index, options)) {
+    return undefined
+  }
+  return assistantMetaInTurn(blocks, index)?.messages
+}
+
+function shouldHideAssistantMetaBlock(
+  blocks: TimelineBlock[],
+  index: number,
+  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+) {
+  const block = blocks[index]
+  if (!block || block.kind !== "assistant-meta") {
+    return false
+  }
+  return !!finalAssistantCopyPartID(blocks, index, options)
+}
+
+function finalAssistantCopyPartID(
+  blocks: TimelineBlock[],
+  index: number,
+  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+) {
+  const [start, end] = assistantTurnRange(blocks, index)
+  for (let i = end; i >= start; i -= 1) {
+    const block = blocks[i]
+    if (block?.kind !== "assistant-part" || block.part.type !== "text") {
+      continue
+    }
+    if (assistantCopyText(block.part, options)) {
+      return block.part.id
+    }
+  }
+  return ""
+}
+
+function assistantMetaInTurn(blocks: TimelineBlock[], index: number) {
+  const [start, end] = assistantTurnRange(blocks, index)
+  for (let i = end; i >= start; i -= 1) {
+    const block = blocks[i]
+    if (block?.kind === "assistant-meta") {
+      return block
+    }
+  }
+  return undefined
+}
+
+function assistantTurnRange(blocks: TimelineBlock[], index: number): [number, number] {
+  let start = index
+  while (start > 0 && blocks[start - 1]?.kind !== "user-message") {
+    start -= 1
+  }
+
+  let end = index
+  while (end < blocks.length - 1 && blocks[end + 1]?.kind !== "user-message") {
+    end += 1
+  }
+
+  return [start, end]
+}
+
+function assistantChainClassName(
+  blocks: TimelineBlock[],
+  index: number,
+  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+) {
   const block = blocks[index]
   if (!block || block.kind === "user-message") {
+    return ""
+  }
+  if (shouldHideAssistantMetaBlock(blocks, index, options)) {
     return ""
   }
 
@@ -723,14 +874,29 @@ function assistantChainClassName(blocks: TimelineBlock[], index: number) {
       classes.push(`oc-chainItem-tool-${block.part.tool}`)
     }
   }
-  if (!isAssistantChainable(blocks[index - 1])) {
+  if (!isAssistantChainable(adjacentVisibleTimelineBlock(blocks, index, -1, options))) {
     classes.push("oc-chainItem-first")
   }
-  if (!isAssistantChainable(blocks[index + 1])) {
+  if (!isAssistantChainable(adjacentVisibleTimelineBlock(blocks, index, 1, options))) {
     classes.push("oc-chainItem-last")
   }
 
   return classes.join(" ")
+}
+
+function adjacentVisibleTimelineBlock(
+  blocks: TimelineBlock[],
+  index: number,
+  direction: -1 | 1,
+  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+) {
+  for (let i = index + direction; i >= 0 && i < blocks.length; i += direction) {
+    if (shouldHideAssistantMetaBlock(blocks, i, options)) {
+      continue
+    }
+    return blocks[i]
+  }
+  return undefined
 }
 
 function isAssistantChainable(block?: TimelineBlock) {

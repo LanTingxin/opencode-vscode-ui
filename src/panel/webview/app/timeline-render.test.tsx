@@ -358,7 +358,80 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("rendered:# 标题"), true)
   })
 
-  test("wraps claude assistant outputs, including metadata, in unified chain items while leaving user messages unchained", () => {
+  test("renders assistant copy only for the final text output in a turn", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[
+          sessionMessage(messageInfo("m1", "assistant"), [textPart("p1", "m1", "First output")]),
+          sessionMessage(messageInfo("m2", "assistant"), [toolPart("p2", "m2"), textPart("p3", "m2", "Final output")]),
+        ]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.match(/aria-label="Copy"/g)?.length, 1)
+    assert.ok(html.indexOf("text:Final output") < html.indexOf('aria-label="Copy"'))
+  })
+
+  test("renders codex assistant meta in the final text hover footer with copy", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[
+          sessionMessage(messageInfo("m1", "assistant", {
+            agent: "ultraworker",
+            model: { providerID: "anthropic", modelID: "claude-opus-4.6" },
+            time: { created: 0, completed: 42000 },
+          }), [textPart("p1", "m1", "Final output")]),
+        ]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("oc-assistantReplyFooter"), true)
+    assert.equal(html.includes("oc-assistantReplyMeta"), true)
+    assert.equal(html.includes("ultraworker"), true)
+    assert.equal(html.includes("anthropic/claude-opus-4.6"), true)
+    assert.equal(html.includes("42s"), true)
+    assert.equal(html.includes('<section class="oc-turnMeta"'), false)
+    assert.ok(html.indexOf("oc-assistantReplyMeta") < html.indexOf('aria-label="Copy"'))
+    assert.equal(html.includes("oc-messageActionCopiedTip"), true)
+    assert.equal(html.includes("Copied!"), true)
+  })
+
+  test("wraps claude assistant outputs in unified chain items while leaving user messages unchained", () => {
     const html = renderToStaticMarkup(
       <Timeline
         bootstrapStatus="ready"
@@ -391,7 +464,8 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("oc-chainItem-first"), true)
     assert.equal(html.includes("oc-chainItem-last"), true)
     assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-part"), true)
-    assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-meta oc-chainItem-last"), true)
+    assert.equal(html.includes("oc-chainItem oc-chainItem-assistant-meta oc-chainItem-last"), false)
+    assert.match(html, /oc-chainItem oc-chainItem-assistant-part oc-chainItem-part-text oc-chainItem-last/)
     assert.equal(html.includes("oc-chainItem-tool-webfetch"), true)
     assert.equal(html.includes('<div class="oc-turnUserWrap oc-turnUserWrap-theme-claude">'), true)
     assert.equal(html.includes('<section class="oc-turnUser oc-turnUser-theme-claude">'), true)
@@ -586,7 +660,7 @@ describe("Timeline user message rendering", () => {
     )
 
     assert.equal(html.includes('class="oc-assistantReplyWrap oc-assistantReplyWrap-theme-codex"'), true)
-    assert.equal(html.includes('class="oc-messageActions oc-messageActions-inlineTopRight"'), true)
+    assert.equal(html.includes('class="oc-assistantReplyFooter oc-assistantReplyFooter-theme-codex"'), true)
     assert.equal(html.includes('class="oc-messageActions oc-messageActions-belowHover"'), false)
   })
 

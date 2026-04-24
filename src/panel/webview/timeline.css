@@ -178,6 +178,43 @@
   transform: translateY(0);
 }
 
+.oc-assistantReplyFooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+  margin-top: 4px;
+  padding: 0 10px;
+  color: var(--oc-fg-muted);
+  font-family: var(--oc-ui);
+  font-size: var(--oc-font-size-sm);
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.oc-assistantReplyWrap:hover .oc-assistantReplyFooter,
+.oc-assistantReplyWrap:focus-within .oc-assistantReplyFooter {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.oc-assistantReplyMeta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  user-select: none;
+}
+
+.oc-assistantReplyMeta .oc-agentBadge {
+  color: inherit;
+}
+
 .oc-revertNotice:hover .oc-revertActions,
 .oc-revertNotice:focus-within .oc-revertActions {
   transform: translateY(-50%);
@@ -248,6 +285,40 @@
   transform: translateY(-50%) translateX(0);
 }
 
+.oc-messageActionBtn[data-copied="true"]::after {
+  opacity: 0;
+}
+
+.oc-messageActionBtn[data-copied="true"]:hover:not(:disabled)::after,
+.oc-messageActionBtn[data-copied="true"]:focus-visible:not(:disabled)::after {
+  opacity: 0;
+  transform: translateY(-50%) translateX(4px);
+}
+
+.oc-messageActionCopiedTip {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 55%, transparent 45%);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--oc-surface-elevated, var(--oc-surface-canvas)) 92%, var(--oc-surface-block) 8%);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: var(--oc-shadow-soft);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.oc-messageActionBtn[data-copied="true"] .oc-messageActionCopiedTip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
 .oc-messageActionBtn:hover:not(:disabled),
 .oc-messageActionBtn:focus-visible:not(:disabled) {
   background: color-mix(in srgb, var(--oc-accent) 18%, var(--oc-surface-block) 82%);
@@ -287,11 +358,6 @@
   padding: 6px 10px;
   border: 0;
   background: var(--oc-message-assistant-bg);
-}
-
-.oc-assistantReplyWrap .oc-part-text,
-.oc-assistantReplyWrap .oc-part-inline {
-  padding-right: 46px;
 }
 
 .oc-partText,
@@ -671,7 +737,6 @@
 
 .oc-shell[data-oc-theme="claude"] .oc-assistantReplyWrap-theme-claude {
   box-sizing: border-box;
-  padding-right: 44px;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-turnUser {
@@ -696,6 +761,12 @@
   border-color: color-mix(in srgb, var(--oc-border-strong) 58%, transparent 42%);
   background: color-mix(in srgb, var(--oc-surface-elevated) 92%, var(--oc-surface-primary) 8%);
   box-shadow: var(--oc-tool-shadow);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-assistantReplyFooter {
+  margin-top: 6px;
+  padding: 0 14px;
+  color: color-mix(in srgb, var(--oc-fg-muted) 92%, var(--oc-accent) 8%);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-part,
@@ -784,15 +855,30 @@
   bottom: 0;
 }
 
-.oc-shell[data-oc-theme="codex"] .oc-messageActions-inlineTopRight {
-  top: 8px;
-  right: 8px;
-  bottom: auto;
-}
-
 .oc-shell[data-oc-theme="codex"] .oc-messageActionBtn {
   background: color-mix(in srgb, var(--oc-surface-elevated) 86%, var(--oc-surface-primary) 14%);
   box-shadow: var(--oc-tool-shadow);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-assistantReplyFooter {
+  margin-top: 6px;
+  padding: 0 12px;
+  color: color-mix(in srgb, var(--oc-fg-muted) 76%, transparent 24%);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-assistantReplyFooter .oc-messageActionBtn {
+  width: 22px;
+  height: 22px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-assistantReplyFooter .oc-messageActionBtn:hover:not(:disabled),
+.oc-shell[data-oc-theme="codex"] .oc-assistantReplyFooter .oc-messageActionBtn:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, var(--oc-accent-strong) 10%, transparent 90%);
+  color: color-mix(in srgb, var(--oc-fg-primary) 76%, var(--oc-fg-muted) 24%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-part,
