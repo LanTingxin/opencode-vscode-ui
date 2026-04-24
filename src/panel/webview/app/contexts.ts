@@ -7,7 +7,7 @@ export const TranscriptVisibilityContext = React.createContext({
   showThinking: false,
   showInternals: false,
   compactSkillInvocations: true,
-  panelTheme: "default" as PanelTheme,
+  panelTheme: "codex" as PanelTheme,
   skillCatalog: [] as SkillCatalogEntry[],
 })
 

@@ -38,7 +38,7 @@ function renderTool(tool: "write" | "edit", filePath: string) {
             showThinking: true,
             showInternals: false,
             compactSkillInvocations: true,
-            panelTheme: "default",
+            panelTheme: "classic",
             skillCatalog: [],
           }}
         >

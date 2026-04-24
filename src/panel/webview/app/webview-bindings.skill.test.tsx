@@ -60,7 +60,7 @@ function renderSkillPart(options?: { compactSkillInvocations?: boolean; active?:
           showThinking: true,
           showInternals: false,
           compactSkillInvocations: options?.compactSkillInvocations !== false,
-          panelTheme: "default",
+          panelTheme: "classic",
           skillCatalog: [],
         }}
       >
@@ -93,7 +93,7 @@ function renderSkillTextPart(options?: { compactSkillInvocations?: boolean }) {
           showThinking: true,
           showInternals: false,
           compactSkillInvocations: options?.compactSkillInvocations !== false,
-          panelTheme: "default",
+          panelTheme: "classic",
           skillCatalog: [],
         }}
       >
@@ -126,7 +126,7 @@ function renderExactSkillTextPart(options?: { compactSkillInvocations?: boolean 
           showThinking: true,
           showInternals: false,
           compactSkillInvocations: options?.compactSkillInvocations !== false,
-          panelTheme: "default",
+          panelTheme: "classic",
           skillCatalog: ARTICLE_WRITING_SKILL,
         }}
       >
@@ -136,7 +136,7 @@ function renderExactSkillTextPart(options?: { compactSkillInvocations?: boolean 
   )
 }
 
-function renderAssistantTextPart(panelTheme: "default" | "codex" | "claude") {
+function renderAssistantTextPart(panelTheme: "classic" | "codex" | "claude") {
   const part: MessagePart = {
     id: "text-3",
     sessionID: "session-1",
@@ -202,8 +202,8 @@ describe("skill tool rendering", () => {
     assert.equal(html.includes("Write long-form content"), false)
   })
 
-  test("renders assistant markdown as rich content in the default theme", () => {
-    const html = renderAssistantTextPart("default")
+  test("renders assistant markdown as rich content in the classic theme", () => {
+    const html = renderAssistantTextPart("classic")
 
     assert.equal(html.includes("<h1>其他产品动态</h1>"), true)
     assert.equal(html.includes("<li>Canva</li>"), true)

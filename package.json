@@ -326,9 +326,9 @@
         },
         "opencode-ui.panelTheme": {
           "type": "string",
-          "default": "default",
+          "default": "codex",
           "enum": [
-            "default",
+            "classic",
             "codex",
             "claude"
           ],

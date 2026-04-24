@@ -703,7 +703,7 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes(">...<"), false)
   })
 
-  test("hides assistant placeholder text in the default theme too", () => {
+  test("hides assistant placeholder text in the classic theme too", () => {
     const html = renderToStaticMarkup(
       <Timeline
         bootstrapStatus="ready"
@@ -720,7 +720,7 @@ describe("Timeline user message rendering", () => {
         onUndoUserMessage={() => {}}
         showInternals={false}
         showThinking={true}
-        panelTheme="default"
+        panelTheme="classic"
         skillCatalog={[]}
         AgentBadge={({ name }) => <span>{name}</span>}
         CompactionDivider={() => <div>divider</div>}
@@ -733,7 +733,7 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes(">。。。<"), false)
   })
 
-  test("keeps default-theme assistant tools on the existing inline path", () => {
+  test("keeps classic-theme assistant tools on the existing inline path", () => {
     const html = renderToStaticMarkup(
       <Timeline
         bootstrapStatus="ready"
@@ -752,7 +752,7 @@ describe("Timeline user message rendering", () => {
         onUndoUserMessage={() => {}}
         showInternals={false}
         showThinking={true}
-        panelTheme="default"
+        panelTheme="classic"
         skillCatalog={[]}
         AgentBadge={({ name }) => <span>{name}</span>}
         CompactionDivider={() => <div>divider</div>}

@@ -1124,7 +1124,7 @@ export function App() {
     vscode.postMessage({ type: "providerAuthAction", providerID })
   }, [])
 
-  const selectPanelTheme = React.useCallback((theme: "default" | "codex" | "claude") => {
+  const selectPanelTheme = React.useCallback((theme: "classic" | "codex" | "claude") => {
     setThemePickerOpen(false)
     vscode.postMessage({ type: "updatePanelTheme", theme })
   }, [])

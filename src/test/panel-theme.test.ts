@@ -46,7 +46,7 @@ describe("panel theme settings", () => {
     assert.equal(getDisplaySettings().panelTheme, "claude")
   })
 
-  test("normalizes removed opencode-web panel theme values to default", () => {
+  test("normalizes removed opencode-web panel theme values to codex", () => {
     ;(vscode.workspace as typeof vscode.workspace & {
       getConfiguration: typeof vscode.workspace.getConfiguration
     }).getConfiguration = ((section?: string) => ({
@@ -58,10 +58,25 @@ describe("panel theme settings", () => {
       },
     })) as typeof vscode.workspace.getConfiguration
 
-    assert.equal(getDisplaySettings().panelTheme, "default")
+    assert.equal(getDisplaySettings().panelTheme, "codex")
   })
 
-  test("normalizes invalid panelTheme values to default", () => {
+  test("normalizes legacy default panel theme values to classic", () => {
+    ;(vscode.workspace as typeof vscode.workspace & {
+      getConfiguration: typeof vscode.workspace.getConfiguration
+    }).getConfiguration = ((section?: string) => ({
+      get: <T,>(key: string, fallback: T) => {
+        if (section === "opencode-ui" && key === "panelTheme") {
+          return "default" as T
+        }
+        return fallback
+      },
+    })) as typeof vscode.workspace.getConfiguration
+
+    assert.equal(getDisplaySettings().panelTheme, "classic")
+  })
+
+  test("normalizes invalid panelTheme values to codex", () => {
     ;(vscode.workspace as typeof vscode.workspace & {
       getConfiguration: typeof vscode.workspace.getConfiguration
     }).getConfiguration = ((section?: string) => ({
@@ -73,7 +88,7 @@ describe("panel theme settings", () => {
       },
     })) as typeof vscode.workspace.getConfiguration
 
-    assert.equal(getDisplaySettings().panelTheme, "default")
+    assert.equal(getDisplaySettings().panelTheme, "codex")
   })
 
   test("treats panelTheme changes as display setting changes", () => {
@@ -93,15 +108,24 @@ describe("panel theme settings", () => {
   })
 
   test("resolves the panel root theme attribute value", () => {
+    assert.equal(resolvePanelThemeValue("classic"), "classic")
     assert.equal(resolvePanelThemeValue("codex"), "codex")
-    assert.equal(resolvePanelThemeValue("opencode-web" as never), "default")
-    assert.equal(resolvePanelThemeValue(undefined), "default")
+    assert.equal(resolvePanelThemeValue("opencode-web" as never), "codex")
+    assert.equal(resolvePanelThemeValue(undefined), "codex")
   })
 
   test("does not offer opencode-web in the theme picker", () => {
-    const items = buildThemePickerItems("default")
+    const items = buildThemePickerItems("classic")
 
     assert.equal(items.map((item) => item.id).includes("opencode-web" as never), false)
+  })
+
+  test("offers classic instead of default for the OpenCode-native theme", () => {
+    const items = buildThemePickerItems("classic")
+
+    assert.deepEqual(items.map((item) => item.id), ["classic", "codex", "claude"])
+    assert.equal(items[0]?.label, "Classic")
+    assert.equal(items[0]?.selected, true)
   })
 
   test("does not declare opencode-web in the extension configuration enum", () => {
@@ -117,6 +141,23 @@ describe("panel theme settings", () => {
 
     const values = pkg.contributes?.configuration?.properties?.["opencode-ui.panelTheme"]?.enum ?? []
     assert.deepEqual(values.includes("opencode-web"), false)
+  })
+
+  test("does not declare default in the extension configuration enum", () => {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      contributes?: {
+        configuration?: {
+          properties?: Record<string, {
+            default?: string
+            enum?: string[]
+          }>
+        }
+      }
+    }
+
+    const panelTheme = pkg.contributes?.configuration?.properties?.["opencode-ui.panelTheme"]
+    assert.equal(panelTheme?.default, "codex")
+    assert.deepEqual(panelTheme?.enum, ["classic", "codex", "claude"])
   })
 
   test("defines light and dark theme branches for the panel", () => {
@@ -135,7 +176,7 @@ describe("panel theme settings", () => {
     assert.doesNotMatch(css, /\[data-oc-theme=\"opencode-web\"\]/)
   })
 
-  test("keeps the default light and dark preset aligned with the original hard-edged look", () => {
+  test("keeps the classic light and dark preset aligned with the original hard-edged look", () => {
     const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
 
     assert.match(css, /body\.vscode-dark\s*\{[\s\S]*--oc-canvas:\s*#000;/)

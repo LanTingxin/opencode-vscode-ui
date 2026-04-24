@@ -99,7 +99,7 @@ export const Timeline = React.memo(function Timeline({
   revertID,
   showInternals,
   showThinking,
-  panelTheme = "default",
+  panelTheme = "codex",
   skillCatalog,
   AgentBadge,
   CompactionDivider,

@@ -155,7 +155,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
         diffMode: "unified",
         compactSkillInvocations: true,
         showSkillsInSlashAutocomplete: false,
-        panelTheme: "default",
+        panelTheme: "codex",
       },
       skillCatalog: [],
       messageHistory: {
@@ -214,11 +214,12 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
 
 export function resolvePanelThemeValue(theme?: PanelTheme): PanelTheme {
   switch (theme) {
+    case "classic":
     case "codex":
     case "claude":
       return theme
     default:
-      return "default"
+      return "codex"
   }
 }
 

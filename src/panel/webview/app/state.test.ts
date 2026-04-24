@@ -26,10 +26,10 @@ function persisted(overrides: Partial<PersistedAppState> = {}): PersistedAppStat
 }
 
 describe("panel webview persisted state", () => {
-  test("defaults the snapshot display panel theme to default", () => {
+  test("defaults the snapshot display panel theme to codex", () => {
     const state = createInitialState(initialRef)
 
-    assert.equal(state.snapshot.display.panelTheme, "default")
+    assert.equal(state.snapshot.display.panelTheme, "codex")
     assert.equal(state.snapshot.display.showSkillsInSlashAutocomplete, false)
   })
 
@@ -125,7 +125,7 @@ describe("normalizeSnapshotPayload", () => {
         showThinking: true,
         diffMode: "unified",
         compactSkillInvocations: true,
-        panelTheme: "default",
+        panelTheme: "classic",
       },
       messageHistory: {
         limit: 400,
@@ -194,7 +194,7 @@ describe("normalizeSnapshotPayload", () => {
     assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "codex")
   })
 
-  test("defaults missing panelTheme to default when normalizing older snapshots", () => {
+  test("defaults missing panelTheme to codex when normalizing older snapshots", () => {
     const snapshot = {
       status: "ready",
       workspaceName: "workspace",
@@ -228,7 +228,7 @@ describe("normalizeSnapshotPayload", () => {
       navigation: {},
     } as unknown as SessionSnapshot
 
-    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "default")
+    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "codex")
   })
 
   test("defaults missing showSkillsInSlashAutocomplete to false when normalizing older snapshots", () => {
@@ -245,7 +245,7 @@ describe("normalizeSnapshotPayload", () => {
         showThinking: true,
         diffMode: "unified",
         compactSkillInvocations: true,
-        panelTheme: "default",
+        panelTheme: "classic",
       },
       messages: [],
       childMessages: {},
@@ -283,7 +283,7 @@ describe("normalizeSnapshotPayload", () => {
         showThinking: true,
         diffMode: "unified",
         compactSkillInvocations: true,
-        panelTheme: "default",
+        panelTheme: "classic",
       },
       messages: [],
       childMessages: {},

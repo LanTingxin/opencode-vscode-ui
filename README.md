@@ -10,7 +10,7 @@ Stay in the editor, keep context intact, and manage OpenCode where the code alre
 
 This enhanced version extends the original OpenCode UI with:
 
-- **🎨 Panel Theme System** - Choose from multiple visual presets (default, codex, claude) with automatic light/dark mode support
+- **🎨 Panel Theme System** - Choose from multiple visual presets (classic, codex, claude) with automatic light/dark mode support
 - **🤖 Subagents Companion View** - Track and monitor subagent sessions in a dedicated sidebar panel
 - **🏷️ Session Tagging & Filtering** - Organize sessions with custom tags and filter by tag directly in the sidebar
 - **🔍 Session Search** - Quickly find sessions within each workspace with built-in search
@@ -49,9 +49,9 @@ Search sessions within one workspace at a time, or filter by tags to organize yo
 
 Choose from three visual presets to match your workflow preference. All themes automatically adapt to VS Code's light or dark mode.
 
-| Default Theme | Codex Theme | Claude Theme |
+| Classic Theme | Codex Theme | Claude Theme |
 | --- | --- | --- |
-| ![Default theme](docs/screenshots/theme-default.png) | ![Codex theme](docs/screenshots/theme-codex.png) | ![Claude theme](docs/screenshots/theme-claude.png) |
+| ![Classic theme](docs/screenshots/theme-default.png) | ![Codex theme](docs/screenshots/theme-codex.png) | ![Claude theme](docs/screenshots/theme-claude.png) |
 | Standard OpenCode styling | Tool-like preset with stronger framing | Softer preset with gentler surfaces |
 
 The footer `Context` entrypoint is available across themes, so you can inspect session usage and raw message data without leaving the current tab.
@@ -98,7 +98,7 @@ Open the dedicated session view in VS Code's secondary sidebar for a focused con
 - A dedicated panel for each workspace-session pair
 
 ### Visual Customization
-- Three panel theme presets: default, codex, and claude
+- Three panel theme presets: classic, codex, and claude
 - Automatic light/dark mode adaptation
 - Configurable diff rendering (unified or split view)
 - Optional thinking block visibility
@@ -183,7 +183,7 @@ If you use Remote SSH, **install `opencode` on the remote host** so the extensio
 Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Code settings.
 
 ### Visual Settings
-- **Panel Theme** (`opencode-ui.panelTheme`) - Choose from `default`, `codex`, or `claude` presets
+- **Panel Theme** (`opencode-ui.panelTheme`) - Choose from `classic`, `codex`, or `claude` presets
 - **Show Thinking** (`opencode-ui.showThinking`) - Toggle visibility of thinking blocks
 - **Show Internals** (`opencode-ui.showInternals`) - Toggle visibility of internal transcript blocks
 - **Diff Mode** (`opencode-ui.diffMode`) - Choose `unified` or `split` diff rendering
@@ -195,7 +195,7 @@ Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Cod
 ## Tips & Tricks 💡
 
 - **Use tags to organize sessions** - Right-click any session and choose "Manage Session Tags" to add custom tags, then filter by tag to focus on specific work
-- **Try different panel themes** - Switch between default, codex, and claude themes to find your preferred visual style
+- **Try different panel themes** - Switch between classic, codex, and claude themes to find your preferred visual style
 - **Open the Context panel when you need details** - Use the footer `Context` entrypoint to inspect session usage, provider/model details, and raw message payloads without leaving the current tab
 - **Monitor subagents** - Keep the Subagents view open to track child sessions spawned during complex tasks
 - **Quick context actions** - Select code and right-click to instantly ask OpenCode about it

@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 
 export type DiffMode = "unified" | "split"
-export type PanelTheme = "default" | "codex" | "claude"
+export type PanelTheme = "classic" | "codex" | "claude"
 
 export type DisplaySettings = {
   showInternals: boolean
@@ -30,7 +30,7 @@ export function getDisplaySettings(): DisplaySettings {
     diffMode: config.get<DiffMode>(DIFF_MODE_KEY, "unified") === "split" ? "split" : "unified",
     compactSkillInvocations: config.get<boolean>(COMPACT_SKILL_INVOCATIONS_KEY, true),
     showSkillsInSlashAutocomplete: config.get<boolean>(SHOW_SKILLS_IN_SLASH_AUTOCOMPLETE_KEY, false),
-    panelTheme: normalizePanelTheme(config.get<string>(PANEL_THEME_KEY, "default")),
+    panelTheme: normalizePanelTheme(config.get<string>(PANEL_THEME_KEY, "codex")),
   }
 }
 
@@ -86,10 +86,13 @@ function hasInheritedProxy() {
 
 function normalizePanelTheme(value: string): PanelTheme {
   switch (value) {
+    case "classic":
     case "codex":
     case "claude":
       return value
+    case "default":
+      return "classic"
     default:
-      return "default"
+      return "codex"
   }
 }

@@ -11,10 +11,10 @@ export type ThemePickerItem = {
 export function buildThemePickerItems(currentTheme: PanelTheme): ThemePickerItem[] {
   return [
     {
-      id: "default",
-      label: "Default",
+      id: "classic",
+      label: "Classic",
       detail: "Use the standard OpenCode panel styling that follows the active VS Code light or dark theme.",
-      selected: currentTheme === "default",
+      selected: currentTheme === "classic",
     },
     {
       id: "codex",
