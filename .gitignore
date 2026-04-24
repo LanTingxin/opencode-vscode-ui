@@ -1,5 +1,6 @@
 /opencode
 /.memory
+/.superpowers
 /.worktrees/
 /.DS_Store
 /node_modules
@@ -10,3 +11,4 @@
 /package-lock.json
 docs/.DS_Store
 docs/screenshots/.DS_Store
+src/panel/webview/app/opencode-vscode-ui.code-workspace
