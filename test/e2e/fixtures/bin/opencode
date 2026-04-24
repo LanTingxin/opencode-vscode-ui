@@ -1,0 +1,222 @@
+#!/usr/bin/env node
+
+const http = require("node:http")
+const fs = require("node:fs")
+const { URL } = require("node:url")
+
+const port = Number(flagValue("--port") || 0)
+const hostname = flagValue("--hostname") || "127.0.0.1"
+const now = Date.now()
+const logPath = process.env.OPENCODE_UI_E2E_LOG
+
+if (!port) {
+  console.error("fake opencode requires --port")
+  process.exit(1)
+}
+
+log(`start port=${port} cwd=${process.cwd()}`)
+
+const sessions = [
+  session("e2e-session", "E2E Session"),
+  session("second-session", "Second Session"),
+]
+const messages = new Map([
+  ["e2e-session", [{
+    info: {
+      id: "user-1",
+      sessionID: "e2e-session",
+      role: "user",
+      time: { created: now - 2000 },
+      agent: "build",
+      model: { providerID: "test-provider", modelID: "test-model" },
+    },
+    parts: [{
+      id: "part-user-1",
+      sessionID: "e2e-session",
+      messageID: "user-1",
+      type: "text",
+      text: "Initial test prompt",
+    }],
+  }, {
+    info: {
+      id: "assistant-1",
+      sessionID: "e2e-session",
+      role: "assistant",
+      time: { created: now - 1000, completed: now - 500 },
+      parentID: "user-1",
+      modelID: "test-model",
+      providerID: "test-provider",
+      mode: "build",
+      agent: "build",
+      path: { cwd: process.cwd(), root: process.cwd() },
+      cost: 0,
+      tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
+    },
+    parts: [{
+      id: "part-assistant-1",
+      sessionID: "e2e-session",
+      messageID: "assistant-1",
+      type: "text",
+      text: "Initial test response",
+    }],
+  }]],
+  ["second-session", []],
+])
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url || "/", `http://${hostname}:${port}`)
+  const method = req.method || "GET"
+  const body = await readBody(req)
+  log(`${method} ${url.pathname}`)
+
+  if (method === "GET" && url.pathname === "/global/health") return json(res, true)
+  if (method === "GET" && url.pathname === "/event") return sse(res)
+  if (method === "GET" && url.pathname === "/session") return json(res, sessions)
+  if (method === "POST" && url.pathname === "/session") {
+    const next = session(`created-${sessions.length + 1}`, "New Session")
+    sessions.push(next)
+    messages.set(next.id, [])
+    return json(res, next)
+  }
+  if (method === "GET" && url.pathname === "/session/status") return json(res, {})
+  if (method === "GET" && url.pathname === "/config") return json(res, { model: "test-provider/test-model", default_agent: "build" })
+  if (method === "GET" && url.pathname === "/config/providers") return json(res, {
+    providers: [provider()],
+    default: { "test-provider": "test-model" },
+  })
+  if (method === "GET" && url.pathname === "/provider") return json(res, {
+    all: [provider()],
+    connected: ["test-provider"],
+    default: { "test-provider": "test-model" },
+  })
+  if (method === "GET" && url.pathname === "/provider/auth") return json(res, {})
+  if (method === "GET" && url.pathname === "/agent") return json(res, [{
+    name: "build",
+    mode: "primary",
+    model: { providerID: "test-provider", modelID: "test-model" },
+  }])
+  if (method === "GET" && url.pathname === "/skill") return json(res, [])
+  if (method === "GET" && url.pathname === "/permission") return json(res, [])
+  if (method === "GET" && url.pathname === "/question") return json(res, [])
+  if (method === "GET" && url.pathname === "/mcp") return json(res, {})
+  if (method === "GET" && url.pathname === "/experimental/resource") return json(res, {})
+  if (method === "GET" && url.pathname === "/lsp") return json(res, [])
+  if (method === "GET" && url.pathname === "/formatter") return json(res, [])
+  if (method === "GET" && url.pathname === "/command") return json(res, [])
+  if (method === "GET" && url.pathname === "/vcs") return json(res, {
+    branch: "main",
+    default_branch: "main",
+  })
+
+  const sessionMatch = url.pathname.match(/^\/session\/([^/]+)(?:\/(children|todo|diff|message|prompt_async|command|shell))?$/)
+  if (sessionMatch) {
+    const sessionID = decodeURIComponent(sessionMatch[1])
+    const action = sessionMatch[2]
+    if (!action && method === "GET") return json(res, sessions.find((item) => item.id === sessionID))
+    if (action === "children" && method === "GET") return json(res, [])
+    if (action === "todo" && method === "GET") return json(res, [])
+    if (action === "diff" && method === "GET") return json(res, [])
+    if (action === "message" && method === "GET") return json(res, messages.get(sessionID) || [])
+    if (["prompt_async", "command", "shell"].includes(action) && method === "POST") {
+      recordPrompt(sessionID, body)
+      return json(res, true)
+    }
+  }
+
+  res.writeHead(404, { "content-type": "application/json" })
+  res.end(JSON.stringify({ error: `Unhandled fake opencode route: ${method} ${url.pathname}` }))
+})
+
+server.listen(port, hostname, () => {
+  console.log(`fake opencode listening on http://${hostname}:${port}`)
+})
+
+function log(message) {
+  if (!logPath) {
+    return
+  }
+  fs.appendFileSync(logPath, `${new Date().toISOString()} ${message}\n`)
+}
+
+function flagValue(name) {
+  const index = process.argv.indexOf(name)
+  return index >= 0 ? process.argv[index + 1] : undefined
+}
+
+function session(id, title) {
+  return {
+    id,
+    slug: id,
+    projectID: "e2e-project",
+    workspaceID: "e2e-workspace",
+    directory: process.cwd(),
+    title,
+    version: "0.0.0-e2e",
+    time: { created: now - 10000, updated: now - 1000 },
+  }
+}
+
+function provider() {
+  return {
+    id: "test-provider",
+    name: "Test Provider",
+    models: {
+      "test-model": {
+        id: "test-model",
+        name: "Test Model",
+        limit: { context: 128000 },
+      },
+    },
+  }
+}
+
+function recordPrompt(sessionID, body) {
+  const prompt = Array.isArray(body?.parts)
+    ? body.parts.find((part) => part?.type === "text")?.text || ""
+    : ""
+  const sessionMessages = messages.get(sessionID) || []
+  sessionMessages.push({
+    info: {
+      id: `user-${sessionMessages.length + 1}`,
+      sessionID,
+      role: "user",
+      time: { created: Date.now() },
+      agent: body?.agent || "build",
+      model: body?.model || { providerID: "test-provider", modelID: "test-model" },
+    },
+    parts: [{
+      id: `part-user-${sessionMessages.length + 1}`,
+      sessionID,
+      messageID: `user-${sessionMessages.length + 1}`,
+      type: "text",
+      text: prompt,
+    }],
+  })
+  messages.set(sessionID, sessionMessages)
+}
+
+function json(res, data) {
+  res.writeHead(200, { "content-type": "application/json" })
+  res.end(JSON.stringify(data))
+}
+
+function sse(res) {
+  res.writeHead(200, {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+    connection: "keep-alive",
+  })
+  res.write(": ready\n\n")
+}
+
+async function readBody(req) {
+  if (req.method !== "POST" && req.method !== "PATCH") {
+    return undefined
+  }
+  const chunks = []
+  for await (const chunk of req) {
+    chunks.push(chunk)
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim()
+  return raw ? JSON.parse(raw) : undefined
+}

@@ -4,6 +4,8 @@
 /.DS_Store
 /node_modules
 /dist
+/.wdio-vscode
+/test/e2e/fixtures/*.log
 /*.vsix
 /package-lock.json
 docs/.DS_Store
