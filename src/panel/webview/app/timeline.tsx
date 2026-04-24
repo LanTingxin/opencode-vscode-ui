@@ -247,6 +247,10 @@ function TimelineBlockView({
       ? findSkillInvocationMatch(userText.text || "", skillCatalog)
       : undefined
     const userFiles = userAttachments(block.message)
+    const themedImageThumbnails = themedImageAttachmentThumbnails(panelTheme, userFiles)
+    const attachmentPills = themedImageThumbnails.length > 0
+      ? userFiles.filter((part) => !attachmentPreviewSource(part))
+      : userFiles
     const hasCompaction = userHasCompaction(block.message)
     const hasSyntheticText = userHasSyntheticText(block.message)
     const showEmptyPrompt = !userText && !hasSyntheticText
@@ -258,13 +262,25 @@ function TimelineBlockView({
       <>
         {hasCompaction ? <CompactionDivider /> : null}
         <div className={userTurnWrapClassName}>
+          {themedImageThumbnails.length > 0 ? (
+            <div className="oc-userAttachmentThumbStrip">
+              {themedImageThumbnails.map(({ part, previewSrc, name }) => (
+                <AttachmentThumbnail
+                  key={part.id}
+                  name={name}
+                  previewSrc={previewSrc}
+                  onPreviewImageAttachment={onPreviewImageAttachment}
+                />
+              ))}
+            </div>
+          ) : null}
           <section className={userTurnClassName}>
             {block.queued ? (
               <div className="oc-userStatusRow">
                 <div className="oc-queuedBadge">QUEUED</div>
               </div>
             ) : null}
-            {commandPrompt || skillMatch || userFiles.length > 0 ? (
+            {commandPrompt || skillMatch || attachmentPills.length > 0 ? (
               <div className="oc-attachmentRow">
                 {commandPrompt ? (
                   <CommandPill
@@ -275,7 +291,7 @@ function TimelineBlockView({
                   />
                 ) : null}
                 {skillMatch ? <SkillPill name={skillMatch.name} onClick={skillLocation ? () => onOpenFileAttachment(skillLocation) : undefined} /> : null}
-                {userFiles.map((part) => (
+                {attachmentPills.map((part) => (
                   <AttachmentPill
                     key={part.id}
                     part={part}
@@ -474,6 +490,17 @@ function assistantMessageActionsClassNames(panelTheme: PanelTheme) {
   return classes.join(" ")
 }
 
+function themedImageAttachmentThumbnails(panelTheme: PanelTheme, parts: FilePart[]) {
+  if (panelTheme !== "codex" && panelTheme !== "claude") {
+    return []
+  }
+
+  return parts.flatMap((part) => {
+    const previewSrc = attachmentPreviewSource(part)
+    return previewSrc ? [{ part, previewSrc, name: attachmentFilePath(part) }] : []
+  })
+}
+
 function AttachmentPill({
   part,
   onOpenFileAttachment,
@@ -520,6 +547,27 @@ function AttachmentPill({
       <span className="oc-pillFileType">{fileTypeLabel(part)}</span>
       <span className="oc-pillFilePath">{name}</span>
     </span>
+  )
+}
+
+function AttachmentThumbnail({
+  name,
+  previewSrc,
+  onPreviewImageAttachment,
+}: {
+  name: string
+  previewSrc: string
+  onPreviewImageAttachment: (image: { src: string; name: string }) => void
+}) {
+  return (
+    <button
+      type="button"
+      className="oc-userAttachmentThumb"
+      aria-label={`Preview ${name}`}
+      onClick={() => onPreviewImageAttachment({ src: previewSrc, name })}
+    >
+      <img className="oc-userAttachmentThumbImg" src={previewSrc} alt={name} />
+    </button>
   )
 }
 

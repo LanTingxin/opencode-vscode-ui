@@ -813,6 +813,50 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes('aria-label="Preview image.png"'), true)
   })
 
+  test("renders previewable image attachments as thumbnails above themed user bubbles", () => {
+    for (const panelTheme of ["codex", "claude"] as const) {
+      const html = renderToStaticMarkup(
+        <Timeline
+          bootstrapStatus="ready"
+          compactSkillInvocations={true}
+          diffMode="unified"
+          messages={[sessionMessage(messageInfo("m1", "user"), [
+            textPart("p1", "m1", "这个图片看看"),
+            filePart("f1", "m1", {
+              mime: "image/png",
+              filename: "image.png",
+              url: "data:image/png;base64,abc123",
+            }),
+          ])]}
+          onCopyUserMessage={() => {}}
+          onForkUserMessage={() => {}}
+          onOpenFileAttachment={() => {}}
+          onPreviewImageAttachment={() => {}}
+          onRedoSession={() => {}}
+          onUndoUserMessage={() => {}}
+          panelTheme={panelTheme}
+          showInternals={false}
+          showThinking={true}
+          skillCatalog={[]}
+          AgentBadge={({ name }) => <span>{name}</span>}
+          CompactionDivider={() => <div>divider</div>}
+          EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+          MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+          PartView={({ part }) => <div>{part.type}</div>}
+        />,
+      )
+
+      const stripIndex = html.indexOf("oc-userAttachmentThumbStrip")
+      const bubbleIndex = html.indexOf('class="oc-turnUser ')
+
+      assert.equal(stripIndex > -1, true)
+      assert.equal(stripIndex < bubbleIndex, true)
+      assert.equal(html.includes('class="oc-pillFileType">IMG</span>'), false)
+      assert.equal(html.includes('aria-label="Preview image.png"'), true)
+      assert.equal(html.includes('src="data:image/png;base64,abc123"'), true)
+    }
+  })
+
   test("hides inline file mention text when the same file is rendered as an attachment pill", () => {
     const html = renderToStaticMarkup(
       <Timeline
