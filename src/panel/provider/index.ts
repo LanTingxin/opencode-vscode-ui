@@ -119,6 +119,11 @@ export class SessionPanelManager implements vscode.Disposable {
     return this.currentRef
   }
 
+  async runImagePreviewCommand(action: "copy" | "save") {
+    const controller = this.currentRef ? this.panels.get(panelKey(this.currentRef)) : undefined
+    await controller?.runImagePreviewCommand(action)
+  }
+
   recentSession(workspaceId: string) {
     const controllers = [...this.panels.values()]
 

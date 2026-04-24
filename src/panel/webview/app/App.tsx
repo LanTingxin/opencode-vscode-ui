@@ -31,6 +31,7 @@ import { CodexTodoPopover } from "./codex-todo-popover"
 import { ContextPanel } from "./context-panel"
 import { SessionPicker } from "./session-picker"
 import { composerRunningState } from "./composer-running-state"
+import { copyImageToClipboard, ImagePreviewOverlay, saveImageFromPreview, type PreviewImage } from "./image-preview"
 import { buildThemePickerItems, ThemePicker } from "./theme-picker"
 import { resolveTranscriptHistoryMode, shouldAutoLoadEarlierMessages, transcriptHistoryScrollThreshold } from "./transcript-history"
 
@@ -49,11 +50,6 @@ const fileRefStatus = new Map<string, boolean>()
 const ESC_INTERRUPT_WINDOW_MS = 5000
 const INITIAL_RENDERED_MESSAGE_COUNT = 120
 const RENDER_EARLIER_MESSAGE_COUNT = 120
-
-type PreviewImage = {
-  src: string
-  name: string
-}
 
 function sameAutocompleteMatch(
   left: { trigger: ComposerAutocompleteState["trigger"]; query: string; start: number; end: number } | null,
@@ -966,6 +962,46 @@ export function App() {
     setPreviewImage(image)
   }, [])
 
+  const closePreviewImage = React.useCallback(() => {
+    setPreviewImage(null)
+  }, [])
+
+  const copyPreviewImage = React.useCallback(() => {
+    if (!previewImage) {
+      return
+    }
+    void copyImageToClipboard(previewImage.src)
+      .catch(() => {})
+  }, [previewImage])
+
+  const savePreviewImage = React.useCallback(() => {
+    if (!previewImage) {
+      return
+    }
+    saveImageFromPreview(previewImage.src, previewImage.name)
+  }, [previewImage])
+
+  React.useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const message = event.data
+      if (message?.type !== "imagePreviewCommand") {
+        return
+      }
+
+      if (message.action === "copy") {
+        copyPreviewImage()
+        return
+      }
+
+      if (message.action === "save") {
+        savePreviewImage()
+      }
+    }
+
+    window.addEventListener("message", handler)
+    return () => window.removeEventListener("message", handler)
+  }, [copyPreviewImage, savePreviewImage])
+
   const postNewSession = React.useCallback(() => {
     vscode.postMessage({ type: "newSessionInPlace" })
   }, [])
@@ -1619,7 +1655,7 @@ export function App() {
                               src={img.dataUrl}
                               alt={img.name}
                               className="oc-composerImageThumbImg"
-                              onClick={() => setPreviewImage({ src: img.dataUrl, name: img.name })}
+                              onClick={() => previewAttachmentImage({ src: img.dataUrl, name: img.name })}
                             />
                             <button
                               type="button"
@@ -2003,19 +2039,10 @@ export function App() {
                 </aside>
               ) : null}
             {previewImage ? (
-              <div className="oc-imagePreviewOverlay" onClick={() => setPreviewImage(null)}>
-                <div className="oc-imagePreviewContent" onClick={(event) => event.stopPropagation()}>
-                  <img src={previewImage.src} alt={previewImage.name} className="oc-imagePreviewImg" />
-                  <button
-                    type="button"
-                    className="oc-imagePreviewClose"
-                    aria-label="Close preview"
-                    onClick={() => setPreviewImage(null)}
-                  >
-                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" /></svg>
-                  </button>
-                </div>
-              </div>
+              <ImagePreviewOverlay
+                image={previewImage}
+                onClose={closePreviewImage}
+              />
             ) : null}
           </div>
           </WebviewBindingsProvider>

@@ -156,6 +156,10 @@ export type HostMessage =
       type: "sessionPicker"
       payload: SessionPickerPayload
     }
+  | {
+      type: "imagePreviewCommand"
+      action: "copy" | "save"
+    }
 
 export type ComposerPromptPart =
   | {

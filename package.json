@@ -57,6 +57,8 @@
     "onCommand:opencode-ui.manageSessionTags",
     "onCommand:opencode-ui.filterWorkspaceSessionsByTag",
     "onCommand:opencode-ui.clearWorkspaceTagFilter",
+    "onCommand:opencode-ui.copyImagePreview",
+    "onCommand:opencode-ui.saveImagePreview",
     "onWebviewPanel:opencode-ui.session"
   ],
   "main": "./dist/extension.js",
@@ -182,6 +184,14 @@
         "command": "opencode-ui.checkEnvironment",
         "title": "OpenCode: Check Environment",
         "icon": "$(debug-alt)"
+      },
+      {
+        "command": "opencode-ui.copyImagePreview",
+        "title": "Copy Image"
+      },
+      {
+        "command": "opencode-ui.saveImagePreview",
+        "title": "Save Image"
       },
       {
         "command": "opencode-ui.refreshWorkspaceSessions",
@@ -362,6 +372,18 @@
           "command": "opencode-ui.askExplorerFiles",
           "when": "!explorerResourceIsFolder",
           "group": "navigation@1"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "opencode-ui.copyImagePreview",
+          "when": "webviewId == 'opencode-ui.session' && webviewSection == 'imagePreview'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "opencode-ui.saveImagePreview",
+          "when": "webviewId == 'opencode-ui.session' && webviewSection == 'imagePreview'",
+          "group": "navigation@2"
         }
       ],
       "view/title": [

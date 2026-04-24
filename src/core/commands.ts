@@ -88,6 +88,12 @@ export function commands(
 
       await vscode.window.showErrorMessage(`OpenCode UI environment check failed on ${host}: ${result.message}`)
     }),
+    vscode.commands.registerCommand("opencode-ui.copyImagePreview", async () => {
+      await panels.runImagePreviewCommand("copy")
+    }),
+    vscode.commands.registerCommand("opencode-ui.saveImagePreview", async () => {
+      await panels.runImagePreviewCommand("save")
+    }),
     vscode.commands.registerCommand("opencode-ui.newSession", async (item?: WorkspaceItem) => {
       const rt = item?.runtime ?? firstRuntime(mgr)
 

@@ -247,6 +247,10 @@ export class SessionPanelController implements vscode.Disposable {
     await this.flushComposerFocus()
   }
 
+  async runImagePreviewCommand(action: "copy" | "save") {
+    await postToWebview(this.panel.webview, { type: "imagePreviewCommand", action })
+  }
+
   async push(force?: boolean, reason?: string) {
     if (!this.ready || this.state.disposed) {
       return
