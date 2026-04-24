@@ -494,6 +494,40 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes("echo hi"), true)
   })
 
+  test("renders codex assistant activity with webfetch counted as explored", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[sessionMessage(messageInfo("m1", "assistant", { agent: "build" }), [
+          toolPartWithState("t1", "m1", "webfetch", { input: { url: "https://example.com" } }),
+          toolPartWithState("t2", "m1", "webfetch", { input: { url: "https://news.ycombinator.com" } }),
+          toolPartWithState("t3", "m1", "read", { input: { filePath: "src/index.ts" } }),
+        ])]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "tool" ? JSON.stringify(part.state?.input || {}) : part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("oc-codexActivityGroup"), true)
+    assert.equal(html.includes("Explored 3 files"), true)
+    assert.equal(html.includes('aria-expanded="true"'), true)
+  })
+
   test("renders codex assistant activity expanded before the next text reply", () => {
     const html = renderToStaticMarkup(
       <Timeline

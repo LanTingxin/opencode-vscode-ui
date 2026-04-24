@@ -1288,7 +1288,7 @@ function codexActivityKind(part: AssistantActivityToolPart) {
   if (part.tool === "edit" || part.tool === "write" || part.tool === "apply_patch") {
     return "edited"
   }
-  if (part.tool === "read" || part.tool === "list") {
+  if (part.tool === "read" || part.tool === "list" || part.tool === "webfetch") {
     return "explored"
   }
   if (part.tool === "glob" || part.tool === "grep" || part.tool === "websearch" || part.tool === "codesearch") {
@@ -1302,7 +1302,7 @@ function codexActivityKind(part: AssistantActivityToolPart) {
 
 function codexActivityPath(part: AssistantActivityToolPart) {
   const input = recordValue(part.state?.input)
-  return stringValue(input.filePath) || stringValue(input.path)
+  return stringValue(input.filePath) || stringValue(input.path) || stringValue(input.url)
 }
 
 function assistantSummary(messages: SessionMessage[]) {
