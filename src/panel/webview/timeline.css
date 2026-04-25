@@ -674,7 +674,7 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-todowrite {
-  --oc-chain-anchor-y: 50%;
+  --oc-chain-anchor-y: 34px;
   --oc-chain-dot-color: #d8ba63;
 }
 

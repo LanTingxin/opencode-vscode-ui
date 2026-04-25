@@ -348,6 +348,33 @@
   background: color-mix(in srgb, white 10%, transparent 90%);
 }
 
+.oc-toolTodoHeader {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+button.oc-toolTodoHeader {
+  cursor: pointer;
+}
+
+.oc-toolTodoSummary {
+  min-width: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos .oc-toolTodoHeader {
+  padding: 20px 22px;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-toolTodoToggle {
   appearance: none;
   display: inline-flex;

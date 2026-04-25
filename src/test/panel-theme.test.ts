@@ -376,7 +376,7 @@ describe("panel theme settings", () => {
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-part-tool\s*\{[\s\S]*--oc-chain-anchor-y:\s*50%;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-question\s*\{/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-todowrite\s*\{/)
-    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-todowrite\s*\{[\s\S]*--oc-chain-anchor-y:\s*50%;/)
+    assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-todowrite\s*\{[\s\S]*--oc-chain-anchor-y:\s*34px;/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-bash,\s*[\s\S]*?\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem-tool-write,/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-chainItem::before\s*\{[\s\S]*top:\s*calc\(var\(--oc-chain-gap,\s*12px\)\s*\*\s*-0\.5\);/)
     assert.match(timelineCss, /\.oc-shell\[data-oc-theme=\"claude\"\]\s+\.oc-turnMeta\s*\{/)
