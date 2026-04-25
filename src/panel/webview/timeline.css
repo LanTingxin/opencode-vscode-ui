@@ -628,8 +628,8 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-chainItem {
-  --oc-chain-gutter: 38px;
-  --oc-chain-x: 26px;
+  --oc-chain-gutter: 30px;
+  --oc-chain-x: 18px;
   --oc-chain-gap: 12px;
   --oc-chain-anchor-y: 22px;
   --oc-chain-dot-color: color-mix(in srgb, var(--oc-fg-muted) 72%, var(--oc-fg-primary) 28%);
@@ -674,7 +674,7 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-todowrite {
-  --oc-chain-anchor-y: 18px;
+  --oc-chain-anchor-y: 50%;
   --oc-chain-dot-color: #d8ba63;
 }
 

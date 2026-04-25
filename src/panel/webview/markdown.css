@@ -422,6 +422,17 @@
   background: color-mix(in srgb, var(--oc-code-surface) 94%, var(--oc-surface-elevated) 6%);
 }
 
+.oc-shell[data-oc-theme="claude"] .oc-outputWindow-markdownCode {
+  border: 0;
+  background: transparent;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-outputWindow-markdownCode .oc-codeWindowBody {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-markdown a {
   text-decoration-thickness: 1px;
   text-underline-offset: 0.16em;

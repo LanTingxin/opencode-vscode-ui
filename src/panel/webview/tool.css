@@ -348,6 +348,38 @@
   background: color-mix(in srgb, white 10%, transparent 90%);
 }
 
+.oc-shell[data-oc-theme="claude"] .oc-toolTodoToggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oc-surface-elevated) 88%, var(--oc-surface-control) 12%);
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolTodoToggle:hover,
+.oc-shell[data-oc-theme="claude"] .oc-toolTodoToggle:focus-visible {
+  background: color-mix(in srgb, var(--oc-accent) 12%, var(--oc-surface-elevated) 88%);
+  color: var(--oc-fg-primary);
+  outline: none;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolTodoToggleIcon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-outputWindowContent-shell,
 .oc-shell[data-oc-theme="claude"] .oc-outputWindowContent-diff {
   padding: 10px 12px 12px;
