@@ -1065,8 +1065,9 @@
 .oc-shellBlockContent {
   margin: 0;
   padding: 8px 10px;
-  white-space: pre;
-  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   line-height: 1.65;
   font-size: var(--oc-font-size);
   font-family: var(--oc-mono);
