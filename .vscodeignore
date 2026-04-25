@@ -15,10 +15,8 @@ tsconfig.json
 eslint.config.mjs
 esbuild.js
 wdio.conf.ts
-bunfig.toml
 **/*.map
 *.vsix
 PLAN.md
 AGENTS.md
-CLAUDE.md
 bun.lock
