@@ -1,61 +1,67 @@
+.oc-sidePanelOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 var(--oc-shell-gutter, 20px);
+  background: color-mix(in srgb, var(--oc-surface-canvas) 54%, transparent 46%);
+  animation: oc-contextOverlayIn 160ms ease-out;
+}
+
+.oc-sidePanelOverlay.is-closing {
+  pointer-events: none;
+  animation: oc-contextOverlayOut 180ms ease-in forwards;
+}
+
+.oc-sidePanelOverlay.is-closing .oc-sidePanel {
+  animation: oc-contextDrawerOut 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 .oc-sidePanel {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--oc-shell-divider, color-mix(in srgb, var(--oc-border-strong) 52%, var(--oc-border) 48%));
+  width: 100%;
+  height: min(90vh, calc(100vh - 24px));
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--oc-shell-divider, color-mix(in srgb, var(--oc-border-strong) 52%, var(--oc-border) 48%));
+  border-bottom: 0;
+  border-radius: calc(var(--oc-radius-md) + 6px) calc(var(--oc-radius-md) + 6px) 0 0;
   background: color-mix(in srgb, var(--oc-surface-canvas) 90%, var(--oc-surface-secondary) 10%);
+  box-shadow: 0 -24px 52px color-mix(in srgb, black 32%, transparent 68%);
+  animation: oc-contextDrawerIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .oc-sidePanelHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
+  justify-content: center;
+  padding: 10px 12px 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--oc-border-strong) 50%, transparent 50%);
   background: color-mix(in srgb, var(--oc-surface-canvas) 92%, var(--oc-surface-secondary) 8%);
 }
 
-.oc-sidePanelTabs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.oc-sidePanelTab {
+.oc-sidePanelHandle {
   appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
+  border: 0;
+  padding: 0;
+  width: 42px;
+  height: 4px;
   border-radius: 999px;
-  padding: 5px 12px;
-  background: color-mix(in srgb, var(--oc-surface-control) 90%, transparent 10%);
-  color: var(--oc-fg-primary);
-}
-
-.oc-sidePanelTab.is-active {
-  border-color: color-mix(in srgb, var(--oc-accent) 30%, transparent 70%);
-  background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-control) 90%);
-}
-
-.oc-sidePanelClose {
-  appearance: none;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
-  border-radius: var(--oc-radius-sm);
-  padding: 4px 10px;
-  background: color-mix(in srgb, var(--oc-surface-control) 92%, transparent 8%);
-  color: var(--oc-fg-muted);
+  background: color-mix(in srgb, var(--oc-fg-muted) 52%, transparent 48%);
   cursor: pointer;
 }
 
-.oc-sidePanelClose:hover {
-  border-color: color-mix(in srgb, var(--oc-accent) 34%, transparent 66%);
-  color: var(--oc-fg-primary);
+.oc-sidePanelHandle:hover,
+.oc-sidePanelHandle:focus-visible {
+  background: color-mix(in srgb, var(--oc-fg-primary) 60%, transparent 40%);
+  outline: none;
 }
 
 .oc-sidePanelBody {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
 }
@@ -209,5 +215,29 @@
 @media (max-width: 960px) {
   .oc-contextGrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@keyframes oc-contextOverlayIn {
+  from {
+    background: transparent;
+  }
+}
+
+@keyframes oc-contextOverlayOut {
+  to {
+    background: transparent;
+  }
+}
+
+@keyframes oc-contextDrawerIn {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes oc-contextDrawerOut {
+  to {
+    transform: translateY(100%);
   }
 }

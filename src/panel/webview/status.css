@@ -440,8 +440,7 @@
   z-index: 3;
 }
 
-.oc-contextButtonWrap:hover .oc-contextButtonTooltip,
-.oc-contextButtonWrap:focus-within .oc-contextButtonTooltip {
+.oc-contextButtonWrap:hover .oc-contextButtonTooltip {
   display: grid;
   gap: 4px;
 }

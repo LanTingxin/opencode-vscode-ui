@@ -11,13 +11,6 @@
   background: var(--oc-surface-canvas);
 }
 
-.oc-shell.has-sidePanel {
-  grid-template-columns: minmax(0, 1fr) var(--oc-side-panel-width, 420px);
-  grid-template-areas:
-    "main side"
-    "footer side";
-}
-
 .oc-footer {
   grid-area: footer;
   padding: 8px 0 10px;
@@ -30,12 +23,6 @@
   min-height: 0;
   overflow: auto;
   padding: var(--oc-transcript-pad-y-start, 10px) 0 var(--oc-transcript-pad-y-end, 12px);
-}
-
-.oc-sidePanel {
-  grid-area: side;
-  min-width: 0;
-  overflow: hidden;
 }
 
 .oc-transcriptInner {
@@ -166,16 +153,5 @@
 
   .oc-composerActions {
     grid-template-columns: minmax(0, 1fr) auto;
-  }
-}
-
-@media (max-width: 960px) {
-  .oc-shell.has-sidePanel {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto minmax(220px, 38vh);
-    grid-template-areas:
-      "main"
-      "footer"
-      "side";
   }
 }

@@ -14,7 +14,7 @@ import { useTimelineScroll } from "../hooks/useTimelineScroll"
 import { formatComposerFileContent, parseComposerFileQuery } from "../lib/composer-file-selection"
 import { agentColorClass, composerIdentity, composerMetrics, composerSelection, cycleModelVariant, formatUsd, isSessionRunning, lastUserSelection, modelKey, modelVariants, overallLspStatus, overallMcpStatus, pushRecentModel, sessionTitle, toggleFavoriteModel } from "../lib/session-meta"
 import { buildComposerSubmitParts, composerMentionAgentOverride } from "./composer-mentions"
-import { ComposerFooter, ContextButtonRing } from "./composer-footer"
+import { ComposerFooter } from "./composer-footer"
 import { absorbFileSelectionSuffix, composerMentions as mentionsFromParts, composerPartsEqual, composerText, deleteStructuredRange, emptyComposerParts, ensureTextPart, replaceRangeWithMention, replaceRangeWithText } from "./composer-editor"
 import { getSelectionOffsets, parseComposerEditor, renderComposerEditor, setCursorPosition, syncComposerPillSelection } from "./composer-editor-dom"
 import { isCompletedSlashCommand, resolveComposerAutocompleteAction, resolveComposerSlashAction } from "./composer-actions"
@@ -74,6 +74,7 @@ export function App() {
   const [themePickerOpen, setThemePickerOpen] = React.useState(false)
   const [sessionPickerOpen, setSessionPickerOpen] = React.useState(false)
   const [sidePanelTab, setSidePanelTab] = React.useState<null | "context">(null)
+  const [contextPanelClosing, setContextPanelClosing] = React.useState(false)
   const [previewImage, setPreviewImage] = React.useState<PreviewImage | null>(null)
   const [skillPickerOpen, setSkillPickerOpen] = React.useState(false)
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = React.useState(0)
@@ -1047,11 +1048,49 @@ export function App() {
   }
 
   const toggleContextPanel = React.useCallback(() => {
+    if (sidePanelTab === "context") {
+      setContextPanelClosing((current) => !current)
+      return
+    }
+
     setSessionPickerOpen(false)
     setModelPickerOpen(false)
     setThemePickerOpen(false)
-    setSidePanelTab((current) => current === "context" ? null : "context")
-  }, [])
+    setContextPanelClosing(false)
+    setSidePanelTab("context")
+  }, [sidePanelTab])
+
+  const closeContextPanel = React.useCallback(() => {
+    if (sidePanelTab !== "context") {
+      return
+    }
+    setContextPanelClosing(true)
+  }, [sidePanelTab])
+
+  const finishContextPanelClose = React.useCallback(() => {
+    if (!contextPanelClosing) {
+      return
+    }
+    setSidePanelTab(null)
+    setContextPanelClosing(false)
+  }, [contextPanelClosing])
+
+  React.useEffect(() => {
+    if (!contextPanelOpen) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return
+      }
+      event.preventDefault()
+      closeContextPanel()
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [closeContextPanel, contextPanelOpen])
 
   const toggleModelPicker = React.useCallback(() => {
     setThemePickerOpen(false)
@@ -1580,7 +1619,7 @@ export function App() {
       <ChildMessagesContext.Provider value={state.snapshot.childMessages}>
         <ChildSessionsContext.Provider value={state.snapshot.childSessions}>
           <WebviewBindingsProvider fileRefStatus={fileRefStatus} vscode={vscode}>
-            <div className={`oc-shell${contextPanelOpen ? " has-sidePanel" : ""}`} data-oc-theme={panelTheme}>
+            <div className="oc-shell" data-oc-theme={panelTheme}>
               <main ref={timelineRef} className="oc-transcript">
                 <div className="oc-transcriptInner">
                   <Timeline
@@ -2104,18 +2143,11 @@ export function App() {
             {!blocked && isChildSession ? <SubagentNotice /> : null}
                 </div>
               </footer>
-              {contextPanelOpen ? (
-                <aside className="oc-sidePanel" aria-label="Session context">
+            {contextPanelOpen ? (
+              <div className={`oc-sidePanelOverlay${contextPanelClosing ? " is-closing" : ""}`} onClick={closeContextPanel}>
+                <aside className="oc-sidePanel" role="dialog" aria-modal="true" aria-label="Session context" onClick={(event) => event.stopPropagation()} onAnimationEnd={finishContextPanelClose}>
                   <div className="oc-sidePanelHeader">
-                    <div className="oc-sidePanelTabs" role="tablist" aria-label="Session side panel">
-                      <button type="button" className="oc-sidePanelTab is-active" role="tab" aria-selected="true">
-                        <ContextButtonRing percent={composerFooterContextStats.percent} decorative={true} />
-                        <span>Context</span>
-                      </button>
-                    </div>
-                    <button type="button" className="oc-sidePanelClose" onClick={() => setSidePanelTab(null)} aria-label="Close context">
-                      Close
-                    </button>
+                    <button type="button" className="oc-sidePanelHandle" onClick={closeContextPanel} aria-label="Close context" />
                   </div>
                   <div className="oc-sidePanelBody">
                     <ContextPanel
@@ -2125,7 +2157,8 @@ export function App() {
                     />
                   </div>
                 </aside>
-              ) : null}
+              </div>
+            ) : null}
             {previewImage ? (
               <ImagePreviewOverlay
                 image={previewImage}
