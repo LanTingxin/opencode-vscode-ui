@@ -203,13 +203,56 @@
 
 .oc-contextMessageBody {
   margin: 0;
-  padding: 0 12px 12px;
+  padding: 0 0 12px;
   overflow: auto;
-  white-space: pre;
+  white-space: pre-wrap;
   color: var(--oc-fg-primary);
   font-family: var(--oc-mono);
   font-size: var(--oc-font-size-sm);
   line-height: 1.55;
+}
+
+.oc-contextJsonLine {
+  display: grid;
+  grid-template-columns: 4.5ch minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  padding: 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.oc-contextJsonLine:hover {
+  background: color-mix(in srgb, var(--oc-surface-control) 62%, transparent 38%);
+}
+
+.oc-contextJsonLineNumber {
+  color: color-mix(in srgb, var(--oc-fg-muted) 58%, transparent 42%);
+  text-align: right;
+  user-select: none;
+}
+
+.oc-contextJsonLineContent {
+  min-width: 0;
+}
+
+.oc-contextJsonKey {
+  color: #8ea6ff;
+}
+
+.oc-contextJsonString {
+  color: #28d4bd;
+}
+
+.oc-contextJsonNumber {
+  color: #72d2f5;
+}
+
+.oc-contextJsonLiteral {
+  color: #efc29a;
+}
+
+.oc-contextJsonPunctuation {
+  color: var(--oc-fg-muted);
 }
 
 @media (max-width: 960px) {

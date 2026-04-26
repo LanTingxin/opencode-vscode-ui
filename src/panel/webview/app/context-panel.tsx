@@ -1,6 +1,6 @@
 import React from "react"
 
-import type { MessagePart, ProviderInfo, SessionInfo, SessionMessage } from "../../../core/sdk"
+import type { MessageInfo, MessagePart, ProviderInfo, SessionInfo, SessionMessage } from "../../../core/sdk"
 import { displayModelRef, displayProviderRef, lastAssistantWithOutput, modelContextLimitForRef, sessionCost, totalTokens } from "../lib/session-meta"
 
 type ContextMetrics = {
@@ -36,6 +36,13 @@ const BREAKDOWN_LABELS: Record<ContextBreakdownKey, string> = {
   tool: "Tool",
   other: "Other",
 }
+
+type JsonToken =
+  | { kind: "punctuation"; text: string }
+  | { kind: "key"; text: string }
+  | { kind: "string"; text: string }
+  | { kind: "number"; text: string }
+  | { kind: "literal"; text: string }
 
 export function ContextPanel({
   session,
@@ -115,7 +122,7 @@ export function ContextPanel({
                   </span>
                   <span className="oc-contextMessageTime">{formatDateTime(message.info.time.created)}</span>
                 </summary>
-                <pre className="oc-contextMessageBody">{JSON.stringify({ info: message.info, parts: message.parts }, null, 2)}</pre>
+                <JsonMessageBody value={{ info: message.info, parts: message.parts }} />
               </details>
             ))}
           </div>
@@ -125,6 +132,87 @@ export function ContextPanel({
       </section>
     </div>
   )
+}
+
+function JsonMessageBody({ value }: { value: unknown }) {
+  return (
+    <pre className="oc-contextMessageBody">
+      {highlightJson(JSON.stringify(value, null, 2)).map((line, index) => (
+        <span key={index} className="oc-contextJsonLine">
+          <span className="oc-contextJsonLineNumber">{index + 1}</span>
+          <span className="oc-contextJsonLineContent">
+            {line.map((token, tokenIndex) => (
+              <span key={tokenIndex} className={`oc-contextJsonToken oc-contextJson${capitalizeTokenKind(token.kind)}`}>
+                {token.text}
+              </span>
+            ))}
+          </span>
+        </span>
+      ))}
+    </pre>
+  )
+}
+
+function highlightJson(value: string): JsonToken[][] {
+  return value.split("\n").map((line) => {
+    const tokens: JsonToken[] = []
+    let index = 0
+    while (index < line.length) {
+      const char = line[index]
+      if (char === "\"") {
+        const end = findJsonStringEnd(line, index)
+        const text = line.slice(index, end)
+        const rest = line.slice(end)
+        tokens.push({
+          kind: /^\s*:/.test(rest) ? "key" : "string",
+          text,
+        })
+        index = end
+        continue
+      }
+
+      const number = line.slice(index).match(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/)
+      if (number) {
+        tokens.push({ kind: "number", text: number[0] })
+        index += number[0].length
+        continue
+      }
+
+      const literal = line.slice(index).match(/^(true|false|null)/)
+      if (literal) {
+        tokens.push({ kind: "literal", text: literal[0] })
+        index += literal[0].length
+        continue
+      }
+
+      tokens.push({ kind: "punctuation", text: char })
+      index += 1
+    }
+    return tokens
+  })
+}
+
+function findJsonStringEnd(line: string, start: number) {
+  let escaped = false
+  for (let index = start + 1; index < line.length; index += 1) {
+    const char = line[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === "\\") {
+      escaped = true
+      continue
+    }
+    if (char === "\"") {
+      return index + 1
+    }
+  }
+  return line.length
+}
+
+function capitalizeTokenKind(kind: JsonToken["kind"]) {
+  return kind.charAt(0).toUpperCase() + kind.slice(1)
 }
 
 function ContextStat({ label, value }: { label: string; value: string }) {
@@ -146,13 +234,14 @@ function getSessionContextMetrics(messages: SessionMessage[], providers: Provide
     return { totalCost }
   }
 
-  const limit = modelContextLimitForRef(info.model, providers)
+  const model = contextModelRef(info)
+  const limit = modelContextLimitForRef(model, providers)
   return {
     totalCost,
     context: {
       message,
-      providerLabel: displayProviderRef(info.model, providers) || "—",
-      modelLabel: displayModelRef(info.model, providers) || "—",
+      providerLabel: displayProviderRef(model, providers) || "—",
+      modelLabel: displayModelRef(model, providers) || "—",
       limit,
       input: info.tokens?.input ?? 0,
       output: info.tokens?.output ?? 0,
@@ -163,6 +252,23 @@ function getSessionContextMetrics(messages: SessionMessage[], providers: Provide
       usage: typeof limit === "number" && limit > 0 ? Math.round((total / limit) * 100) : null,
     },
   }
+}
+
+function contextModelRef(info: MessageInfo): MessageInfo["model"] {
+  if (info.model?.providerID && info.model.modelID) {
+    return info.model
+  }
+
+  const legacy = info as MessageInfo & {
+    providerID?: unknown
+    modelID?: unknown
+  }
+  return typeof legacy.providerID === "string" && typeof legacy.modelID === "string"
+    ? {
+        providerID: legacy.providerID,
+        modelID: legacy.modelID,
+      }
+    : undefined
 }
 
 function estimateContextBreakdown({

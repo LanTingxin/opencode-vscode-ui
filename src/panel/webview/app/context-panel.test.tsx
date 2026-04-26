@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { describe, test } from "node:test"
@@ -152,5 +153,66 @@ describe("ContextPanel", () => {
     assert.equal(html.includes("Tool"), true)
     assert.equal(html.includes("msg-user-1"), true)
     assert.equal(html.includes("msg-assistant-1"), true)
+  })
+
+  test("renders upstream-style provider metadata and highlighted wrapping raw JSON", async () => {
+    const moduleUrl = pathToFileURL(resolve(process.cwd(), "src/panel/webview/app/context-panel.tsx")).href
+    const mod = await import(moduleUrl).catch(() => null)
+
+    assert.notEqual(mod, null)
+    if (!mod) {
+      return
+    }
+
+    const ContextPanel = (mod as {
+      ContextPanel: (props: {
+        session?: SessionInfo
+        messages: SessionMessage[]
+        providers: ProviderInfo[]
+      }) => React.JSX.Element
+    }).ContextPanel
+
+    const upstreamMessages = messages()
+    const assistant = upstreamMessages[1]
+    assert.equal(assistant?.info.role, "assistant")
+    if (assistant?.info.role !== "assistant") {
+      return
+    }
+
+    upstreamMessages[1] = {
+      ...assistant,
+      info: {
+        ...assistant.info,
+        model: undefined,
+        providerID: "anthropic",
+        modelID: "claude-opus-4-1",
+      } as SessionMessage["info"],
+      parts: assistant.parts.map((part) => part.type === "text"
+        ? {
+            ...part,
+            text: "A very long raw message value that should wrap inside the context drawer instead of forcing horizontal scrolling across the entire panel.",
+          }
+        : part),
+    }
+
+    const html = renderToStaticMarkup(
+      <ContextPanel
+        session={session()}
+        messages={upstreamMessages}
+        providers={providers()}
+      />,
+    )
+    const css = readFileSync(resolve(process.cwd(), "src/panel/webview/context.css"), "utf8")
+
+    assert.equal(html.includes("Anthropic"), true)
+    assert.equal(html.includes("Claude Opus 4.1"), true)
+    assert.equal(html.includes("1,000"), true)
+    assert.equal(html.includes("70%"), true)
+    assert.equal(html.includes("oc-contextJsonLine"), true)
+    assert.equal(html.includes("oc-contextJsonKey"), true)
+    assert.equal(html.includes("oc-contextJsonString"), true)
+    assert.equal(html.includes("oc-contextJsonNumber"), true)
+    assert.match(css, /\.oc-contextMessageBody\s*\{[\s\S]*white-space:\s*pre-wrap;/)
+    assert.match(css, /\.oc-contextJsonLine\s*\{[\s\S]*overflow-wrap:\s*anywhere;/)
   })
 })
