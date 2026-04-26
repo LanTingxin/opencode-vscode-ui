@@ -359,6 +359,24 @@ body {
   --oc-hover-block: var(--oc-hover-surface);
   --oc-hover-block-inset: var(--oc-hover-surface-inset);
   --oc-rail-user: var(--oc-accent-strong);
+  --oc-palette-rail: var(--oc-rail-user);
+  --oc-palette-user-bg: var(--oc-message-user-bg);
+  --oc-palette-user-border: var(--oc-border-stronger);
+  --oc-palette-assistant-bg: var(--oc-message-assistant-bg);
+  --oc-palette-assistant-border: var(--oc-border-soft);
+  --oc-palette-block-bg: var(--oc-surface-primary);
+  --oc-palette-block-border: var(--oc-border-soft);
+  --oc-palette-tool-bg: var(--oc-surface-primary);
+  --oc-palette-tool-border: var(--oc-border-soft);
+  --oc-palette-composer-bg: var(--oc-composer-surface);
+  --oc-palette-composer-border: var(--oc-composer-border);
+  --oc-palette-composer-info-bg: var(--oc-surface-control);
+  --oc-palette-input-bg: var(--oc-composer-surface);
+  --oc-palette-action-bg: var(--oc-accent);
+  --oc-palette-action-fg: var(--oc-accent-text);
+  --oc-palette-action-border: transparent;
+  --oc-palette-popover-bg: var(--oc-status-popover-surface);
+  --oc-palette-selection-bg: var(--oc-surface-control);
   --oc-outputWindow-border: color-mix(in srgb, var(--oc-border-strong) 60%, transparent 40%);
   --oc-outputWindow-head-bg: color-mix(in srgb, var(--oc-accent) 18%, var(--oc-surface-block) 82%);
   --oc-outputWindow-head-fg: color-mix(in srgb, var(--oc-accent) 14%, var(--oc-fg-primary) 86%);
@@ -414,4 +432,208 @@ body {
   --oc-warning-dock-mix-base: var(--oc-dock-warning-base);
   --oc-warning-dock-mix-hover: var(--oc-dock-warning-hover);
   --oc-warning-dock-fg-strong: var(--oc-dock-warning-fg-strong);
+}
+
+body.vscode-dark .oc-shell[data-oc-color="nocturne"] {
+  --oc-color-accent: #7aa2f7;
+  --oc-color-accent-fill: #d6e4ff;
+  --oc-color-secondary: #bb9af7;
+  --oc-color-syntax: #9ece6a;
+  --oc-color-link: #7dcfff;
+  --oc-color-warn: #e0af68;
+  --oc-color-muted: #a9b8e8;
+  --oc-color-strong: #d8def8;
+}
+
+body.vscode-light .oc-shell[data-oc-color="nocturne"] {
+  --oc-color-accent: #2f62a3;
+  --oc-color-accent-fill: #17365f;
+  --oc-color-secondary: #7b5fae;
+  --oc-color-syntax: #3f7f5f;
+  --oc-color-link: #227399;
+  --oc-color-warn: #9a650f;
+  --oc-color-muted: #596f9d;
+  --oc-color-strong: #253f73;
+}
+
+body.vscode-dark .oc-shell[data-oc-color="orchid"] {
+  --oc-color-accent: #cba6f7;
+  --oc-color-accent-fill: #f0ddff;
+  --oc-color-secondary: #f2a6b3;
+  --oc-color-syntax: #a6d98d;
+  --oc-color-link: #89b4fa;
+  --oc-color-warn: #f4c784;
+  --oc-color-muted: #d5b8e8;
+  --oc-color-strong: #f2d0dc;
+}
+
+body.vscode-light .oc-shell[data-oc-color="orchid"] {
+  --oc-color-accent: #7d4aae;
+  --oc-color-accent-fill: #42245f;
+  --oc-color-secondary: #a94464;
+  --oc-color-syntax: #417a52;
+  --oc-color-link: #3267b0;
+  --oc-color-warn: #a66a20;
+  --oc-color-muted: #76578f;
+  --oc-color-strong: #88395a;
+}
+
+body.vscode-dark .oc-shell[data-oc-color="verdant"] {
+  --oc-color-accent: #8fbc8f;
+  --oc-color-accent-fill: #d9ead8;
+  --oc-color-secondary: #7dc4b0;
+  --oc-color-syntax: #d5c783;
+  --oc-color-link: #78a8d8;
+  --oc-color-warn: #d9a85c;
+  --oc-color-muted: #a9c8a6;
+  --oc-color-strong: #d8d4a2;
+}
+
+body.vscode-light .oc-shell[data-oc-color="verdant"] {
+  --oc-color-accent: #4f7f52;
+  --oc-color-accent-fill: #243f26;
+  --oc-color-secondary: #2f8373;
+  --oc-color-syntax: #8a6f20;
+  --oc-color-link: #2f6f9f;
+  --oc-color-warn: #9a6a22;
+  --oc-color-muted: #5f7f5d;
+  --oc-color-strong: #6d681c;
+}
+
+body.vscode-dark .oc-shell[data-oc-color="solar"] {
+  --oc-color-accent: #268bd2;
+  --oc-color-accent-fill: #d1e9f8;
+  --oc-color-secondary: #2aa198;
+  --oc-color-syntax: #859900;
+  --oc-color-link: #6cace4;
+  --oc-color-warn: #b58900;
+  --oc-color-muted: #93a1a1;
+  --oc-color-strong: #b8d27a;
+}
+
+body.vscode-light .oc-shell[data-oc-color="solar"] {
+  --oc-color-accent: #2579ad;
+  --oc-color-accent-fill: #17425a;
+  --oc-color-secondary: #2c827d;
+  --oc-color-syntax: #6f7d00;
+  --oc-color-link: #1f6fa6;
+  --oc-color-warn: #9b6c00;
+  --oc-color-muted: #657b83;
+  --oc-color-strong: #596b00;
+}
+
+body.vscode-dark .oc-shell[data-oc-color="graphite"] {
+  --oc-color-accent: #8ab4f8;
+  --oc-color-accent-fill: #d9e7ff;
+  --oc-color-secondary: #6bc7b8;
+  --oc-color-syntax: #c7b37a;
+  --oc-color-link: #7aa2f7;
+  --oc-color-warn: #d49a6a;
+  --oc-color-muted: #aeb8c6;
+  --oc-color-strong: #d7c28a;
+}
+
+body.vscode-light .oc-shell[data-oc-color="graphite"] {
+  --oc-color-accent: #3b6ea8;
+  --oc-color-accent-fill: #233c5a;
+  --oc-color-secondary: #247c74;
+  --oc-color-syntax: #7f6b2e;
+  --oc-color-link: #235aa6;
+  --oc-color-warn: #9b6238;
+  --oc-color-muted: #5e6b78;
+  --oc-color-strong: #6e5c25;
+}
+
+body.vscode-dark .oc-shell[data-oc-color="ember"] {
+  --oc-color-accent: #ffb86c;
+  --oc-color-accent-fill: #ffe1bd;
+  --oc-color-secondary: #c3d37b;
+  --oc-color-syntax: #7bd88f;
+  --oc-color-link: #78dce8;
+  --oc-color-warn: #ffd166;
+  --oc-color-muted: #e3b17a;
+  --oc-color-strong: #d8dc8f;
+}
+
+body.vscode-light .oc-shell[data-oc-color="ember"] {
+  --oc-color-accent: #a55c0a;
+  --oc-color-accent-fill: #4c3210;
+  --oc-color-secondary: #687a1e;
+  --oc-color-syntax: #2f7f4f;
+  --oc-color-link: #137a8a;
+  --oc-color-warn: #9c640c;
+  --oc-color-muted: #916535;
+  --oc-color-strong: #596b1a;
+}
+
+.oc-shell[data-oc-color="nocturne"],
+.oc-shell[data-oc-color="orchid"],
+.oc-shell[data-oc-color="verdant"],
+.oc-shell[data-oc-color="solar"],
+.oc-shell[data-oc-color="graphite"],
+.oc-shell[data-oc-color="ember"] {
+  --oc-accent: var(--oc-color-accent-fill);
+  --oc-accent-fill: var(--oc-color-accent-fill);
+  --oc-accent-strong: var(--oc-color-accent);
+  --oc-palette-rail: color-mix(in srgb, var(--oc-color-accent) 74%, var(--oc-color-secondary) 26%);
+  --oc-rail-user: var(--oc-palette-rail);
+  --oc-pill-skill-fill: color-mix(in srgb, var(--oc-color-secondary) 70%, var(--oc-fg-primary) 30%);
+  --oc-palette-user-bg: color-mix(in srgb, var(--oc-color-accent) 18%, var(--oc-surface-primary) 82%);
+  --oc-palette-user-border: color-mix(in srgb, var(--oc-color-accent) 48%, var(--oc-border-stronger) 52%);
+  --oc-palette-assistant-bg: color-mix(in srgb, var(--oc-color-secondary) 11%, var(--oc-surface-primary) 89%);
+  --oc-palette-assistant-border: color-mix(in srgb, var(--oc-color-secondary) 34%, var(--oc-border-soft) 66%);
+  --oc-palette-block-bg: color-mix(in srgb, var(--oc-color-syntax) 9%, var(--oc-surface-secondary) 91%);
+  --oc-palette-block-border: color-mix(in srgb, var(--oc-color-syntax) 30%, var(--oc-border-soft) 70%);
+  --oc-palette-tool-bg: color-mix(in srgb, var(--oc-color-secondary) 13%, var(--oc-surface-elevated) 87%);
+  --oc-palette-tool-border: color-mix(in srgb, var(--oc-color-secondary) 36%, var(--oc-border-stronger) 64%);
+  --oc-palette-composer-bg: color-mix(in srgb, var(--oc-color-link) 12%, var(--oc-surface-tertiary) 88%);
+  --oc-palette-composer-border: color-mix(in srgb, color-mix(in srgb, var(--oc-color-accent) 64%, var(--oc-color-secondary) 36%) 54%, var(--oc-border-stronger) 46%);
+  --oc-palette-composer-info-bg: color-mix(in srgb, var(--oc-color-secondary) 11%, var(--oc-surface-control) 89%);
+  --oc-palette-input-bg: color-mix(in srgb, var(--oc-color-link) 10%, var(--oc-composer-surface) 90%);
+  --oc-palette-action-bg: color-mix(in srgb, var(--oc-color-accent) 24%, var(--oc-surface-block) 76%);
+  --oc-palette-action-fg: var(--oc-color-accent-fill);
+  --oc-palette-action-border: color-mix(in srgb, var(--oc-color-accent) 46%, var(--oc-border-stronger) 54%);
+  --oc-palette-popover-bg: color-mix(in srgb, var(--oc-color-secondary) 9%, var(--oc-status-popover-surface) 91%);
+  --oc-palette-selection-bg: color-mix(in srgb, var(--oc-color-link) 12%, var(--oc-surface-control) 88%);
+  --oc-border: color-mix(in srgb, var(--oc-color-secondary) 22%, var(--oc-border-soft) 78%);
+  --oc-border-strong: color-mix(in srgb, color-mix(in srgb, var(--oc-color-accent) 58%, var(--oc-color-secondary) 42%) 42%, var(--oc-border-stronger) 58%);
+  --oc-surface-block: var(--oc-palette-block-bg);
+  --oc-surface-inset: color-mix(in srgb, var(--oc-color-syntax) 6%, var(--oc-surface-secondary) 94%);
+  --oc-surface-control: color-mix(in srgb, var(--oc-color-link) 8%, var(--oc-surface-tertiary) 92%);
+  --oc-message-user-bg: var(--oc-palette-user-bg);
+  --oc-message-assistant-bg: var(--oc-palette-assistant-bg);
+  --oc-composer-surface: var(--oc-palette-composer-bg);
+  --oc-composer-border: var(--oc-palette-composer-border);
+  --oc-code-surface: color-mix(in srgb, var(--oc-color-syntax) 9%, var(--oc-surface-canvas) 91%);
+  --oc-hover-block: color-mix(in srgb, var(--oc-color-secondary) 12%, transparent 88%);
+  --oc-hover-block-inset: color-mix(in srgb, var(--oc-color-link) 9%, transparent 91%);
+  --oc-status-badge-bg: color-mix(in srgb, var(--oc-color-secondary) 14%, var(--oc-surface-control) 86%);
+  --oc-status-badge-border: color-mix(in srgb, color-mix(in srgb, var(--oc-color-accent) 50%, var(--oc-color-secondary) 50%) 40%, transparent 60%);
+  --oc-status-popover-bg: var(--oc-palette-popover-bg);
+  --oc-status-warning: var(--oc-color-warn);
+  --oc-warning: var(--oc-color-warn);
+  --oc-status-orange: var(--oc-color-warn);
+  --oc-outputWindow-border: color-mix(in srgb, var(--oc-color-secondary) 34%, var(--oc-border-strong) 66%);
+  --oc-outputWindow-head-bg: color-mix(in srgb, var(--oc-color-secondary) 18%, var(--oc-surface-block) 82%);
+  --oc-outputWindow-head-fg: color-mix(in srgb, var(--oc-color-accent-fill) 24%, var(--oc-fg-primary) 76%);
+  --oc-outputWindow-body-bg: color-mix(in srgb, var(--oc-color-syntax) 7%, var(--oc-surface-canvas) 93%);
+  --oc-outputWindow-body-fg: color-mix(in srgb, var(--oc-color-syntax) 58%, var(--oc-fg-primary) 42%);
+  --oc-outputWindow-toggle-bg: color-mix(in srgb, var(--oc-color-accent) 12%, var(--oc-surface-block) 88%);
+  --oc-outputWindow-toggle-hover: color-mix(in srgb, var(--oc-color-secondary) 17%, var(--oc-surface-block) 83%);
+  --oc-md-heading: var(--oc-color-accent);
+  --oc-md-link: var(--oc-color-link);
+  --oc-md-link-text: var(--oc-color-link);
+  --oc-md-code: var(--oc-color-syntax);
+  --oc-md-quote: var(--oc-color-warn);
+  --oc-md-emph: var(--oc-color-secondary);
+  --oc-md-strong: var(--oc-color-strong);
+  --oc-md-list: var(--oc-color-secondary);
+  --oc-md-list-enum: var(--oc-color-warn);
+  --oc-md-syntax-keyword: var(--oc-color-secondary);
+  --oc-md-syntax-function: var(--oc-color-link);
+  --oc-md-syntax-variable: var(--oc-color-warn);
+  --oc-md-syntax-string: var(--oc-color-syntax);
+  --oc-md-syntax-number: var(--oc-color-warn);
+  --oc-md-syntax-type: var(--oc-color-accent);
+  --oc-md-syntax-operator: var(--oc-color-link);
 }

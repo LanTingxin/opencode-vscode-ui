@@ -4,7 +4,7 @@ import { resolve } from "node:path"
 import { afterEach, describe, test } from "node:test"
 import * as vscode from "vscode"
 import { affectsDisplaySettings, getDisplaySettings } from "../core/settings"
-import { resolvePanelThemeValue } from "../panel/webview/app/state"
+import { resolvePanelColorSchemeValue, resolvePanelThemeValue } from "../panel/webview/app/state"
 import { buildThemePickerItems } from "../panel/webview/app/theme-picker"
 
 const originalGetConfiguration = vscode.workspace.getConfiguration
@@ -44,6 +44,21 @@ describe("panel theme settings", () => {
     })) as typeof vscode.workspace.getConfiguration
 
     assert.equal(getDisplaySettings().panelTheme, "claude")
+  })
+
+  test("reads panelColorScheme from display settings", () => {
+    ;(vscode.workspace as typeof vscode.workspace & {
+      getConfiguration: typeof vscode.workspace.getConfiguration
+    }).getConfiguration = ((section?: string) => ({
+      get: <T,>(key: string, fallback: T) => {
+        if (section === "opencode-ui" && key === "panelColorScheme") {
+          return "orchid" as T
+        }
+        return fallback
+      },
+    })) as typeof vscode.workspace.getConfiguration
+
+    assert.equal(getDisplaySettings().panelColorScheme, "orchid")
   })
 
   test("normalizes removed opencode-web panel theme values to codex", () => {
@@ -91,9 +106,32 @@ describe("panel theme settings", () => {
     assert.equal(getDisplaySettings().panelTheme, "codex")
   })
 
+  test("normalizes invalid panelColorScheme values to default", () => {
+    ;(vscode.workspace as typeof vscode.workspace & {
+      getConfiguration: typeof vscode.workspace.getConfiguration
+    }).getConfiguration = ((section?: string) => ({
+      get: <T,>(key: string, fallback: T) => {
+        if (section === "opencode-ui" && key === "panelColorScheme") {
+          return "invalid-color" as T
+        }
+        return fallback
+      },
+    })) as typeof vscode.workspace.getConfiguration
+
+    assert.equal(getDisplaySettings().panelColorScheme, "default")
+  })
+
   test("treats panelTheme changes as display setting changes", () => {
     const event = {
       affectsConfiguration: (key: string) => key === "opencode-ui.panelTheme",
+    } as vscode.ConfigurationChangeEvent
+
+    assert.equal(affectsDisplaySettings(event), true)
+  })
+
+  test("treats panelColorScheme changes as display setting changes", () => {
+    const event = {
+      affectsConfiguration: (key: string) => key === "opencode-ui.panelColorScheme",
     } as vscode.ConfigurationChangeEvent
 
     assert.equal(affectsDisplaySettings(event), true)
@@ -114,18 +152,36 @@ describe("panel theme settings", () => {
     assert.equal(resolvePanelThemeValue(undefined), "codex")
   })
 
+  test("resolves the panel root color attribute value", () => {
+    assert.equal(resolvePanelColorSchemeValue("default"), "default")
+    assert.equal(resolvePanelColorSchemeValue("solar"), "solar")
+    assert.equal(resolvePanelColorSchemeValue("blue" as never), "default")
+    assert.equal(resolvePanelColorSchemeValue("green" as never), "default")
+    assert.equal(resolvePanelColorSchemeValue("invalid-color" as never), "default")
+    assert.equal(resolvePanelColorSchemeValue(undefined), "default")
+  })
+
   test("does not offer opencode-web in the theme picker", () => {
-    const items = buildThemePickerItems("classic")
+    const items = buildThemePickerItems("classic", "default")
 
     assert.equal(items.map((item) => item.id).includes("opencode-web" as never), false)
   })
 
   test("offers classic instead of default for the OpenCode-native theme", () => {
-    const items = buildThemePickerItems("classic")
+    const items = buildThemePickerItems("classic", "default")
 
-    assert.deepEqual(items.map((item) => item.id), ["classic", "codex", "claude"])
+    assert.deepEqual(items.filter((item) => item.kind === "theme").map((item) => item.id), ["classic", "codex", "claude"])
     assert.equal(items[0]?.label, "Classic")
     assert.equal(items[0]?.selected, true)
+  })
+
+  test("offers color schemes inside the theme picker", () => {
+    const items = buildThemePickerItems("codex", "orchid")
+    const colors = items.filter((item) => item.kind === "color")
+
+    assert.deepEqual(colors.map((item) => item.id), ["default", "nocturne", "orchid", "verdant", "solar", "graphite", "ember"])
+    assert.equal(colors.find((item) => item.id === ("blue" as never)), undefined)
+    assert.equal(colors.find((item) => item.id === "orchid")?.selected, true)
   })
 
   test("does not declare opencode-web in the extension configuration enum", () => {
@@ -160,6 +216,23 @@ describe("panel theme settings", () => {
     assert.deepEqual(panelTheme?.enum, ["classic", "codex", "claude"])
   })
 
+  test("declares panel color schemes in the extension configuration enum", () => {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      contributes?: {
+        configuration?: {
+          properties?: Record<string, {
+            default?: string
+            enum?: string[]
+          }>
+        }
+      }
+    }
+
+    const panelColorScheme = pkg.contributes?.configuration?.properties?.["opencode-ui.panelColorScheme"]
+    assert.equal(panelColorScheme?.default, "default")
+    assert.deepEqual(panelColorScheme?.enum, ["default", "nocturne", "orchid", "verdant", "solar", "graphite", "ember"])
+  })
+
   test("defines light and dark theme branches for the panel", () => {
     const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
 
@@ -174,6 +247,85 @@ describe("panel theme settings", () => {
     assert.match(css, /\[data-oc-theme=\"codex\"\]/)
     assert.match(css, /\[data-oc-theme=\"claude\"\]/)
     assert.doesNotMatch(css, /\[data-oc-theme=\"opencode-web\"\]/)
+  })
+
+  test("defines light and dark color scheme selectors", () => {
+    const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+
+    assert.doesNotMatch(css, /\[data-oc-color="blue"\]/)
+
+    for (const colorScheme of ["nocturne", "orchid", "verdant", "solar", "graphite", "ember"]) {
+      assert.match(css, new RegExp(`body\\.vscode-dark\\s+\\.oc-shell\\[data-oc-color="${colorScheme}"\\]`))
+      assert.match(css, new RegExp(`body\\.vscode-light\\s+\\.oc-shell\\[data-oc-color="${colorScheme}"\\]`))
+    }
+  })
+
+  test("color schemes override visible semantic tokens with multi-color palettes after theme aliases are declared", () => {
+    const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+    const bodyAliasIndex = css.indexOf("body {\n  --oc-bg: var(--oc-canvas);")
+    const colorSemanticIndex = css.indexOf(".oc-shell[data-oc-color=\"nocturne\"],")
+    const semanticRule = css.slice(colorSemanticIndex, css.indexOf("}", colorSemanticIndex))
+    const paletteRule = cssRule(css, 'body.vscode-dark .oc-shell[data-oc-color="orchid"]')
+
+    assert.ok(colorSemanticIndex > bodyAliasIndex)
+    assert.match(paletteRule, /--oc-color-accent:/)
+    assert.match(paletteRule, /--oc-color-secondary:/)
+    assert.match(paletteRule, /--oc-color-syntax:/)
+    assert.match(paletteRule, /--oc-color-link:/)
+    assert.match(paletteRule, /--oc-color-warn:/)
+    assert.match(semanticRule, /--oc-surface-block:/)
+    assert.match(semanticRule, /--oc-message-user-bg:/)
+    assert.match(semanticRule, /--oc-message-assistant-bg:/)
+    assert.match(semanticRule, /--oc-composer-surface:/)
+    assert.match(semanticRule, /--oc-composer-border:/)
+    assert.match(semanticRule, /--oc-palette-user-bg:/)
+    assert.match(semanticRule, /--oc-palette-assistant-bg:/)
+    assert.match(semanticRule, /--oc-palette-block-bg:/)
+    assert.match(semanticRule, /--oc-palette-block-border:/)
+    assert.match(semanticRule, /--oc-palette-composer-bg:/)
+    assert.match(semanticRule, /--oc-palette-action-bg:/)
+    assert.match(semanticRule, /--oc-palette-tool-bg:/)
+    assert.match(semanticRule, /--oc-palette-rail:/)
+    assert.match(semanticRule, /--oc-outputWindow-head-bg:/)
+    assert.match(semanticRule, /--oc-md-link:\s*var\(--oc-color-link\)/)
+    assert.match(semanticRule, /--oc-md-syntax-keyword:\s*var\(--oc-color-secondary\)/)
+    assert.doesNotMatch(semanticRule, /--oc-message-user-bg:[^;]*var\(--oc-message-user-bg\)/)
+    assert.doesNotMatch(semanticRule, /--oc-composer-surface:[^;]*var\(--oc-composer-surface\)/)
+    assert.doesNotMatch(semanticRule, /--oc-composer-border:[^;]*var\(--oc-composer-border\)/)
+  })
+
+  test("applies color schemes to preset-specific message, tool, dock, composer, and action surfaces", () => {
+    const timelineCss = readFileSync(resolve(process.cwd(), "src/panel/webview/timeline.css"), "utf8")
+    const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
+    const dockCss = readFileSync(resolve(process.cwd(), "src/panel/webview/dock.css"), "utf8")
+    const statusCss = readFileSync(resolve(process.cwd(), "src/panel/webview/status.css"), "utf8")
+
+    assert.match(cssRule(timelineCss, '.oc-shell[data-oc-theme="claude"] .oc-turnUser'), /var\(--oc-palette-user-bg/)
+    assert.match(cssRule(timelineCss, '.oc-shell[data-oc-theme="codex"] .oc-turnUser'), /var\(--oc-palette-user-bg/)
+    assert.match(cssRule(timelineCss, '.oc-shell[data-oc-theme="claude"] .oc-part-text'), /var\(--oc-palette-assistant-bg/)
+    assert.match(cssRule(timelineCss, '.oc-shell[data-oc-theme="codex"] .oc-part-text'), /var\(--oc-palette-assistant-bg/)
+    assert.match(cssRule(timelineCss, '.oc-shell[data-oc-theme="claude"] .oc-messageActionBtn'), /var\(--oc-palette-action-bg/)
+    assert.match(cssRule(timelineCss, '.oc-shell[data-oc-theme="codex"] .oc-messageActionBtn'), /var\(--oc-palette-action-bg/)
+
+    assert.match(cssRule(toolCss, '.oc-shell[data-oc-theme="claude"] .oc-toolRowWrap'), /var\(--oc-palette-tool-bg/)
+    assert.match(cssRule(toolCss, '.oc-shell[data-oc-theme="claude"] .oc-toolPanel'), /var\(--oc-palette-tool-bg/)
+    assert.match(cssRule(toolCss, '.oc-shell[data-oc-theme="codex"] .oc-toolRowWrap'), /var\(--oc-palette-tool-bg/)
+    assert.match(cssRule(toolCss, '.oc-shell[data-oc-theme="codex"] .oc-toolPanel'), /var\(--oc-palette-tool-bg/)
+
+    assert.match(cssRule(dockCss, '.oc-shell[data-oc-theme="claude"] .oc-questionCard'), /var\(--oc-palette-block-bg/)
+    assert.match(cssRule(dockCss, '.oc-shell[data-oc-theme="codex"] .oc-questionCard'), /var\(--oc-palette-block-bg/)
+
+    assert.match(cssRule(statusCss, '.oc-shell[data-oc-theme="claude"] .oc-composerBody'), /var\(--oc-palette-composer-bg/)
+    assert.match(cssRule(statusCss, '.oc-shell[data-oc-theme="claude"] .oc-composerPrimaryAction'), /var\(--oc-palette-action-bg/)
+    assert.match(cssRule(statusCss, '.oc-shell[data-oc-theme="codex"] .oc-composerBody'), /var\(--oc-palette-composer-bg/)
+    assert.match(cssRule(statusCss, '.oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover'), /var\(--oc-palette-block-bg/)
+    assert.match(cssRule(statusCss, '.oc-shell[data-oc-theme="codex"] .oc-composerPrimaryAction'), /var\(--oc-palette-action-bg/)
+  })
+
+  test("passes the panel color scheme to the shell root", () => {
+    const appSource = readFileSync(resolve(process.cwd(), "src/panel/webview/app/App.tsx"), "utf8")
+
+    assert.match(appSource, /data-oc-color=\{resolvePanelColorSchemeValue\(state\.snapshot\.display\.panelColorScheme\)\}/)
   })
 
   test("keeps the classic light and dark preset aligned with the original hard-edged look", () => {
@@ -234,7 +386,7 @@ describe("panel theme settings", () => {
     assert.match(baseCss, /\.oc-composer\s*\{[\s\S]*background:\s*transparent;/)
     assert.match(baseCss, /\.oc-composer\s*\{[\s\S]*padding:\s*0;/)
     assert.match(baseCss, /\.oc-composer\s*\{[\s\S]*gap:\s*8px;/)
-    assert.match(statusCss, /\.oc-composerBody\s*\{[\s\S]*border:\s*1px solid var\(--oc-composer-border\);/)
+    assert.match(statusCss, /\.oc-composerBody\s*\{[\s\S]*border:\s*1px solid var\(--oc-palette-composer-border\);/)
   })
 
   test("keeps autocomplete rows compact without horizontal scrolling and preserves a visible kind column", () => {

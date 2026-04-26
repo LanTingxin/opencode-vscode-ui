@@ -2,7 +2,7 @@
 .oc-answerInput {
   width: 100%;
   border: 1px solid var(--oc-border-strong);
-  background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-composer-surface) 92%);
+  background: var(--oc-palette-input-bg);
   color: var(--oc-fg-primary);
   padding: 10px 12px;
   border-radius: var(--oc-radius-sm);
@@ -62,9 +62,9 @@
 
 .oc-composerBody {
   position: relative;
-  border: 1px solid var(--oc-composer-border);
+  border: 1px solid var(--oc-palette-composer-border);
   border-radius: var(--oc-radius-md);
-  background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-composer-surface) 92%);
+  background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-palette-composer-bg) 92%);
   padding-bottom: 58px;
   box-shadow: var(--oc-composer-shadow);
 }
@@ -113,7 +113,7 @@
   margin: 0 1px;
   padding: 0 6px;
   border: 1px solid var(--oc-border-strong);
-  background: color-mix(in srgb, var(--oc-accent) 14%, var(--oc-surface-control) 86%);
+  background: color-mix(in srgb, var(--oc-accent) 14%, var(--oc-palette-selection-bg) 86%);
   color: var(--oc-fg-primary);
   border-radius: var(--oc-radius-sm);
   white-space: nowrap;
@@ -871,6 +871,7 @@
 
 .oc-modelPickerVariant,
 .oc-modelPickerFavorite,
+.oc-modelPickerItemKind,
 .oc-modelPickerItemHint,
 .oc-modelPickerEmptyText {
   color: var(--oc-fg-muted);
@@ -1073,9 +1074,9 @@
   justify-content: center;
   width: 29px;
   height: 29px;
-  border: 1px solid color-mix(in srgb, var(--oc-accent) 24%, var(--oc-border-strong) 76%);
+  border: 1px solid color-mix(in srgb, var(--oc-palette-action-border) 76%, transparent 24%);
   border-radius: calc(var(--oc-radius-sm) + 2px);
-  background: color-mix(in srgb, var(--oc-accent) 12%, var(--oc-surface-block) 88%);
+  background: var(--oc-palette-action-bg);
   color: var(--oc-accent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent 92%);
   cursor: pointer;
@@ -1084,8 +1085,8 @@
 }
 
 .oc-composerPrimaryAction:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--oc-accent) 18%, var(--oc-surface-block) 82%);
-  border-color: color-mix(in srgb, var(--oc-accent) 42%, var(--oc-border-strong) 58%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 86%, var(--oc-accent) 14%);
+  border-color: color-mix(in srgb, var(--oc-palette-action-border) 84%, var(--oc-accent) 16%);
   transform: translateY(-1px);
 }
 
@@ -1386,9 +1387,9 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-composerBody {
-  border-color: color-mix(in srgb, var(--oc-border-strong) 58%, transparent 42%);
+  border-color: color-mix(in srgb, var(--oc-palette-composer-border) 74%, transparent 26%);
   border-radius: calc(var(--oc-radius-md) + 4px);
-  background: color-mix(in srgb, var(--oc-composer-surface) 92%, var(--oc-surface-elevated) 8%);
+  background: color-mix(in srgb, var(--oc-palette-composer-bg) 92%, var(--oc-surface-elevated) 8%);
   padding-bottom: 64px;
 }
 
@@ -1398,7 +1399,7 @@
   border-top: 1px solid color-mix(in srgb, var(--oc-border) 72%, transparent 28%);
   border-bottom-left-radius: calc(var(--oc-radius-md) + 3px);
   border-bottom-right-radius: calc(var(--oc-radius-md) + 3px);
-  background: color-mix(in srgb, var(--oc-surface-control) 36%, transparent 64%);
+  background: color-mix(in srgb, var(--oc-palette-composer-info-bg) 72%, transparent 28%);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-statusBadge {
@@ -1418,14 +1419,14 @@
   width: 36px;
   height: 36px;
   border-radius: 14px;
-  border-color: transparent;
-  background: color-mix(in srgb, var(--oc-accent-strong) 88%, var(--oc-surface-block) 12%);
-  color: var(--oc-text-accent);
+  border-color: color-mix(in srgb, var(--oc-palette-action-border) 52%, transparent 48%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 76%, var(--oc-accent-strong) 24%);
+  color: var(--oc-palette-action-fg);
   box-shadow: 0 14px 24px color-mix(in srgb, var(--oc-accent-strong) 24%, transparent 76%);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-composerPrimaryAction:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--oc-accent-strong) 94%, var(--oc-surface-block) 6%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 82%, var(--oc-accent-strong) 18%);
   transform: translateY(-1px) scale(1.01);
 }
 
@@ -1433,13 +1434,13 @@
 .oc-shell[data-oc-theme="claude"] .oc-modelPicker,
 .oc-shell[data-oc-theme="claude"] .oc-statusPopover {
   border-radius: calc(var(--oc-radius-md) - 2px);
-  background: color-mix(in srgb, var(--oc-status-popover-bg) 96%, var(--oc-surface-elevated) 4%);
+  background: color-mix(in srgb, var(--oc-palette-popover-bg) 96%, var(--oc-surface-elevated) 4%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-composerBody {
-  border-color: var(--oc-native-edge);
+  border-color: color-mix(in srgb, var(--oc-palette-composer-border) 76%, var(--oc-native-edge) 24%);
   border-radius: calc(var(--oc-radius-md) + 6px);
-  background: color-mix(in srgb, var(--oc-composer-surface) 94%, var(--oc-surface-elevated) 6%);
+  background: color-mix(in srgb, var(--oc-palette-composer-bg) 94%, var(--oc-surface-elevated) 6%);
   box-shadow: var(--oc-native-inset), var(--oc-composer-shadow);
   padding-bottom: 62px;
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
@@ -1482,11 +1483,11 @@
   width: min(560px, calc(100vw - 84px));
   max-height: min(46vh, 420px);
   margin: 0 0 -9px;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
+  border: 1px solid color-mix(in srgb, var(--oc-palette-block-border) 72%, transparent 28%);
   border-radius: 12px;
   overflow: hidden;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--oc-surface-elevated) 96%, white 4%) 0%, color-mix(in srgb, var(--oc-surface-block) 98%, transparent 2%) 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--oc-palette-block-bg) 88%, var(--oc-surface-elevated) 12%) 0%, color-mix(in srgb, var(--oc-palette-block-bg) 98%, transparent 2%) 100%);
   backdrop-filter: blur(10px) saturate(1.04);
   -webkit-backdrop-filter: blur(10px) saturate(1.04);
   box-shadow: 0 14px 28px color-mix(in srgb, black 20%, transparent 80%), 0 0 0 1px color-mix(in srgb, white 3%, transparent 97%);
@@ -1512,7 +1513,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 9px 12px 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--oc-border) 78%, transparent 22%);
+  border-bottom: 1px solid color-mix(in srgb, var(--oc-palette-block-border) 78%, transparent 22%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover.is-collapsed .oc-codexTodoHeader {
@@ -1577,9 +1578,9 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--oc-border) 72%, transparent 28%);
+  border: 1px solid color-mix(in srgb, var(--oc-palette-action-border) 48%, transparent 52%);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--oc-surface-control) 88%, transparent 12%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 54%, transparent 46%);
   color: color-mix(in srgb, var(--oc-fg-muted) 78%, var(--oc-accent) 22%);
   cursor: pointer;
   flex: 0 0 auto;
@@ -1683,7 +1684,7 @@
   border-top: 1px solid color-mix(in srgb, var(--oc-border) 80%, transparent 20%);
   border-bottom-left-radius: calc(var(--oc-radius-md) + 5px);
   border-bottom-right-radius: calc(var(--oc-radius-md) + 5px);
-  background: color-mix(in srgb, var(--oc-surface-control) 74%, transparent 26%);
+  background: color-mix(in srgb, var(--oc-palette-composer-info-bg) 78%, transparent 22%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-statusBadge {
@@ -1705,7 +1706,7 @@
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--oc-accent) 18%, var(--oc-surface-block) 82%);
+  background: var(--oc-palette-action-bg);
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent 92%);
 }
 
@@ -1713,7 +1714,7 @@
 .oc-shell[data-oc-theme="codex"] .oc-modelPicker,
 .oc-shell[data-oc-theme="codex"] .oc-statusPopover {
   border-radius: calc(var(--oc-radius-md) + 2px);
-  background: color-mix(in srgb, var(--oc-status-popover-bg) 96%, var(--oc-surface-elevated) 4%);
+  background: color-mix(in srgb, var(--oc-palette-popover-bg) 96%, var(--oc-surface-elevated) 4%);
 }
 
 @keyframes oc-codexPopoverIn {

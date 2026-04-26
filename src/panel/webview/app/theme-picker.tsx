@@ -1,32 +1,89 @@
 import React from "react"
-import type { PanelTheme } from "../../../core/settings"
+import type { PanelColorScheme, PanelTheme } from "../../../core/settings"
 
-export type ThemePickerItem = {
+export type ThemePickerItem = ({
   id: PanelTheme
+  kind: "theme"
+} | {
+  id: PanelColorScheme
+  kind: "color"
+}) & {
   label: string
   detail: string
   selected: boolean
 }
 
-export function buildThemePickerItems(currentTheme: PanelTheme): ThemePickerItem[] {
+export function buildThemePickerItems(currentTheme: PanelTheme, currentColorScheme: PanelColorScheme): ThemePickerItem[] {
   return [
     {
       id: "classic",
+      kind: "theme",
       label: "Classic",
       detail: "Use the standard OpenCode panel styling that follows the active VS Code light or dark theme.",
       selected: currentTheme === "classic",
     },
     {
       id: "codex",
+      kind: "theme",
       label: "Codex",
       detail: "Use a more tool-like panel preset with stronger framing while still following the active VS Code light or dark theme.",
       selected: currentTheme === "codex",
     },
     {
       id: "claude",
+      kind: "theme",
       label: "Claude",
       detail: "Use a softer panel preset with gentler surfaces while still following the active VS Code light or dark theme.",
       selected: currentTheme === "claude",
+    },
+    {
+      id: "default",
+      kind: "color",
+      label: "Default",
+      detail: "Use the color palette designed for the selected panel preset.",
+      selected: currentColorScheme === "default",
+    },
+    {
+      id: "nocturne",
+      kind: "color",
+      label: "Nocturne",
+      detail: "Use a night-focused blue, violet, cyan, and soft amber palette.",
+      selected: currentColorScheme === "nocturne",
+    },
+    {
+      id: "orchid",
+      kind: "color",
+      label: "Orchid",
+      detail: "Use a muted mauve, rose, sage, and apricot palette.",
+      selected: currentColorScheme === "orchid",
+    },
+    {
+      id: "verdant",
+      kind: "color",
+      label: "Verdant",
+      detail: "Use a sage, teal, lake blue, and wheat palette for long reading sessions.",
+      selected: currentColorScheme === "verdant",
+    },
+    {
+      id: "solar",
+      kind: "color",
+      label: "Solar",
+      detail: "Use a solarized cyan, blue, olive, and amber palette with low fatigue contrast.",
+      selected: currentColorScheme === "solar",
+    },
+    {
+      id: "graphite",
+      kind: "color",
+      label: "Graphite",
+      detail: "Use a neutral blue-gray, teal, brass, and copper palette.",
+      selected: currentColorScheme === "graphite",
+    },
+    {
+      id: "ember",
+      kind: "color",
+      label: "Ember",
+      detail: "Use a restrained ember, olive, mint, and cyan palette.",
+      selected: currentColorScheme === "ember",
     },
   ]
 }
@@ -38,7 +95,7 @@ export function ThemePicker({
 }: {
   items: ThemePickerItem[]
   onClose: () => void
-  onSelect: (theme: PanelTheme) => void
+  onSelect: (item: ThemePickerItem) => void
 }) {
   const [query, setQuery] = React.useState("")
   const inputRef = React.useRef<HTMLInputElement | null>(null)
@@ -78,7 +135,7 @@ export function ThemePicker({
 
   const chooseActive = React.useCallback(() => {
     if (activeItem) {
-      onSelect(activeItem.id)
+      onSelect(activeItem)
     }
   }, [activeItem, onSelect])
 
@@ -129,7 +186,7 @@ export function ThemePicker({
       <div className="oc-modelPickerTop">
         <div className="oc-modelPickerHeader">
           <span className="oc-modelPickerTitle">Switch theme</span>
-          <span className="oc-modelPickerMeta">Session panels</span>
+          <span className="oc-modelPickerMeta">Presets and colors</span>
         </div>
         <div className="oc-modelPickerToolbar">
           <input
@@ -144,33 +201,47 @@ export function ThemePicker({
       </div>
       <div className="oc-modelPickerSections" ref={listRef}>
         {filteredItems.length > 0 ? (
-          <div className="oc-modelPickerSection">
-            <div className="oc-modelPickerList">
-              {filteredItems.map((item, index) => (
-                <div
-                  key={item.id}
-                  role="button"
-                  tabIndex={-1}
-                  data-theme-index={index}
-                  className={`oc-modelPickerItem${item.selected ? " is-selected" : ""}${index === selectedIndex ? " is-active" : ""}`}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  onClick={() => onSelect(item.id)}
-                >
-                  <span className="oc-modelPickerItemMain">
-                    <span className="oc-modelPickerItemIdentity">
-                      <span className="oc-modelPickerItemLabel">{item.label}</span>
-                      <span className="oc-modelPickerItemDetail">{item.detail}</span>
-                    </span>
-                  </span>
-                </div>
-              ))}
+          themePickerSections(filteredItems).map((section) => (
+            <div key={section.kind} className="oc-modelPickerSection">
+              {!query ? <div className="oc-modelPickerSectionTitle">{section.label}</div> : null}
+              <div className="oc-modelPickerList">
+                {section.items.map((item) => {
+                  const index = filteredItems.findIndex((entry) => entry.kind === item.kind && entry.id === item.id)
+                  return (
+                    <div
+                      key={`${item.kind}:${item.id}`}
+                      role="button"
+                      tabIndex={-1}
+                      data-theme-index={index}
+                      className={`oc-modelPickerItem${item.selected ? " is-selected" : ""}${index === selectedIndex ? " is-active" : ""}`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      onClick={() => onSelect(item)}
+                    >
+                      <span className="oc-modelPickerItemMain">
+                        <span className="oc-modelPickerItemIdentity">
+                          <span className="oc-modelPickerItemLabel">{item.label}</span>
+                          <span className="oc-modelPickerItemDetail">{item.detail}</span>
+                        </span>
+                        <span className="oc-modelPickerItemKind">{item.kind === "theme" ? "Preset" : "Color"}</span>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          ))
         ) : <div className="oc-modelPickerEmptyText">No themes match "{query}".</div>}
       </div>
     </div>
   )
+}
+
+function themePickerSections(items: ThemePickerItem[]) {
+  return [
+    { kind: "theme" as const, label: "Presets", items: items.filter((item) => item.kind === "theme") },
+    { kind: "color" as const, label: "Colors", items: items.filter((item) => item.kind === "color") },
+  ].filter((section) => section.items.length > 0)
 }
 
 function filterItems(items: ThemePickerItem[], query: string) {

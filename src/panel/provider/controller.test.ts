@@ -556,6 +556,47 @@ describe("SessionPanelController.handle", () => {
     }
   })
 
+  test("updates the persisted panel color scheme from webview messages", async () => {
+    let updated: unknown[] = []
+    const originalGetConfiguration = vscode.workspace.getConfiguration
+
+    ;(vscode.workspace as typeof vscode.workspace & {
+      getConfiguration: typeof vscode.workspace.getConfiguration
+    }).getConfiguration = ((section?: string) => {
+      if (section !== "opencode-ui") {
+        return {
+          get: <T,>(_key: string, fallback: T) => fallback,
+        }
+      }
+
+      return {
+        get: <T,>(_key: string, fallback: T) => fallback,
+        update: async (...args: unknown[]) => {
+          updated = args
+        },
+      }
+    }) as unknown as typeof vscode.workspace.getConfiguration
+
+    try {
+      const { controller, send } = createWebviewMessageHarness({
+        state: "ready",
+        dir: "/workspace",
+        name: "workspace",
+        sdk: {},
+      })
+
+      send({ type: "updatePanelColorScheme", colorScheme: "orchid" })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      assert.deepEqual(updated, ["panelColorScheme", "orchid", vscode.ConfigurationTarget.Global])
+      controller.dispose()
+    } finally {
+      ;(vscode.workspace as typeof vscode.workspace & {
+        getConfiguration: typeof vscode.workspace.getConfiguration
+      }).getConfiguration = originalGetConfiguration
+    }
+  })
+
   test("routes provider auth recovery messages through the host action path", async () => {
     let authPayload: unknown
     let authorizePayload: unknown

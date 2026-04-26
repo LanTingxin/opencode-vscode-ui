@@ -4,7 +4,7 @@
   "displayName": "OpenCode Enhanced UI",
   "description": "VS Code enhanced UI for opencode",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.2.0",
   "publisher": "LanTingxin",
   "icon": "images/logo.png",
   "license": "MIT",
@@ -338,6 +338,30 @@
             "Use a softer panel preset with gentler surfaces while still following the active VS Code light or dark theme."
           ],
           "description": "Choose the visual preset for session panels. Light or dark rendering still follows the active VS Code theme.",
+          "scope": "machine-overridable"
+        },
+        "opencode-ui.panelColorScheme": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "nocturne",
+            "orchid",
+            "verdant",
+            "solar",
+            "graphite",
+            "ember"
+          ],
+          "markdownEnumDescriptions": [
+            "Use the color palette designed for the selected panel preset.",
+            "Use a night-focused blue, violet, cyan, and soft amber palette.",
+            "Use a muted mauve, rose, sage, and apricot palette.",
+            "Use a sage, teal, lake blue, and wheat palette for long reading sessions.",
+            "Use a solarized cyan, blue, olive, and amber palette with low fatigue contrast.",
+            "Use a neutral blue-gray, teal, brass, and copper palette.",
+            "Use a restrained ember, olive, mint, and cyan palette."
+          ],
+          "description": "Choose the color palette for session panels. Light or dark rendering still follows the active VS Code theme.",
           "scope": "machine-overridable"
         },
         "opencode-ui.httpProxy": {

@@ -32,8 +32,9 @@
 .oc-questionCard {
   display: grid;
   gap: 6px;
-  border-color: color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
+  border-color: color-mix(in srgb, var(--oc-palette-block-border) 72%, transparent 28%);
   border-radius: var(--oc-radius-md);
+  background: var(--oc-palette-block-bg);
 }
 
 .oc-questionDetails {
@@ -89,8 +90,8 @@
   gap: 8px;
   width: 100%;
   padding: 6px 10px;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 72%, transparent 28%);
-  background: color-mix(in srgb, var(--oc-surface-control) 84%, var(--oc-surface-block) 16%);
+  border: 1px solid color-mix(in srgb, var(--oc-palette-block-border) 72%, transparent 28%);
+  background: color-mix(in srgb, var(--oc-palette-selection-bg) 84%, var(--oc-palette-block-bg) 16%);
   color: var(--oc-fg-primary);
   text-align: left;
   border-radius: var(--oc-radius-sm);
@@ -103,7 +104,7 @@ label.oc-questionOption {
 
 button.oc-questionOption:hover,
 label.oc-questionOption:hover {
-  background: color-mix(in srgb, var(--oc-surface-control) 58%, var(--oc-surface-block) 42%);
+  background: color-mix(in srgb, var(--oc-palette-selection-bg) 58%, var(--oc-palette-block-bg) 42%);
 }
 
 .oc-questionOption.is-selected {
@@ -242,14 +243,14 @@ label.oc-questionOption:hover {
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-questionCard {
-  border-color: color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
-  background: color-mix(in srgb, var(--oc-surface-elevated) 80%, var(--oc-surface-block) 20%);
+  border-color: color-mix(in srgb, var(--oc-palette-block-border) 62%, transparent 38%);
+  background: color-mix(in srgb, var(--oc-palette-block-bg) 82%, var(--oc-surface-elevated) 18%);
   box-shadow: var(--oc-card-shadow);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-questionOption {
   border-radius: calc(var(--oc-radius-sm) + 2px);
-  background: color-mix(in srgb, var(--oc-surface-control) 78%, var(--oc-surface-block) 22%);
+  background: color-mix(in srgb, var(--oc-palette-selection-bg) 78%, var(--oc-palette-block-bg) 22%);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-dock-warning .oc-dockHeader {
@@ -257,13 +258,13 @@ label.oc-questionOption:hover {
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-questionCard {
-  border-color: color-mix(in srgb, var(--oc-border) 76%, transparent 24%);
-  background: color-mix(in srgb, var(--oc-surface-block) 94%, var(--oc-surface-elevated) 6%);
+  border-color: color-mix(in srgb, var(--oc-palette-block-border) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--oc-palette-block-bg) 94%, var(--oc-surface-elevated) 6%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-questionOption {
   border-radius: calc(var(--oc-radius-sm) + 1px);
-  background: color-mix(in srgb, var(--oc-surface-control) 88%, var(--oc-surface-block) 12%);
+  background: color-mix(in srgb, var(--oc-palette-selection-bg) 88%, var(--oc-palette-block-bg) 12%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-dock-warning .oc-dockHeader {

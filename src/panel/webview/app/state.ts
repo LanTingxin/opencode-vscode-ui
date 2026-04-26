@@ -1,5 +1,5 @@
 import type { ComposerFileSelection, ComposerPathKind, SessionBootstrap, SessionMessageHistory, SessionPickerPayload, SessionSnapshot, SkillCatalogEntry } from "../../../bridge/types"
-import type { DisplaySettings, PanelTheme } from "../../../core/settings"
+import type { DisplaySettings, PanelColorScheme, PanelTheme } from "../../../core/settings"
 import type { AgentInfo, CommandInfo, FileDiff, FormatterStatus, LspStatus, McpResource, McpStatus, MessageInfo, PermissionRequest, ProviderAuthMethod, ProviderInfo, QuestionRequest, SessionInfo, SessionMessage, SessionStatus, Todo } from "../../../core/sdk"
 import type { CommandPromptCatalog, CommandPromptInvocation } from "./command-prompt"
 
@@ -219,6 +219,7 @@ function initialDisplaySettings(display?: DisplaySettings): DisplaySettings {
     compactSkillInvocations: display?.compactSkillInvocations !== false,
     showSkillsInSlashAutocomplete: display?.showSkillsInSlashAutocomplete === true,
     panelTheme: resolvePanelThemeValue(display?.panelTheme),
+    panelColorScheme: resolvePanelColorSchemeValue(display?.panelColorScheme),
   }
 }
 
@@ -230,6 +231,21 @@ export function resolvePanelThemeValue(theme?: PanelTheme): PanelTheme {
       return theme
     default:
       return "codex"
+  }
+}
+
+export function resolvePanelColorSchemeValue(colorScheme?: PanelColorScheme): PanelColorScheme {
+  switch (colorScheme) {
+    case "default":
+    case "nocturne":
+    case "orchid":
+    case "verdant":
+    case "solar":
+    case "graphite":
+    case "ember":
+      return colorScheme
+    default:
+      return "default"
   }
 }
 
@@ -302,6 +318,7 @@ export function normalizeSnapshotPayload(payload: SessionSnapshot, previous?: Ap
       compactSkillInvocations: payload.display?.compactSkillInvocations !== false,
       showSkillsInSlashAutocomplete: payload.display?.showSkillsInSlashAutocomplete === true,
       panelTheme: resolvePanelThemeValue(payload.display?.panelTheme),
+      panelColorScheme: resolvePanelColorSchemeValue(payload.display?.panelColorScheme),
     },
     skillCatalog: Array.isArray(payload.skillCatalog) ? payload.skillCatalog : [],
     messageHistory: normalizeMessageHistory(payload.messageHistory),

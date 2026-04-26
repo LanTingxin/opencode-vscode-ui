@@ -23,9 +23,9 @@
 .oc-turnUser {
   position: relative;
   padding: 6px 96px 6px 12px;
-  border: 0;
+  border: 1px solid var(--oc-palette-user-border);
   border-radius: var(--oc-radius-lg);
-  background: var(--oc-message-user-bg);
+  background: var(--oc-palette-user-bg);
 }
 
 .oc-turnUser::before {
@@ -35,7 +35,7 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--oc-rail-user);
+  background: var(--oc-palette-rail);
   border-radius: var(--oc-radius-sm);
 }
 
@@ -252,9 +252,9 @@
   width: 24px;
   height: 24px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 76%, transparent 24%);
+  border: 1px solid color-mix(in srgb, var(--oc-palette-action-border) 76%, transparent 24%);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--oc-surface-elevated, var(--oc-surface-canvas)) 82%, var(--oc-surface-block) 18%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 34%, var(--oc-surface-elevated, var(--oc-surface-canvas)) 66%);
   color: var(--oc-fg-muted);
   cursor: pointer;
 }
@@ -321,7 +321,7 @@
 
 .oc-messageActionBtn:hover:not(:disabled),
 .oc-messageActionBtn:focus-visible:not(:disabled) {
-  background: color-mix(in srgb, var(--oc-accent) 18%, var(--oc-surface-block) 82%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 72%, var(--oc-surface-block) 28%);
   color: var(--oc-fg);
   outline: none;
 }
@@ -357,7 +357,7 @@
 .oc-part-text {
   padding: 6px 10px;
   border: 0;
-  background: var(--oc-message-assistant-bg);
+  background: var(--oc-palette-assistant-bg);
 }
 
 .oc-partText,
@@ -413,7 +413,7 @@
   left: 0;
   right: 0;
   height: 2em;
-  background: linear-gradient(to bottom, transparent, var(--oc-message-user-bg));
+  background: linear-gradient(to bottom, transparent, var(--oc-palette-user-bg));
   pointer-events: auto;
   opacity: 1;
   transition: opacity 200ms ease;
@@ -483,19 +483,19 @@
 .oc-part-inline {
   padding: 6px 10px;
   border: 0;
-  background: var(--oc-message-assistant-bg);
+  background: var(--oc-palette-assistant-bg);
 }
 
 .oc-part-compact {
   padding: 6px 10px;
   border: 0;
-  background: var(--oc-message-assistant-bg);
+  background: var(--oc-palette-assistant-bg);
 }
 
 .oc-part-reasoning {
   padding: 6px 10px;
   border: 0;
-  background: var(--oc-message-assistant-bg);
+  background: var(--oc-palette-assistant-bg);
   border-left: 1px solid color-mix(in srgb, var(--oc-border-strong) 82%, transparent 18%);
 }
 
@@ -749,9 +749,9 @@
 
 .oc-shell[data-oc-theme="claude"] .oc-turnUser {
   padding: 12px 18px;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
+  border: 1px solid color-mix(in srgb, var(--oc-palette-user-border) 72%, transparent 28%);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--oc-message-user-bg) 94%, var(--oc-surface-elevated) 6%);
+  background: color-mix(in srgb, var(--oc-palette-user-bg) 94%, var(--oc-surface-elevated) 6%);
   box-shadow: var(--oc-card-shadow);
 }
 
@@ -766,8 +766,8 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-messageActionBtn {
-  border-color: color-mix(in srgb, var(--oc-border-strong) 58%, transparent 42%);
-  background: color-mix(in srgb, var(--oc-surface-elevated) 92%, var(--oc-surface-primary) 8%);
+  border-color: color-mix(in srgb, var(--oc-palette-action-border) 58%, transparent 42%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 44%, var(--oc-surface-elevated) 56%);
   box-shadow: var(--oc-tool-shadow);
 }
 
@@ -801,14 +801,18 @@
 .oc-shell[data-oc-theme="claude"] .oc-part-inline,
 .oc-shell[data-oc-theme="claude"] .oc-part-compact {
   padding: 8px 12px 8px 14px;
-  background: transparent;
+  background: var(--oc-palette-assistant-bg);
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-part-text {
+  background: var(--oc-palette-assistant-bg);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-part-reasoning {
   padding: 10px 12px 10px 16px;
-  border-left: 2px solid color-mix(in srgb, var(--oc-rail-user) 38%, transparent 62%);
+  border-left: 2px solid color-mix(in srgb, var(--oc-palette-rail) 38%, transparent 62%);
   border-radius: calc(var(--oc-radius-sm) + 2px);
-  background: color-mix(in srgb, var(--oc-accent) 4%, var(--oc-message-assistant-bg) 96%);
+  background: color-mix(in srgb, var(--oc-accent) 4%, var(--oc-palette-assistant-bg) 96%);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-dividerPart {
@@ -833,10 +837,10 @@
 
 .oc-shell[data-oc-theme="codex"] .oc-turnUser {
   padding: 10px 14px;
-  border: 1px solid var(--oc-native-edge);
+  border: 1px solid color-mix(in srgb, var(--oc-palette-user-border) 72%, var(--oc-native-edge) 28%);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--oc-message-user-bg) 94%, var(--oc-surface-elevated) 6%) 0%, var(--oc-message-user-bg) 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--oc-palette-user-bg) 94%, var(--oc-surface-elevated) 6%) 0%, var(--oc-palette-user-bg) 100%);
   box-shadow: var(--oc-native-inset), var(--oc-card-shadow);
 }
 
@@ -864,7 +868,7 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-messageActionBtn {
-  background: color-mix(in srgb, var(--oc-surface-elevated) 86%, var(--oc-surface-primary) 14%);
+  background: color-mix(in srgb, var(--oc-palette-action-bg) 38%, var(--oc-surface-elevated) 62%);
   box-shadow: var(--oc-tool-shadow);
 }
 
@@ -917,8 +921,13 @@
   padding: 10px 12px;
   border-radius: calc(var(--oc-radius-md) + 4px);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--oc-message-assistant-bg) 88%, var(--oc-surface-elevated) 12%) 0%, var(--oc-message-assistant-bg) 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--oc-palette-assistant-bg) 88%, var(--oc-surface-elevated) 12%) 0%, var(--oc-palette-assistant-bg) 100%);
   box-shadow: var(--oc-native-inset);
+}
+
+.oc-shell[data-oc-theme="codex"] .oc-part-text {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--oc-palette-assistant-bg) 88%, var(--oc-surface-elevated) 12%) 0%, var(--oc-palette-assistant-bg) 100%);
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-part-reasoning {
@@ -926,7 +935,7 @@
   border-left: 0;
   border-top: 1px solid color-mix(in srgb, var(--oc-accent) 18%, var(--oc-native-edge) 82%);
   border-radius: calc(var(--oc-radius-md) + 4px);
-  background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-message-assistant-bg) 92%);
+  background: color-mix(in srgb, var(--oc-accent) 8%, var(--oc-palette-assistant-bg) 92%);
   box-shadow: var(--oc-native-inset);
 }
 

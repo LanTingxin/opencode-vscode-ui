@@ -3,7 +3,7 @@ import type { ComposerPathResult, ComposerPromptPart, SessionBootstrap } from ".
 import type { QuestionRequest, SessionMessage } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, WorkspaceDirContext } from "./contexts"
 import { answerKey, PermissionDock, QuestionDock, RetryStatus, SubagentFooter, SubagentNavigation } from "./docks"
-import { createInitialState, persistableAppState, resolvePanelThemeValue, type AppState, type ComposerEditorPart, type ImageAttachment, type InitialWebviewState, type PersistedAppState, type VsCodeApi } from "./state"
+import { createInitialState, persistableAppState, resolvePanelColorSchemeValue, resolvePanelThemeValue, type AppState, type ComposerEditorPart, type ImageAttachment, type InitialWebviewState, type PersistedAppState, type VsCodeApi } from "./state"
 import { Timeline } from "./timeline"
 import { AgentBadge, CompactionDivider, EmptyState, FileRefText, MarkdownBlock, PartView, WebviewBindingsProvider } from "./webview-bindings"
 import { ensureComposerCursorVisible, resizeComposer, useComposerResize } from "../hooks/useComposer"
@@ -33,7 +33,7 @@ import { ContextPanel } from "./context-panel"
 import { SessionPicker } from "./session-picker"
 import { composerRunningState } from "./composer-running-state"
 import { copyImageToClipboard, ImagePreviewOverlay, saveImageFromPreview, type PreviewImage } from "./image-preview"
-import { buildThemePickerItems, ThemePicker } from "./theme-picker"
+import { buildThemePickerItems, ThemePicker, type ThemePickerItem } from "./theme-picker"
 import { resolveTranscriptHistoryMode, shouldAutoLoadEarlierMessages, transcriptHistoryScrollThreshold } from "./transcript-history"
 
 declare global {
@@ -192,7 +192,10 @@ export function App() {
     providers: state.snapshot.providers,
     providerAuth: state.snapshot.providerAuth,
   }), [state.snapshot.providerAuth, state.snapshot.providers])
-  const themePickerItems = React.useMemo(() => buildThemePickerItems(resolvePanelThemeValue(state.snapshot.display.panelTheme)), [state.snapshot.display.panelTheme])
+  const themePickerItems = React.useMemo(() => buildThemePickerItems(
+    resolvePanelThemeValue(state.snapshot.display.panelTheme),
+    resolvePanelColorSchemeValue(state.snapshot.display.panelColorScheme),
+  ), [state.snapshot.display.panelColorScheme, state.snapshot.display.panelTheme])
 
   const blocked = state.snapshot.permissions.length > 0 || state.snapshot.questions.length > 0
   const isChildSession = !!state.bootstrap.session?.parentID
@@ -1168,9 +1171,13 @@ export function App() {
     vscode.postMessage({ type: "providerAuthAction", providerID })
   }, [])
 
-  const selectPanelTheme = React.useCallback((theme: "classic" | "codex" | "claude") => {
+  const selectThemePickerItem = React.useCallback((item: ThemePickerItem) => {
     setThemePickerOpen(false)
-    vscode.postMessage({ type: "updatePanelTheme", theme })
+    if (item.kind === "theme") {
+      vscode.postMessage({ type: "updatePanelTheme", theme: item.id })
+      return
+    }
+    vscode.postMessage({ type: "updatePanelColorScheme", colorScheme: item.id })
   }, [])
 
   const postComposerAction = React.useCallback((action: "refreshSession" | "compactSession" | "undoSession" | "redoSession" | "interruptSession", model?: { providerID: string; modelID: string }) => {
@@ -1620,7 +1627,7 @@ export function App() {
       <ChildMessagesContext.Provider value={state.snapshot.childMessages}>
         <ChildSessionsContext.Provider value={state.snapshot.childSessions}>
           <WebviewBindingsProvider fileRefStatus={fileRefStatus} vscode={vscode}>
-            <div className="oc-shell" data-oc-theme={panelTheme}>
+            <div className="oc-shell" data-oc-theme={panelTheme} data-oc-color={resolvePanelColorSchemeValue(state.snapshot.display.panelColorScheme)}>
               <main ref={timelineRef} className="oc-transcript">
                 <div className="oc-transcriptInner">
                   <Timeline
@@ -2136,7 +2143,7 @@ export function App() {
                         <ThemePicker
                           items={themePickerItems}
                           onClose={() => setThemePickerOpen(false)}
-                          onSelect={selectPanelTheme}
+                          onSelect={selectThemePickerItem}
                         />
                       ) : null}
                     </div>

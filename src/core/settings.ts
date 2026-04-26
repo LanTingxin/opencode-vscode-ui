@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 
 export type DiffMode = "unified" | "split"
 export type PanelTheme = "classic" | "codex" | "claude"
+export type PanelColorScheme = "default" | "nocturne" | "orchid" | "verdant" | "solar" | "graphite" | "ember"
 
 export type DisplaySettings = {
   showInternals: boolean
@@ -10,6 +11,7 @@ export type DisplaySettings = {
   compactSkillInvocations?: boolean
   showSkillsInSlashAutocomplete?: boolean
   panelTheme: PanelTheme
+  panelColorScheme?: PanelColorScheme
 }
 
 const SECTION = "opencode-ui"
@@ -21,6 +23,7 @@ export const DIFF_MODE_KEY = "diffMode"
 export const COMPACT_SKILL_INVOCATIONS_KEY = "compactSkillInvocations"
 export const SHOW_SKILLS_IN_SLASH_AUTOCOMPLETE_KEY = "showSkillsInSlashAutocomplete"
 export const PANEL_THEME_KEY = "panelTheme"
+export const PANEL_COLOR_SCHEME_KEY = "panelColorScheme"
 
 export function getDisplaySettings(): DisplaySettings {
   const config = vscode.workspace.getConfiguration(SECTION)
@@ -31,6 +34,7 @@ export function getDisplaySettings(): DisplaySettings {
     compactSkillInvocations: config.get<boolean>(COMPACT_SKILL_INVOCATIONS_KEY, true),
     showSkillsInSlashAutocomplete: config.get<boolean>(SHOW_SKILLS_IN_SLASH_AUTOCOMPLETE_KEY, false),
     panelTheme: normalizePanelTheme(config.get<string>(PANEL_THEME_KEY, "codex")),
+    panelColorScheme: normalizePanelColorScheme(config.get<string>(PANEL_COLOR_SCHEME_KEY, "default")),
   }
 }
 
@@ -56,6 +60,7 @@ export function affectsDisplaySettings(event: vscode.ConfigurationChangeEvent) {
     || event.affectsConfiguration(`${SECTION}.${COMPACT_SKILL_INVOCATIONS_KEY}`)
     || event.affectsConfiguration(`${SECTION}.${SHOW_SKILLS_IN_SLASH_AUTOCOMPLETE_KEY}`)
     || event.affectsConfiguration(`${SECTION}.${PANEL_THEME_KEY}`)
+    || event.affectsConfiguration(`${SECTION}.${PANEL_COLOR_SCHEME_KEY}`)
 }
 
 export function affectsHttpProxySetting(event: vscode.ConfigurationChangeEvent) {
@@ -65,6 +70,10 @@ export function affectsHttpProxySetting(event: vscode.ConfigurationChangeEvent) 
 
 export async function updatePanelTheme(theme: PanelTheme) {
   await vscode.workspace.getConfiguration(SECTION).update(PANEL_THEME_KEY, normalizePanelTheme(theme), vscode.ConfigurationTarget.Global)
+}
+
+export async function updatePanelColorScheme(colorScheme: PanelColorScheme) {
+  await vscode.workspace.getConfiguration(SECTION).update(PANEL_COLOR_SCHEME_KEY, normalizePanelColorScheme(colorScheme), vscode.ConfigurationTarget.Global)
 }
 
 export function openSettingsQuery() {
@@ -94,5 +103,20 @@ function normalizePanelTheme(value: string): PanelTheme {
       return "classic"
     default:
       return "codex"
+  }
+}
+
+function normalizePanelColorScheme(value: string): PanelColorScheme {
+  switch (value) {
+    case "default":
+    case "nocturne":
+    case "orchid":
+    case "verdant":
+    case "solar":
+    case "graphite":
+    case "ember":
+      return value
+    default:
+      return "default"
   }
 }

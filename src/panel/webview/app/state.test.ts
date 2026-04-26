@@ -30,6 +30,7 @@ describe("panel webview persisted state", () => {
     const state = createInitialState(initialRef)
 
     assert.equal(state.snapshot.display.panelTheme, "codex")
+    assert.equal(state.snapshot.display.panelColorScheme, "default")
     assert.equal(state.snapshot.display.showSkillsInSlashAutocomplete, false)
   })
 
@@ -41,6 +42,7 @@ describe("panel webview persisted state", () => {
       compactSkillInvocations: false,
       showSkillsInSlashAutocomplete: true,
       panelTheme: "classic",
+      panelColorScheme: "verdant",
     })
 
     assert.deepEqual(state.snapshot.display, {
@@ -50,6 +52,7 @@ describe("panel webview persisted state", () => {
       compactSkillInvocations: false,
       showSkillsInSlashAutocomplete: true,
       panelTheme: "classic",
+      panelColorScheme: "verdant",
     })
   })
 

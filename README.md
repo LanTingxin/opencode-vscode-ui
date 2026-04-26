@@ -47,14 +47,14 @@ Search sessions within one workspace at a time, or filter by tags to organize yo
 
 ### Panel theme system
 
-Choose from three visual presets to match your workflow preference. All themes automatically adapt to VS Code's light or dark mode.
+Choose from three visual presets and optional accent color schemes to match your workflow preference. All themes and color schemes automatically adapt to VS Code's light or dark mode.
 
 | Classic Theme | Codex Theme | Claude Theme |
 | --- | --- | --- |
 | ![Classic theme](docs/screenshots/theme-default.png) | ![Codex theme](docs/screenshots/theme-codex.png) | ![Claude theme](docs/screenshots/theme-claude.png) |
 | Standard OpenCode styling | Tool-like preset with stronger framing | Softer preset with gentler surfaces |
 
-The footer `Context` entrypoint is available across themes, so you can inspect session usage and raw message data without leaving the current tab.
+Use `/theme` in a session panel to switch both presets and color schemes. The footer `Context` entrypoint is available across themes, so you can inspect session usage and raw message data without leaving the current tab.
 
 ### Dedicated conversation tabs
 
@@ -184,6 +184,7 @@ Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Cod
 
 ### Visual Settings
 - **Panel Theme** (`opencode-ui.panelTheme`) - Choose from `classic`, `codex`, or `claude` presets
+- **Panel Color Scheme** (`opencode-ui.panelColorScheme`) - Choose from `default`, `nocturne`, `orchid`, `verdant`, `solar`, `graphite`, or `ember` palettes
 - **Show Thinking** (`opencode-ui.showThinking`) - Toggle visibility of thinking blocks
 - **Show Internals** (`opencode-ui.showInternals`) - Toggle visibility of internal transcript blocks
 - **Diff Mode** (`opencode-ui.diffMode`) - Choose `unified` or `split` diff rendering
@@ -195,7 +196,7 @@ Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Cod
 ## Tips & Tricks 💡
 
 - **Use tags to organize sessions** - Right-click any session and choose "Manage Session Tags" to add custom tags, then filter by tag to focus on specific work
-- **Try different panel themes** - Switch between classic, codex, and claude themes to find your preferred visual style
+- **Try different panel themes** - Switch between classic, codex, and claude presets, then tune the palette with default, nocturne, orchid, verdant, solar, graphite, or ember
 - **Open the Context panel when you need details** - Use the footer `Context` entrypoint to inspect session usage, provider/model details, and raw message payloads without leaving the current tab
 - **Monitor subagents** - Keep the Subagents view open to track child sessions spawned during complex tasks
 - **Quick context actions** - Select code and right-click to instantly ask OpenCode about it
