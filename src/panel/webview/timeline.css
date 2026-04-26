@@ -389,10 +389,9 @@
   word-break: break-word;
   line-height: 1.65;
   font-size: var(--oc-font-size);
+  max-height: var(--oc-collapsiblePrompt-collapsed-height);
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  transition: max-height 180ms ease, opacity 160ms ease;
 }
 
 .oc-collapsiblePrompt:not(.is-expanded):not(.no-overflow) .oc-collapsiblePromptContent {
@@ -400,14 +399,12 @@
 }
 
 .oc-collapsiblePrompt.is-expanded .oc-collapsiblePromptContent {
-  -webkit-line-clamp: unset;
-  max-height: none;
+  max-height: var(--oc-collapsiblePrompt-expanded-height);
   cursor: default;
 }
 
 .oc-collapsiblePrompt.no-overflow .oc-collapsiblePromptContent {
-  -webkit-line-clamp: unset;
-  display: block;
+  max-height: none;
 }
 
 .oc-collapsiblePromptFade {
@@ -472,6 +469,15 @@
 .oc-collapsiblePrompt.is-expanded .oc-collapsiblePromptToggle {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-collapsiblePromptContent,
+  .oc-collapsiblePromptFade,
+  .oc-collapsiblePromptToggle {
+    transition: none;
+    transform: none;
+  }
 }
 
 .oc-part-inline {
@@ -623,6 +629,7 @@
 
 .oc-chainItem {
   width: 100%;
+  min-width: 0;
   margin: 0;
   justify-self: stretch;
 }
@@ -634,6 +641,7 @@
   --oc-chain-anchor-y: 22px;
   --oc-chain-dot-color: color-mix(in srgb, var(--oc-fg-muted) 72%, var(--oc-fg-primary) 28%);
   position: relative;
+  overflow: visible;
   padding-left: var(--oc-chain-gutter);
 }
 
@@ -674,7 +682,7 @@
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-chainItem-tool-todowrite {
-  --oc-chain-anchor-y: 34px;
+  --oc-chain-anchor-y: 16px;
   --oc-chain-dot-color: #d8ba63;
 }
 
@@ -975,27 +983,30 @@
 }
 
 .oc-shell[data-oc-theme="codex"] .oc-codexActivityDetails {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
   padding-left: 0;
   border-left: 0;
-  animation: oc-codexActivityDetailsIn 180ms ease-out;
+  transition: grid-template-rows 180ms ease, opacity 160ms ease;
 }
 
-@keyframes oc-codexActivityDetailsIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityGroup.is-expanded .oc-codexActivityDetails {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.oc-shell[data-oc-theme="codex"] .oc-codexActivityDetailsClip {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary,
   .oc-shell[data-oc-theme="codex"] .oc-codexActivityDetails {
-    animation: none;
     transition: none;
     transform: none;
   }

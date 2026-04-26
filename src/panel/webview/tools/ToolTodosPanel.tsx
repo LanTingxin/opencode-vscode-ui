@@ -41,7 +41,7 @@ export function ToolTodosPanel({
         {collapsible ? (
           <span className="oc-toolTodoToggle" aria-hidden="true">
             <svg className="oc-toolTodoToggleIcon" viewBox="0 0 16 16">
-              {expanded ? <path d="M4 10l4-4 4 4" /> : <path d="M4 6l4 4 4-4" />}
+              <path d="M4 6l4 4 4-4" />
             </svg>
           </span>
         ) : null}
@@ -60,9 +60,13 @@ export function ToolTodosPanel({
           {headerContent}
         </div>
       )}
-      {todos.length > 0 && expanded ? (
-        <div className="oc-toolTodoList">
-          {todos.map((item) => <div key={`${item.status}:${item.content}`} className={`oc-toolTodoItem is-${item.status}`}>{todoMarker(item.status)} {item.content}</div>)}
+      {todos.length > 0 ? (
+        <div className="oc-toolTodoList" aria-hidden={collapsed}>
+          <div className="oc-toolTodoListClip">
+            <div className="oc-toolTodoListInner">
+              {todos.map((item) => <div key={`${item.status}:${item.content}`} className={`oc-toolTodoItem is-${item.status}`}>{todoMarker(item.status)} {item.content}</div>)}
+            </div>
+          </div>
         </div>
       ) : status === "running" || status === "pending" ? <div className="oc-partEmpty">Updating todos...</div> : null}
     </section>

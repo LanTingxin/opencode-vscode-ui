@@ -35,15 +35,15 @@ export function CollapsibleShellBlock({
         <div className="oc-shellBlockHeaderMeta">
           {running ? <span className="oc-shellBlockSpinner"><ToolStatus state="running" /></span> : null}
           <svg className="oc-shellBlockToggleIcon" viewBox="0 0 16 16" aria-hidden="true">
-            {expanded ? <path d="M4 10l4-4 4 4" /> : <path d="M4 6l4 4 4-4" />}
+            <path d="M4 6l4 4 4-4" />
           </svg>
         </div>
       </button>
-      {expanded ? (
-        <div className="oc-shellBlockBody">
+      <div className="oc-shellBlockBody" aria-hidden={!expanded}>
+        <div className="oc-shellBlockBodyClip">
           <pre className="oc-shellBlockContent">{body || " "}</pre>
         </div>
-      ) : null}
+      </div>
     </section>
   )
 }

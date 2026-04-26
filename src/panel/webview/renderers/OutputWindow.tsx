@@ -16,6 +16,10 @@ export function OutputWindow({ ToolStatus, action, title, running = false, lineC
   const expandedHeight = React.useMemo(() => outputWindowBodyHeight(OUTPUT_WINDOW_EXPANDED_LINES), [])
   const collapsible = contentHeight > collapsedHeight + 1
   const scrollable = contentHeight > expandedHeight + 1
+  const expandedBodyHeight = Math.max(collapsedHeight, Math.min(contentHeight || expandedHeight, expandedHeight))
+  const bodyStyle = collapsible ? {
+    "--oc-outputWindow-body-expanded-height": `${expandedBodyHeight}px`,
+  } as React.CSSProperties : undefined
 
   React.useLayoutEffect(() => {
     const node = contentRef.current
@@ -70,7 +74,7 @@ export function OutputWindow({ ToolStatus, action, title, running = false, lineC
         </div>
         <span className="oc-outputWindowSpinnerSlot">{running ? <ToolStatus state="running" /> : null}</span>
       </div>
-      <div className={bodyClassName}>
+      <div className={bodyClassName} style={bodyStyle}>
         <div ref={contentRef} className="oc-outputWindowBodyInner">{children}</div>
       </div>
       {collapsible ? (
@@ -89,7 +93,7 @@ export function OutputWindow({ ToolStatus, action, title, running = false, lineC
           setExpanded((current) => !current)
         }}>
           <svg className="oc-outputWindowToggleIcon" viewBox="0 0 16 16" aria-hidden="true">
-            {expanded ? <path d="M4 10l4-4 4 4" /> : <path d="M4 6l4 4 4-4" />}
+            <path d="M4 6l4 4 4-4" />
           </svg>
           <span className="oc-outputWindowToggleMeta">{formatLineCount(lineCount)}</span>
         </button>

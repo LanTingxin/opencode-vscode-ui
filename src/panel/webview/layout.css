@@ -56,7 +56,7 @@
 .oc-scrollToBottom {
   appearance: none;
   position: absolute;
-  right: 8px;
+  right: 18px;
   top: -48px;
   z-index: 8;
   display: inline-flex;

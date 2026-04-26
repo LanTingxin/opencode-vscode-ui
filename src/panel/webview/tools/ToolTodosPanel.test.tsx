@@ -41,10 +41,10 @@ describe("ToolTodosPanel", () => {
 
     assert.equal(html.includes('class="oc-toolTodoToggle"'), true)
     assert.equal(html.includes('aria-expanded="false"'), true)
+    assert.equal(html.includes('class="oc-toolTodoList" aria-hidden="true"'), true)
+    assert.equal(html.includes('class="oc-toolTodoListClip"'), true)
     assert.equal(html.includes("Expand todo list"), true)
     assert.equal(html.includes('class="oc-partHeader oc-toolTodoHeader"'), true)
-    assert.equal(html.includes("Review workspace runtime"), false)
-    assert.equal(html.includes("Check panel layout"), false)
   })
 
   test("summarizes the active todo in the clickable header", () => {
@@ -55,7 +55,6 @@ describe("ToolTodosPanel", () => {
     ])
 
     assert.equal(html.includes("In progress: Tune Claude todo layout"), true)
-    assert.equal(html.includes("Check panel layout"), false)
   })
 
   test("summarizes todo progress when no item is in progress", () => {

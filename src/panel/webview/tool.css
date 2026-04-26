@@ -14,6 +14,7 @@
   display: grid;
   gap: 4px;
   width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 6px 10px;
   background: var(--oc-surface-block);
@@ -241,6 +242,7 @@
 .oc-toolPanel {
   display: grid;
   gap: 4px;
+  min-width: 0;
   border-color: color-mix(in srgb, var(--oc-border) 76%, transparent 24%);
 }
 
@@ -350,8 +352,10 @@
 
 .oc-toolTodoHeader {
   width: 100%;
+  min-width: 0;
   border: 0;
   padding: 0;
+  overflow: hidden;
   background: transparent;
   color: inherit;
   text-align: left;
@@ -362,6 +366,8 @@ button.oc-toolTodoHeader {
 }
 
 .oc-toolTodoSummary {
+  display: block;
+  flex: 1 1 auto;
   min-width: 0;
   color: var(--oc-fg-muted);
   font-size: var(--oc-font-size-sm);
@@ -371,8 +377,53 @@ button.oc-toolTodoHeader {
   white-space: nowrap;
 }
 
+.oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos {
+  gap: 0;
+  padding: 0;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos .oc-toolTodoHeader {
-  padding: 20px 22px;
+  gap: 8px;
+  padding: 7px 10px;
+  flex-wrap: nowrap;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos .oc-toolHeaderMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos .oc-kicker {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos .oc-toolPanelTitle {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 36%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos .oc-toolTodoSummary {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolPanel-todos .oc-toolHeaderMeta {
+  flex: 0 0 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-toolTodoToggle {
@@ -380,19 +431,17 @@ button.oc-toolTodoHeader {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--oc-surface-elevated) 88%, var(--oc-surface-control) 12%);
+  border: 0;
+  background: transparent;
   color: var(--oc-fg-muted);
   cursor: pointer;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-toolTodoToggle:hover,
 .oc-shell[data-oc-theme="claude"] .oc-toolTodoToggle:focus-visible {
-  background: color-mix(in srgb, var(--oc-accent) 12%, var(--oc-surface-elevated) 88%);
   color: var(--oc-fg-primary);
   outline: none;
 }
@@ -405,6 +454,11 @@ button.oc-toolTodoHeader {
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.oc-shell[data-oc-theme="claude"] .oc-toolTodoHeader[aria-expanded="true"] .oc-toolTodoToggleIcon {
+  transform: rotate(180deg);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-outputWindowContent-shell,
@@ -723,6 +777,11 @@ button.oc-toolTodoHeader {
   color: var(--oc-outputWindow-body-fg);
 }
 
+.oc-outputWindowBody.is-collapsible {
+  overflow: hidden;
+  transition: max-height 180ms ease, opacity 160ms ease;
+}
+
 .oc-outputWindow-markdownCode .oc-outputWindowBody {
   background: var(--oc-outputWindow-body-bg);
 }
@@ -743,6 +802,11 @@ button.oc-toolTodoHeader {
 .oc-outputWindowBody.is-collapsed {
   overflow: hidden;
   max-height: 222px;
+}
+
+.oc-outputWindowBody.is-expanded {
+  max-height: var(--oc-outputWindow-body-expanded-height);
+  opacity: 1;
 }
 
 .oc-outputWindowBody.is-scrollable {
@@ -800,6 +864,11 @@ button.oc-toolTodoHeader {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.oc-outputWindowToggle[aria-expanded="true"] .oc-outputWindowToggleIcon {
+  transform: rotate(180deg);
 }
 
 .oc-outputWindowToggleMeta {
@@ -838,7 +907,6 @@ button.oc-toolTodoHeader {
 
 .oc-linkList,
 .oc-fileToolList,
-.oc-toolTodoList,
 .oc-toolAnswerList,
 .oc-patchList,
 .oc-diagnosticsList {
@@ -899,8 +967,28 @@ button.oc-toolTodoHeader {
 }
 
 .oc-toolTodoList {
-  padding: 8px 10px;
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
   background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-block) 90%);
+  transition: grid-template-rows 160ms ease, opacity 160ms ease;
+}
+
+.oc-toolTodoHeader[aria-expanded="true"] + .oc-toolTodoList {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.oc-toolTodoListClip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.oc-toolTodoListInner {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
 }
 
 .oc-diagnosticItem {
@@ -1024,9 +1112,8 @@ button.oc-toolTodoHeader {
 
 .oc-shell[data-oc-theme="codex"] .oc-codexActivityDetails {
   display: grid;
-  gap: 8px;
-  padding-left: 12px;
-  border-left: 1px solid color-mix(in srgb, var(--oc-border) 74%, transparent 26%);
+  padding-left: 0;
+  border-left: 0;
 }
 
 .oc-shellBlock {
@@ -1114,11 +1201,31 @@ button.oc-toolTodoHeader {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.oc-shellBlock.is-expanded .oc-shellBlockToggleIcon {
+  transform: rotate(180deg);
 }
 
 .oc-shellBlockBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
   background: var(--oc-outputWindow-body-bg);
   color: var(--oc-outputWindow-body-fg);
+  transition: grid-template-rows 160ms ease, opacity 160ms ease;
+}
+
+.oc-shellBlock.is-expanded .oc-shellBlockBody {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.oc-shellBlockBodyClip {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .oc-shellBlockContent {
@@ -1187,4 +1294,19 @@ button.oc-toolTodoHeader {
 .oc-shell[data-oc-theme="codex"] .oc-shellBlockContent {
   padding: 7px 10px;
   line-height: 1.58;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-shellBlockBody,
+  .oc-toolTodoList,
+  .oc-outputWindowBody.is-collapsible {
+    transition: none;
+  }
+
+  .oc-shellBlockToggleIcon,
+  .oc-shell[data-oc-theme="claude"] .oc-toolTodoToggleIcon,
+  .oc-outputWindowToggleIcon {
+    transition: none;
+    transform: none;
+  }
 }

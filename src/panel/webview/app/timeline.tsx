@@ -341,7 +341,7 @@ function TimelineBlockView({
 
   if (block.kind === "assistant-activity") {
     return (
-      <section className="oc-codexActivityGroup">
+      <section className={`oc-codexActivityGroup${activityExpanded ? " is-expanded" : ""}`}>
         <button
           type="button"
           className="oc-codexActivitySummary"
@@ -356,13 +356,13 @@ function TimelineBlockView({
             </svg>
           </span>
         </button>
-        {activityExpanded ? (
-          <div className="oc-codexActivityDetails">
+        <div className="oc-codexActivityDetails" aria-hidden={!activityExpanded}>
+          <div className="oc-codexActivityDetailsClip">
             {block.parts.map((part) => (
               <PartView key={part.id} part={part} active={part.id === activeToolID} diffMode={diffMode} />
             ))}
           </div>
-        ) : null}
+        </div>
       </section>
     )
   }
