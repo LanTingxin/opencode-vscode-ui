@@ -189,6 +189,21 @@ describe("panel theme settings", () => {
     assert.match(css, /body\.vscode-light\s*\{[\s\S]*--oc-message-user-bg:\s*#fff;/)
   })
 
+  test("forces rounded component corners square in the classic theme", () => {
+    const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+
+    assert.match(css, /\.oc-shell\[data-oc-theme=\"classic\"\]\s+\*,\s*[\s\S]*\.oc-shell\[data-oc-theme=\"classic\"\]\s+\*::before,\s*[\s\S]*\.oc-shell\[data-oc-theme=\"classic\"\]\s+\*::after\s*\{[\s\S]*border-radius:\s*0\s*!important;/)
+  })
+
+  test("uses a square context usage ring in the classic theme", () => {
+    const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+
+    assert.match(css, /\.oc-shell\[data-oc-theme=\"classic\"\]\s+\.oc-contextButtonRing\s*\{[\s\S]*border-radius:\s*0\s*!important;[\s\S]*background:\s*conic-gradient\(var\(--oc-accent\)\s+var\(--oc-context-button-percent\),\s*color-mix\(in srgb,\s*var\(--oc-border\)\s*86%,\s*transparent\s*14%\)\s+0\);/)
+    assert.match(css, /\.oc-shell\[data-oc-theme=\"classic\"\]\s+\.oc-contextButtonRing::before\s*\{[\s\S]*content:\s*\"\";[\s\S]*position:\s*absolute;[\s\S]*inset:\s*5px;[\s\S]*background:\s*var\(--oc-surface-canvas\);/)
+    assert.match(css, /\.oc-shell\[data-oc-theme=\"classic\"\]\s+\.oc-contextButtonRing\.is-warning\s*\{[\s\S]*background:\s*conic-gradient\(var\(--oc-warning\)\s+var\(--oc-context-button-percent\),/)
+    assert.match(css, /\.oc-shell\[data-oc-theme=\"classic\"\]\s+\.oc-contextButtonRing\.is-critical\s*\{[\s\S]*background:\s*conic-gradient\(var\(--oc-error\)\s+var\(--oc-context-button-percent\),/)
+  })
+
   test("gives codex and claude clearly different visual signatures in both light and dark modes", () => {
     const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
 

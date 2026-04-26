@@ -146,6 +146,32 @@ body.vscode-light {
   --oc-radius-lg: 0px;
 }
 
+.oc-shell[data-oc-theme="classic"] *,
+.oc-shell[data-oc-theme="classic"] *::before,
+.oc-shell[data-oc-theme="classic"] *::after {
+  border-radius: 0 !important;
+}
+
+.oc-shell[data-oc-theme="classic"] .oc-contextButtonRing {
+  border-radius: 0 !important;
+  background: conic-gradient(var(--oc-accent) var(--oc-context-button-percent), color-mix(in srgb, var(--oc-border) 86%, transparent 14%) 0);
+}
+
+.oc-shell[data-oc-theme="classic"] .oc-contextButtonRing::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  background: var(--oc-surface-canvas);
+}
+
+.oc-shell[data-oc-theme="classic"] .oc-contextButtonRing.is-warning {
+  background: conic-gradient(var(--oc-warning) var(--oc-context-button-percent), color-mix(in srgb, var(--oc-border) 86%, transparent 14%) 0);
+}
+
+.oc-shell[data-oc-theme="classic"] .oc-contextButtonRing.is-critical {
+  background: conic-gradient(var(--oc-error) var(--oc-context-button-percent), color-mix(in srgb, var(--oc-border) 86%, transparent 14%) 0);
+}
+
 body.vscode-dark .oc-shell[data-oc-theme="codex"] {
   --oc-canvas: #0c1117;
   --oc-surface-primary: #0b0f14;

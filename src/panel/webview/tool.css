@@ -623,7 +623,54 @@ button.oc-toolTodoHeader {
 }
 
 .oc-toolPanel-todos {
+  padding: 0;
   background: color-mix(in srgb, var(--oc-accent) 10%, var(--oc-surface-block) 90%);
+}
+
+.oc-toolPanel-todos .oc-toolTodoHeader {
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 10px;
+  flex-wrap: nowrap;
+}
+
+.oc-toolPanel-todos .oc-toolHeaderMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.oc-toolPanel-todos .oc-kicker {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.oc-toolPanel-todos .oc-toolPanelTitle {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 36%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.oc-toolPanel-todos .oc-toolTodoSummary {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.oc-toolPanel-todos .oc-toolHeaderMeta {
+  flex: 0 0 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .oc-toolPanel-files {

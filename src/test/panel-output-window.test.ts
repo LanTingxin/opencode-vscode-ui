@@ -4,6 +4,23 @@ import { resolve } from "node:path"
 import { describe, test } from "node:test"
 
 describe("panel output window", () => {
+  test("keeps markdown code window bottom padding compact", () => {
+    const markdownCss = readFileSync(resolve(process.cwd(), "src/panel/webview/markdown.css"), "utf8")
+
+    const markdownCodeBodyRule = cssRule(markdownCss, ".oc-markdown .oc-outputWindow-markdownCode .oc-codeWindowBody")
+    assert.match(markdownCodeBodyRule, /margin:\s*0;/)
+    assert.match(markdownCodeBodyRule, /padding:\s*8px 10px 2px;/)
+  })
+
+  test("removes the inner markdown code body border in the classic theme", () => {
+    const markdownCss = readFileSync(resolve(process.cwd(), "src/panel/webview/markdown.css"), "utf8")
+    const rule = cssRule(markdownCss, '.oc-shell[data-oc-theme="classic"] .oc-outputWindow-markdownCode .oc-codeWindowBody')
+
+    assert.match(rule, /border:\s*0;/)
+    assert.match(rule, /border-radius:\s*0;/)
+    assert.match(rule, /box-shadow:\s*none;/)
+  })
+
   test("animates file output expansion with a reduced-motion fallback", () => {
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
     const outputWindowSource = readFileSync(resolve(process.cwd(), "src/panel/webview/renderers/OutputWindow.tsx"), "utf8")

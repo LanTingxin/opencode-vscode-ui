@@ -277,6 +277,11 @@
   color: var(--oc-md-current-code-block);
 }
 
+.oc-markdown .oc-outputWindow-markdownCode .oc-codeWindowBody {
+  margin: 0;
+  padding: 8px 10px 2px;
+}
+
 .oc-markdown pre code {
   padding: 0;
   border: 0;
@@ -381,6 +386,12 @@
 
 .oc-markdown .hljs-strong {
   font-weight: 700;
+}
+
+.oc-shell[data-oc-theme="classic"] .oc-outputWindow-markdownCode .oc-codeWindowBody {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-markdown {

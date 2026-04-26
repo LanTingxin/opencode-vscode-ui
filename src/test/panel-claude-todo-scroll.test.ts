@@ -4,6 +4,22 @@ import { resolve } from "node:path"
 import { describe, test } from "node:test"
 
 describe("claude todo panel scrolling", () => {
+  test("keeps collapsed todo headers compact in the classic theme", () => {
+    const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
+
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos"), /padding:\s*0;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolTodoHeader"), /height:\s*40px;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolTodoHeader"), /padding:\s*0\s+10px;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolTodoHeader"), /align-items:\s*center;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolTodoHeader"), /flex-wrap:\s*nowrap;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolHeaderMain"), /flex-wrap:\s*nowrap;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolHeaderMain"), /overflow:\s*hidden;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolPanelTitle"), /line-height:\s*1\.2;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolPanelTitle"), /text-overflow:\s*ellipsis;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolTodoSummary"), /line-height:\s*1\.2;/)
+    assert.match(cssRuleExact(toolCss, ".oc-toolPanel-todos .oc-toolTodoSummary"), /text-overflow:\s*ellipsis;/)
+  })
+
   test("lets long collapsed todo headers shrink instead of widening the transcript", () => {
     const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
 
@@ -43,6 +59,13 @@ describe("claude todo panel scrolling", () => {
 function cssRule(css: string, selector: string) {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const match = css.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`))
+  assert.ok(match, `missing CSS rule for ${selector}`)
+  return match[1] || ""
+}
+
+function cssRuleExact(css: string, selector: string) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = css.match(new RegExp(`(?:^|\\n)${escapedSelector}\\s*\\{([^}]*)\\}`))
   assert.ok(match, `missing CSS rule for ${selector}`)
   return match[1] || ""
 }
