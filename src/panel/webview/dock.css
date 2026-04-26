@@ -185,6 +185,62 @@ label.oc-questionOption:hover {
   border-color: color-mix(in srgb, var(--oc-error) 42%, var(--oc-border) 58%);
 }
 
+.oc-subagentNavDock {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.oc-subagentNavActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.oc-subagentNavActions .oc-btn {
+  padding: 6px 10px;
+  min-height: 32px;
+}
+
+.oc-subagentDock {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.oc-subagentDockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.oc-subagentReadonly {
+  flex: 0 0 auto;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-lg);
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.oc-subagentDockStatus .oc-composerActions {
+  padding: 0;
+  gap: 8px;
+}
+
+.oc-subagentDockStatus .oc-composerActionsMain {
+  min-height: 20px;
+}
+
+.oc-subagentDockStatus .oc-contextButtonRing {
+  width: 18px;
+  height: 18px;
+}
+
 .oc-shell[data-oc-theme="claude"] .oc-questionCard {
   border-color: color-mix(in srgb, var(--oc-border-strong) 52%, transparent 48%);
   background: color-mix(in srgb, var(--oc-surface-elevated) 80%, var(--oc-surface-block) 20%);

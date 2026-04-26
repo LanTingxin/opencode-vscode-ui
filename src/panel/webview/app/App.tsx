@@ -2,7 +2,7 @@ import React from "react"
 import type { ComposerPathResult, ComposerPromptPart, SessionBootstrap } from "../../../bridge/types"
 import type { QuestionRequest, SessionMessage } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, WorkspaceDirContext } from "./contexts"
-import { answerKey, PermissionDock, QuestionDock, RetryStatus, SessionNav, SubagentNotice } from "./docks"
+import { answerKey, PermissionDock, QuestionDock, RetryStatus, SubagentFooter, SubagentNavigation } from "./docks"
 import { createInitialState, persistableAppState, resolvePanelThemeValue, type AppState, type ComposerEditorPart, type ImageAttachment, type InitialWebviewState, type PersistedAppState, type VsCodeApi } from "./state"
 import { Timeline } from "./timeline"
 import { AgentBadge, CompactionDivider, EmptyState, FileRefText, MarkdownBlock, PartView, WebviewBindingsProvider } from "./webview-bindings"
@@ -1754,7 +1754,28 @@ export function App() {
               />
             ) : null}
             {!blocked && !isChildSession ? <RetryStatus status={state.snapshot.sessionStatus} /> : null}
-            {isChildSession ? <SessionNav navigation={state.snapshot.navigation} onNavigate={(sessionID) => vscode.postMessage({ type: "navigateSession", sessionID })} /> : null}
+            {isChildSession ? (
+              <>
+                <SubagentNavigation navigation={state.snapshot.navigation} onNavigate={(sessionID) => vscode.postMessage({ type: "navigateSession", sessionID })} />
+                <SubagentFooter>
+                  <ComposerFooter
+                    contextStats={composerFooterContextStats}
+                    status={composerRunningStatus}
+                    contextOpen={contextPanelOpen}
+                    badges={composerFooterBadges}
+                    onOpenContext={toggleContextPanel}
+                    pendingActions={pendingMcpActions}
+                    onActionStart={(name) => setPendingMcpActions((current) => ({ ...current, [name]: true }))}
+                    onBadgeAction={(item) => {
+                      if (!item.action) {
+                        return
+                      }
+                      vscode.postMessage({ type: "mcpAction", name: item.name, action: item.action })
+                    }}
+                  />
+                </SubagentFooter>
+              </>
+            ) : null}
 
             {!blocked && !isChildSession ? (
               <>
@@ -2141,7 +2162,6 @@ export function App() {
               </>
             ) : null}
 
-            {!blocked && isChildSession ? <SubagentNotice /> : null}
                 </div>
               </footer>
             {contextPanelOpen ? (

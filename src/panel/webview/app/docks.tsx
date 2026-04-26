@@ -366,7 +366,7 @@ export function RetryStatus({ status }: { status?: SessionStatus }) {
   )
 }
 
-export function SessionNav(props: {
+export function SubagentNavigation(props: {
   navigation: AppState["snapshot"]["navigation"]
   onNavigate: (sessionID: string) => void
 }) {
@@ -376,28 +376,28 @@ export function SessionNav(props: {
   }
 
   return (
-    <section className="oc-dock">
-      <div className="oc-dockHeader">
-        <span className="oc-kicker">subagent</span>
-        <span className="oc-dockTitle">Navigation</span>
-      </div>
-      <div className="oc-actionRow">
+    <nav className="oc-dock oc-subagentNavDock" aria-label="Subagent navigation">
+      <div className="oc-subagentNavActions">
         {navigation.parent ? <button type="button" className="oc-btn" onClick={() => onNavigate(navigation.parent!.id)}>Parent</button> : null}
         {navigation.prev ? <button type="button" className="oc-btn" onClick={() => onNavigate(navigation.prev!.id)}>Prev</button> : null}
         {navigation.next ? <button type="button" className="oc-btn" onClick={() => onNavigate(navigation.next!.id)}>Next</button> : null}
       </div>
-    </section>
+    </nav>
   )
 }
 
-export function SubagentNotice() {
+export function SubagentFooter(props: {
+  children?: React.ReactNode
+}) {
+  const { children } = props
+
   return (
-    <section className="oc-dock">
-      <div className="oc-dockHeader">
+    <section className="oc-dock oc-subagentDock">
+      <div className="oc-subagentDockHeader" title="Composer is hidden for child sessions.">
         <span className="oc-kicker">subagent</span>
-        <span className="oc-dockTitle">Read-only session</span>
+        <span className="oc-subagentReadonly">Read-only session</span>
       </div>
-      <div className="oc-dockText">Upstream TUI hides the composer for child sessions. This tab follows that behavior.</div>
+      {children ? <div className="oc-subagentDockStatus">{children}</div> : null}
     </section>
   )
 }

@@ -4,7 +4,7 @@ import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import type { PermissionRequest, QuestionRequest } from "../../../core/sdk"
-import { PermissionDock, QuestionBlock } from "./docks"
+import { PermissionDock, QuestionBlock, SubagentFooter, SubagentNavigation } from "./docks"
 
 function questionRequest(): Pick<QuestionRequest, "id" | "questions"> {
   return {
@@ -153,5 +153,45 @@ describe("PermissionDock", () => {
 
     assert.equal(readHtml.includes('data-path="src/panel/provider/files.ts"'), true)
     assert.equal(listHtml.includes('data-path="src/panel/webview"'), true)
+  })
+})
+
+describe("SubagentFooter", () => {
+  test("renders read-only state and status controls without navigation buttons", () => {
+    const html = renderToStaticMarkup(
+      <SubagentFooter>
+        <div className="test-status">6,568 tokens MCP LSP</div>
+      </SubagentFooter>,
+    )
+
+    assert.equal(html.includes("oc-subagentDock"), true)
+    assert.equal(html.includes("Read-only session"), true)
+    assert.equal(html.includes("Parent"), false)
+    assert.equal(html.includes("Next"), false)
+    assert.equal(html.includes("6,568 tokens MCP LSP"), true)
+    assert.equal(html.includes("Upstream TUI hides the composer"), false)
+  })
+})
+
+describe("SubagentNavigation", () => {
+  test("renders compact navigation as a footer dock with buttons only", () => {
+    const html = renderToStaticMarkup(
+      <SubagentNavigation
+        navigation={{
+          parent: { id: "parent", title: "Parent session" },
+          prev: { id: "prev", title: "Previous session" },
+          next: { id: "next", title: "Next session" },
+        }}
+        onNavigate={() => {}}
+      />,
+    )
+
+    assert.equal(html.includes("oc-subagentNavDock"), true)
+    assert.equal(html.includes("Parent"), true)
+    assert.equal(html.includes("Prev"), true)
+    assert.equal(html.includes("Next"), true)
+    assert.equal(html.includes("SUBAGENT"), false)
+    assert.equal(html.includes("Navigation"), false)
+    assert.equal(html.includes("Read-only session"), false)
   })
 })
