@@ -74,10 +74,21 @@ type TimelineProps = {
   skillCatalog: SkillCatalogEntry[]
   AgentBadge: ({ name }: { name: string }) => React.JSX.Element
   CompactionDivider: () => React.JSX.Element
-  EmptyState: ({ title, text }: { title: string; text: string }) => React.JSX.Element
+  EmptyState: ({ title, text, tips }: { title: string; text: string; tips?: EmptyStateTip[] }) => React.JSX.Element
   MarkdownBlock: ({ content, className }: { content: string; className?: string }) => React.JSX.Element
   PartView: ({ part, active, diffMode }: { part: MessagePart; active?: boolean; diffMode?: "unified" | "split" }) => React.JSX.Element
 }
+
+export type EmptyStateTip = {
+  command: string
+  text: string
+}
+
+const NEW_SESSION_TIPS: EmptyStateTip[] = [
+  { command: "/theme", text: "change the theme" },
+  { command: "@", text: "add files, symbols, or context" },
+  { command: "/new", text: "start another session in this workspace" },
+]
 
 export const Timeline = React.memo(function Timeline({
   bootstrapStatus,
@@ -135,7 +146,7 @@ export const Timeline = React.memo(function Timeline({
   }
 
   if (messages.length === 0) {
-    return <EmptyState title="Start this session" text="Send a message below. Pending permission and question requests will appear in the lower dock." />
+    return <EmptyState title="Start this session" text="Send a message below. Pending permission and question requests will appear in the lower dock." tips={NEW_SESSION_TIPS} />
   }
 
   return (

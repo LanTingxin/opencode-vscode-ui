@@ -3,7 +3,7 @@ import type { MessagePart } from "../../../core/sdk"
 import { PartView as BasePartView, ToolPartView as BaseToolPartView } from "./part-views"
 import { useChildMessages, useChildSessions, useTranscriptVisibility, useWorkspaceDir } from "./contexts"
 import { SkillPill } from "./skill-pill"
-import { findSkillLocation } from "./timeline"
+import { findSkillLocation, type EmptyStateTip } from "./timeline"
 import { renderToolRowExtra, renderToolRowTitle, taskAgentName, taskBody, taskSessionTitle, toolRowExtras } from "./tool-row-meta"
 import { TaskToolRow as BaseTaskToolRow, ToolRow as BaseToolRow, ToolStatus } from "./tool-rows"
 import { extractSkillInvocationName, findSkillInvocationMatch } from "../../shared/skill-invocation"
@@ -223,8 +223,26 @@ export function renderPartBody(part: MessagePart) {
   return <div className="oc-partEmpty">{partTitle(part)}</div>
 }
 
-export function EmptyState({ title, text }: { title: string; text: string }) {
-  return <div className="oc-emptyWrap"><section className="oc-emptyState"><div className="oc-kicker">session</div><h2 className="oc-emptyTitle">{title}</h2><p className="oc-emptyText">{text}</p></section></div>
+export function EmptyState({ title, text, tips }: { title: string; text: string; tips?: EmptyStateTip[] }) {
+  return (
+    <div className="oc-emptyWrap">
+      <section className="oc-emptyState">
+        <div className="oc-kicker">session</div>
+        <h2 className="oc-emptyTitle">{title}</h2>
+        <p className="oc-emptyText">{text}</p>
+        {tips?.length ? (
+          <div className="oc-emptyTips" aria-label="Session tips">
+            {tips.map((tip) => (
+              <div className="oc-emptyTip" key={tip.command}>
+                <code className="oc-emptyTipCommand">{tip.command}</code>
+                <span>{tip.text}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    </div>
+  )
 }
 
 export function MarkdownBlock({ content, className = "" }: { content: string; className?: string }) {

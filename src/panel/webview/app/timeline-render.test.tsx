@@ -134,6 +134,40 @@ function filePart(id: string, messageID: string, extras?: Partial<FilePart>): Fi
 }
 
 describe("Timeline user message rendering", () => {
+  test("renders new session tips in the empty state", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[]}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text, tips }: { title: string; text: string; tips?: Array<{ command: string; text: string }> }) => (
+          <div>
+            <h2>{title}</h2>
+            <p>{text}</p>
+            {tips?.map((tip) => <div key={tip.command}>{tip.command}:{tip.text}</div>)}
+          </div>
+        )}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("/theme"), true)
+    assert.equal(html.includes("change the theme"), true)
+  })
+
   test("does not render a dedicated You header for user messages", () => {
     const html = renderToStaticMarkup(
       <Timeline

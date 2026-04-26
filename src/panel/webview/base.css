@@ -86,6 +86,33 @@ button {
   font-size: var(--oc-font-size);
 }
 
+.oc-emptyTips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.oc-emptyTip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--oc-border-strong) 62%, transparent 38%);
+  border-radius: var(--oc-radius-sm);
+  background: color-mix(in srgb, var(--oc-surface-control) 80%, transparent 20%);
+  color: var(--oc-fg-muted);
+  line-height: 1.35;
+}
+
+.oc-emptyTipCommand {
+  flex: 0 0 auto;
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-mono);
+  font-size: var(--oc-font-size-sm);
+}
+
 .oc-entryHeader,
 .oc-partHeader,
 .oc-dockHeader,
