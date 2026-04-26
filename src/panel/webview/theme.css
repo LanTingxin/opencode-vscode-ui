@@ -258,9 +258,9 @@ body.vscode-dark .oc-shell[data-oc-theme="claude"] {
   --oc-composer-shadow: 0 24px 54px rgba(0, 0, 0, 0.3);
   --oc-status-badge-bg: color-mix(in srgb, #d98d3f 12%, #1f1a16 88%);
   --oc-status-badge-border: color-mix(in srgb, #f4eee5 14%, transparent 86%);
-  --oc-radius-sm: 14px;
-  --oc-radius-md: 20px;
-  --oc-radius-lg: 28px;
+  --oc-radius-sm: 8px;
+  --oc-radius-md: 12px;
+  --oc-radius-lg: 16px;
   --oc-space-regular: 12px;
   --oc-space-roomy: 16px;
   --oc-shadow-soft: 0 12px 28px rgba(0, 0, 0, 0.28);
@@ -302,9 +302,9 @@ body.vscode-light .oc-shell[data-oc-theme="claude"] {
   --oc-composer-shadow: 0 26px 52px rgba(76, 47, 11, 0.12);
   --oc-status-badge-bg: color-mix(in srgb, #c67426 9%, #fffdf8 91%);
   --oc-status-badge-border: color-mix(in srgb, #342a20 12%, transparent 88%);
-  --oc-radius-sm: 14px;
-  --oc-radius-md: 20px;
-  --oc-radius-lg: 28px;
+  --oc-radius-sm: 8px;
+  --oc-radius-md: 12px;
+  --oc-radius-lg: 16px;
   --oc-space-regular: 12px;
   --oc-space-roomy: 16px;
 }

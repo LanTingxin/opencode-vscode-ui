@@ -263,14 +263,14 @@
 
 .oc-shell[data-oc-theme="claude"] .oc-toolRowWrap {
   border: 1px solid color-mix(in srgb, var(--oc-border-strong) 48%, transparent 52%);
-  border-radius: calc(var(--oc-radius-sm) + 4px);
+  border-radius: 10px;
   background: color-mix(in srgb, var(--oc-surface-elevated) 72%, var(--oc-surface-block) 28%);
   box-shadow: var(--oc-tool-shadow), inset 0 1px 0 color-mix(in srgb, white 18%, transparent 82%);
 }
 
 .oc-shell[data-oc-theme="claude"] .oc-toolPanel {
   border-color: color-mix(in srgb, var(--oc-border-strong) 54%, transparent 46%);
-  border-radius: calc(var(--oc-radius-md) - 2px);
+  border-radius: 10px;
   background: color-mix(in srgb, var(--oc-surface-elevated) 76%, var(--oc-surface-block) 24%);
   box-shadow: var(--oc-card-shadow);
 }

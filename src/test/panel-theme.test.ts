@@ -193,11 +193,21 @@ describe("panel theme settings", () => {
     const css = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
 
     assert.match(css, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-radius-md:\s*10px;/)
-    assert.match(css, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-radius-md:\s*20px;/)
+    assert.match(css, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-radius-md:\s*12px;/)
     assert.match(css, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-accent-strong:\s*#63a6ff;/)
     assert.match(css, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-accent-strong:\s*#d98d3f;/)
     assert.match(css, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"codex\"\]\s*\{[\s\S]*--oc-canvas:\s*#edf3fb;/)
     assert.match(css, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-canvas:\s*#f6efe5;/)
+  })
+
+  test("keeps claude theme corners close to the real Claude Code surface treatment", () => {
+    const themeCss = readFileSync(resolve(process.cwd(), "src/panel/webview/theme.css"), "utf8")
+    const toolCss = readFileSync(resolve(process.cwd(), "src/panel/webview/tool.css"), "utf8")
+
+    assert.match(themeCss, /body\.vscode-dark\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-radius-sm:\s*8px;[\s\S]*--oc-radius-md:\s*12px;[\s\S]*--oc-radius-lg:\s*16px;/)
+    assert.match(themeCss, /body\.vscode-light\s+\.oc-shell\[data-oc-theme=\"claude\"\]\s*\{[\s\S]*--oc-radius-sm:\s*8px;[\s\S]*--oc-radius-md:\s*12px;[\s\S]*--oc-radius-lg:\s*16px;/)
+    assert.match(cssRule(toolCss, ".oc-shell[data-oc-theme=\"claude\"] .oc-toolRowWrap"), /border-radius:\s*10px;/)
+    assert.match(cssRule(toolCss, ".oc-shell[data-oc-theme=\"claude\"] .oc-toolPanel"), /border-radius:\s*10px;/)
   })
 
   test("uses a frameless outer composer container", () => {
@@ -506,3 +516,10 @@ describe("panel theme settings", () => {
     assert.match(toolCss, /\.oc-shell\[data-oc-theme=\"codex\"\]\s+\.oc-toolPanel-todos\s*\{[\s\S]*display:\s*none;/)
   })
 })
+
+function cssRule(css: string, selector: string) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = css.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`))
+  assert.ok(match, `missing CSS rule for ${selector}`)
+  return match[1] || ""
+}
