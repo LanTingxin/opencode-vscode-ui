@@ -33,6 +33,26 @@ describe("panel webview persisted state", () => {
     assert.equal(state.snapshot.display.showSkillsInSlashAutocomplete, false)
   })
 
+  test("uses host-provided display settings for the initial snapshot", () => {
+    const state = createInitialState(initialRef, undefined, {
+      showInternals: true,
+      showThinking: false,
+      diffMode: "split",
+      compactSkillInvocations: false,
+      showSkillsInSlashAutocomplete: true,
+      panelTheme: "classic",
+    })
+
+    assert.deepEqual(state.snapshot.display, {
+      showInternals: true,
+      showThinking: false,
+      diffMode: "split",
+      compactSkillInvocations: false,
+      showSkillsInSlashAutocomplete: true,
+      panelTheme: "classic",
+    })
+  })
+
   test("reuses session-scoped composer state when workspace id and session id match", () => {
     const state = createInitialState(initialRef, persisted())
 

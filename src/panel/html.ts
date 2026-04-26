@@ -1,9 +1,13 @@
 import * as vscode from "vscode"
 import type { SessionPanelRef } from "../bridge/types"
+import { getDisplaySettings } from "../core/settings"
 
 export function sessionPanelHtml(webview: vscode.Webview, extensionUri: vscode.Uri, ref?: SessionPanelRef) {
   const nonce = nonceText()
-  const initialState = JSON.stringify(ref ?? null)
+  const initialState = JSON.stringify({
+    sessionRef: ref ?? null,
+    display: getDisplaySettings(),
+  })
   const scriptUri = assetUri(webview, extensionUri, "panel-webview.js")
   const styleUri = assetUri(webview, extensionUri, "panel-webview.css")
 

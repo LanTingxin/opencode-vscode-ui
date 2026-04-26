@@ -125,6 +125,11 @@ export type AppState = {
   form: FormState
 }
 
+export type InitialWebviewState = {
+  sessionRef: SessionBootstrap["sessionRef"] | null
+  display?: DisplaySettings
+}
+
 export type PersistedAppState = {
   workspaceId: string
   dir: string
@@ -137,8 +142,9 @@ export type PersistedAppState = {
   commandPromptInvocations?: CommandPromptCatalog
 }
 
-export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | null, persisted?: PersistedAppState): AppState {
+export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | null, persisted?: PersistedAppState, initialDisplay?: DisplaySettings): AppState {
   const sameSession = samePersistedSession(initialRef, persisted)
+  const display = initialDisplaySettings(initialDisplay)
   return {
     bootstrap: {
       status: "loading",
@@ -149,14 +155,7 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
     snapshot: {
       messages: [],
       session: undefined,
-      display: {
-        showInternals: false,
-        showThinking: true,
-        diffMode: "unified",
-        compactSkillInvocations: true,
-        showSkillsInSlashAutocomplete: false,
-        panelTheme: "codex",
-      },
+      display,
       skillCatalog: [],
       messageHistory: {
         limit: 0,
@@ -209,6 +208,17 @@ export function createInitialState(initialRef: SessionBootstrap["sessionRef"] | 
       custom: {},
       reject: {},
     },
+  }
+}
+
+function initialDisplaySettings(display?: DisplaySettings): DisplaySettings {
+  return {
+    showInternals: display?.showInternals === true,
+    showThinking: display?.showThinking !== false,
+    diffMode: display?.diffMode === "split" ? "split" : "unified",
+    compactSkillInvocations: display?.compactSkillInvocations !== false,
+    showSkillsInSlashAutocomplete: display?.showSkillsInSlashAutocomplete === true,
+    panelTheme: resolvePanelThemeValue(display?.panelTheme),
   }
 }
 

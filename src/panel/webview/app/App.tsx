@@ -3,7 +3,7 @@ import type { ComposerPathResult, ComposerPromptPart, SessionBootstrap } from ".
 import type { QuestionRequest, SessionMessage } from "../../../core/sdk"
 import { ChildMessagesContext, ChildSessionsContext, WorkspaceDirContext } from "./contexts"
 import { answerKey, PermissionDock, QuestionDock, RetryStatus, SessionNav, SubagentNotice } from "./docks"
-import { createInitialState, persistableAppState, resolvePanelThemeValue, type AppState, type ComposerEditorPart, type ImageAttachment, type PersistedAppState, type VsCodeApi } from "./state"
+import { createInitialState, persistableAppState, resolvePanelThemeValue, type AppState, type ComposerEditorPart, type ImageAttachment, type InitialWebviewState, type PersistedAppState, type VsCodeApi } from "./state"
 import { Timeline } from "./timeline"
 import { AgentBadge, CompactionDivider, EmptyState, FileRefText, MarkdownBlock, PartView, WebviewBindingsProvider } from "./webview-bindings"
 import { ensureComposerCursorVisible, resizeComposer, useComposerResize } from "../hooks/useComposer"
@@ -38,14 +38,15 @@ import { resolveTranscriptHistoryMode, shouldAutoLoadEarlierMessages, transcript
 
 declare global {
   interface Window {
-    __OPENCODE_INITIAL_STATE__?: SessionBootstrap["sessionRef"] | null
+    __OPENCODE_INITIAL_STATE__?: InitialWebviewState | SessionBootstrap["sessionRef"] | null
   }
 }
 
 declare function acquireVsCodeApi(): VsCodeApi
 
 const vscode = acquireVsCodeApi()
-const initialRef = window.__OPENCODE_INITIAL_STATE__ ?? null
+const initialWebviewState = normalizeInitialWebviewState(window.__OPENCODE_INITIAL_STATE__)
+const initialRef = initialWebviewState.sessionRef
 const persistedState = normalizePersistedState(vscode.getState<PersistedAppState | SessionBootstrap["sessionRef"]>())
 const fileRefStatus = new Map<string, boolean>()
 const ESC_INTERRUPT_WINDOW_MS = 5000
@@ -60,7 +61,7 @@ function sameAutocompleteMatch(
 }
 
 export function App() {
-  const [state, setState] = React.useState(() => createInitialState(initialRef, persistedState))
+  const [state, setState] = React.useState(() => createInitialState(initialRef, persistedState, initialWebviewState.display))
   const [composerMode, setComposerMode] = React.useState<ComposerMode>("normal")
   const [composing, setComposing] = React.useState(false)
   const [composerFocused, setComposerFocused] = React.useState(false)
@@ -2194,6 +2195,33 @@ function copyText(value: string) {
   document.execCommand("copy")
   document.body.removeChild(input)
   return Promise.resolve()
+}
+
+function normalizeInitialWebviewState(value: InitialWebviewState | SessionBootstrap["sessionRef"] | null | undefined): InitialWebviewState {
+  if (!value || typeof value !== "object") {
+    return { sessionRef: null }
+  }
+
+  if ("sessionRef" in value) {
+    const maybe = value as Partial<InitialWebviewState>
+    return {
+      sessionRef: maybe.sessionRef || null,
+      display: maybe.display,
+    }
+  }
+
+  const maybeRef = value as Partial<SessionBootstrap["sessionRef"]>
+  if (!maybeRef.dir || !maybeRef.sessionId) {
+    return { sessionRef: null }
+  }
+
+  return {
+    sessionRef: {
+      workspaceId: maybeRef.workspaceId || maybeRef.dir,
+      dir: maybeRef.dir,
+      sessionId: maybeRef.sessionId,
+    },
+  }
 }
 
 function normalizePersistedState(value: PersistedAppState | SessionBootstrap["sessionRef"] | null | undefined): PersistedAppState | undefined {
