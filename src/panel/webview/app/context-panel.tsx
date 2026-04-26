@@ -29,6 +29,17 @@ type ContextBreakdownSegment = {
   percent: number
 }
 
+type ContextToolBreakdownSegment = {
+  name: string
+  tokens: number
+  percent: number
+}
+
+type ContextBreakdown = {
+  segments: ContextBreakdownSegment[]
+  tools: ContextToolBreakdownSegment[]
+}
+
 const BREAKDOWN_LABELS: Record<ContextBreakdownKey, string> = {
   system: "System",
   user: "User",
@@ -59,7 +70,7 @@ export function ContextPanel({
         messages,
         input: metrics.context.input,
       })
-    : []
+    : { segments: [], tools: [] }
   const counts = messageCounts(messages)
 
   return (
@@ -86,11 +97,11 @@ export function ContextPanel({
         <ContextStat label="Last activity" value={formatDateTime(session?.time.updated)} />
       </div>
 
-      {breakdown.length > 0 ? (
+      {breakdown.segments.length > 0 ? (
         <section className="oc-contextSection">
           <div className="oc-contextSectionTitle">Context breakdown</div>
           <div className="oc-contextBreakdownBar" aria-hidden="true">
-            {breakdown.map((segment) => (
+            {breakdown.segments.map((segment) => (
               <span
                 key={segment.key}
                 className={`oc-contextBreakdownSegment is-${segment.key}`}
@@ -99,7 +110,7 @@ export function ContextPanel({
             ))}
           </div>
           <div className="oc-contextLegend">
-            {breakdown.map((segment) => (
+            {breakdown.segments.map((segment) => (
               <div key={`${segment.key}:legend`} className="oc-contextLegendItem">
                 <span className={`oc-contextLegendSwatch is-${segment.key}`} />
                 <span>{BREAKDOWN_LABELS[segment.key]}</span>
@@ -107,6 +118,20 @@ export function ContextPanel({
               </div>
             ))}
           </div>
+          {breakdown.tools.length > 0 ? (
+            <div className="oc-contextToolBreakdown">
+              <div className="oc-contextToolTitle">Tool usage</div>
+              <div className="oc-contextToolList">
+                {breakdown.tools.map((tool) => (
+                  <div key={tool.name} className="oc-contextToolItem">
+                    <span className="oc-contextLegendSwatch is-tool" />
+                    <span className="oc-contextToolName">{tool.name}</span>
+                    <span className="oc-contextToolPercent">{tool.percent}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -277,9 +302,9 @@ function estimateContextBreakdown({
 }: {
   messages: SessionMessage[]
   input: number
-}): ContextBreakdownSegment[] {
+}): ContextBreakdown {
   if (!input) {
-    return []
+    return { segments: [], tools: [] }
   }
 
   const counts = messages.reduce(
@@ -298,18 +323,26 @@ function estimateContextBreakdown({
       const next = message.parts.reduce(
         (sum, part) => {
           const values = charsFromAssistantPart(part)
+          const tools = part.type === "tool"
+            ? {
+                ...sum.tools,
+                [part.tool]: (sum.tools[part.tool] ?? 0) + values.tool,
+              }
+            : sum.tools
           return {
             assistant: sum.assistant + values.assistant,
             tool: sum.tool + values.tool,
+            tools,
           }
         },
-        { assistant: 0, tool: 0 },
+        { assistant: 0, tool: 0, tools: {} as Record<string, number> },
       )
 
       return {
         ...acc,
         assistant: acc.assistant + next.assistant,
         tool: acc.tool + next.tool,
+        tools: addToolCounts(acc.tools, next.tools),
       }
     },
     {
@@ -317,6 +350,7 @@ function estimateContextBreakdown({
       user: 0,
       assistant: 0,
       tool: 0,
+      tools: {} as Record<string, number>,
     },
   )
 
@@ -329,7 +363,10 @@ function estimateContextBreakdown({
   const estimated = tokens.system + tokens.user + tokens.assistant + tokens.tool
 
   if (estimated <= input) {
-    return buildBreakdown({ ...tokens, other: input - estimated }, input)
+    return {
+      segments: buildBreakdown({ ...tokens, other: input - estimated }, input),
+      tools: buildToolBreakdown(tokensFromToolChars(counts.tools, tokens.tool), input),
+    }
   }
 
   const scale = input / estimated
@@ -341,7 +378,10 @@ function estimateContextBreakdown({
   }
   const total = scaled.system + scaled.user + scaled.assistant + scaled.tool
 
-  return buildBreakdown({ ...scaled, other: Math.max(0, input - total) }, input)
+  return {
+    segments: buildBreakdown({ ...scaled, other: Math.max(0, input - total) }, input),
+    tools: buildToolBreakdown(tokensFromToolChars(counts.tools, scaled.tool), input),
+  }
 }
 
 function buildBreakdown(
@@ -396,6 +436,42 @@ function charsFromAssistantPart(part: MessagePart) {
   }
 
   return { assistant: 0, tool: inputSize }
+}
+
+function addToolCounts(left: Record<string, number>, right: Record<string, number>) {
+  return Object.entries(right).reduce((acc, [name, chars]) => ({
+    ...acc,
+    [name]: (acc[name] ?? 0) + chars,
+  }), left)
+}
+
+function tokensFromToolChars(tools: Record<string, number>, totalToolTokens: number) {
+  const result: Record<string, number> = {}
+  const totalChars = Object.values(tools).reduce((sum, chars) => sum + chars, 0)
+  if (totalChars <= 0 || totalToolTokens <= 0) {
+    return result
+  }
+
+  for (const [name, chars] of Object.entries(tools)) {
+    const tokens = (chars / totalChars) * totalToolTokens
+    if (tokens > 0) {
+      result[name] = tokens
+    }
+  }
+  return result
+}
+
+function buildToolBreakdown(
+  tools: Record<string, number>,
+  input: number,
+): ContextToolBreakdownSegment[] {
+  return Object.entries(tools)
+    .map(([name, tokens]) => ({
+      name,
+      tokens,
+      percent: toPercentLabel(tokens, input),
+    }))
+    .sort((left, right) => right.tokens - left.tokens || left.name.localeCompare(right.name))
 }
 
 function estimateTokens(chars: number) {

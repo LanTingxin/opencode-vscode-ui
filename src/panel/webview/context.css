@@ -161,6 +161,43 @@
   border-radius: 2px;
 }
 
+.oc-contextToolBreakdown {
+  display: grid;
+  gap: 6px;
+}
+
+.oc-contextToolTitle {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-contextToolList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.oc-contextToolItem {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 6px;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--oc-border) 70%, transparent 30%);
+  border-radius: var(--oc-radius-sm);
+  background: color-mix(in srgb, var(--oc-surface-control) 74%, transparent 26%);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-font-size-sm);
+}
+
+.oc-contextToolName {
+  overflow-wrap: anywhere;
+}
+
+.oc-contextToolPercent {
+  color: var(--oc-fg);
+}
+
 .oc-contextMessages {
   display: grid;
   gap: 8px;

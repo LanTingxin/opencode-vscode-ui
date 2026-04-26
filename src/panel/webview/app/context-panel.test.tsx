@@ -155,6 +155,64 @@ describe("ContextPanel", () => {
     assert.equal(html.includes("msg-assistant-1"), true)
   })
 
+  test("renders a second-level tool usage breakdown by tool name", async () => {
+    const moduleUrl = pathToFileURL(resolve(process.cwd(), "src/panel/webview/app/context-panel.tsx")).href
+    const mod = await import(moduleUrl).catch(() => null)
+
+    assert.notEqual(mod, null)
+    if (!mod) {
+      return
+    }
+
+    const ContextPanel = (mod as {
+      ContextPanel: (props: {
+        session?: SessionInfo
+        messages: SessionMessage[]
+        providers: ProviderInfo[]
+      }) => React.JSX.Element
+    }).ContextPanel
+
+    const toolMessages = messages()
+    const assistant = toolMessages[1]
+    assert.equal(assistant?.info.role, "assistant")
+    if (assistant?.info.role !== "assistant") {
+      return
+    }
+
+    toolMessages[1] = {
+      ...assistant,
+      parts: [
+        ...assistant.parts,
+        {
+          id: "part-assistant-tool-2",
+          sessionID: "session-1",
+          messageID: "msg-assistant-1",
+          type: "tool",
+          tool: "read",
+          state: {
+            status: "completed",
+            input: {
+              filePath: "src/panel/webview/app/context-panel.tsx",
+            },
+            output: "context panel source",
+          },
+        },
+      ],
+    }
+
+    const html = renderToStaticMarkup(
+      <ContextPanel
+        session={session()}
+        messages={toolMessages}
+        providers={providers()}
+      />,
+    )
+
+    assert.equal(html.includes("Tool usage"), true)
+    assert.match(html, /oc-contextToolName">bash<\/span>[\s\S]*oc-contextToolPercent">[0-9.]+%<\/span>/)
+    assert.match(html, /oc-contextToolName">read<\/span>[\s\S]*oc-contextToolPercent">[0-9.]+%<\/span>/)
+  })
+
   test("renders upstream-style provider metadata and highlighted wrapping raw JSON", async () => {
     const moduleUrl = pathToFileURL(resolve(process.cwd(), "src/panel/webview/app/context-panel.tsx")).href
     const mod = await import(moduleUrl).catch(() => null)
