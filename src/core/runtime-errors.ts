@@ -1,8 +1,12 @@
 import * as cp from "node:child_process"
 import * as vscode from "vscode"
-import type { WorkspaceRuntime } from "./server"
+import { resolveOpencodeCommand, type WorkspaceRuntime } from "./server"
+import { getOpencodePath } from "./settings"
 
 const MISSING_OPENCODE_MARKERS = [
+  "was not found on the current host PATH",
+  "is not executable on the current host",
+  // legacy phrasing kept for backward compatibility
   'command "opencode" was not found',
   'command "opencode" is not executable',
 ]
@@ -38,8 +42,9 @@ export function runtimeNotReadyMessage(rt?: Pick<WorkspaceRuntime, "name" | "err
 }
 
 export async function checkOpencodeAvailable() {
+  const command = resolveOpencodeCommand(getOpencodePath())
   return await new Promise<{ ok: true; output: string } | { ok: false; message: string }>((resolve) => {
-    const proc = cp.spawn("opencode", ["--version"], {
+    const proc = cp.spawn(command, ["--version"], {
       env: {
         ...process.env,
         OPENCODE_CALLER: "vscode-ui",
@@ -72,12 +77,12 @@ export async function checkOpencodeAvailable() {
 
     proc.once("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "ENOENT") {
-        finish({ ok: false, message: 'command "opencode" was not found on PATH' })
+        finish({ ok: false, message: `command "${command}" was not found on the current host PATH` })
         return
       }
 
       if (err.code === "EACCES") {
-        finish({ ok: false, message: 'command "opencode" is not executable' })
+        finish({ ok: false, message: `command "${command}" is not executable on the current host` })
         return
       }
 

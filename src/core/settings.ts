@@ -17,6 +17,7 @@ export type DisplaySettings = {
 const SECTION = "opencode-ui"
 
 export const HTTP_PROXY_KEY = "httpProxy"
+export const OPENCODE_PATH_KEY = "opencodePath"
 export const SHOW_INTERNALS_KEY = "showInternals"
 export const SHOW_THINKING_KEY = "showThinking"
 export const DIFF_MODE_KEY = "diffMode"
@@ -36,6 +37,11 @@ export function getDisplaySettings(): DisplaySettings {
     panelTheme: normalizePanelTheme(config.get<string>(PANEL_THEME_KEY, "codex")),
     panelColorScheme: normalizePanelColorScheme(config.get<string>(PANEL_COLOR_SCHEME_KEY, "default")),
   }
+}
+
+export function getOpencodePath() {
+  const config = vscode.workspace.getConfiguration(SECTION)
+  return config.get<string>(OPENCODE_PATH_KEY, "").trim()
 }
 
 export function getHttpProxy() {

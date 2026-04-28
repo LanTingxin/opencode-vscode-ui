@@ -4,7 +4,7 @@
   "displayName": "OpenCode Enhanced UI",
   "description": "VS Code enhanced UI for opencode",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "LanTingxin",
   "icon": "images/logo.png",
   "license": "MIT",
@@ -368,6 +368,12 @@
           "type": "string",
           "default": "",
           "description": "Optional HTTP_PROXY value used when launching opencode serve. Leave empty to inherit the existing environment, or fall back to VS Code http.proxy when no proxy env is present. Requires editor restart to take effect.",
+          "scope": "machine-overridable"
+        },
+        "opencode-ui.opencodePath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the opencode executable used to launch opencode serve. Leave empty to look up opencode on PATH. Useful when opencode is installed to a custom location. Requires editor restart to take effect.",
           "scope": "machine-overridable"
         }
       }

@@ -131,6 +131,7 @@ OpenCode Enhanced UI runs on the correct extension host, so Remote SSH sessions 
 
 - **VS Code `1.94.0` or newer**
 - **`opencode` installed on the active extension host and available on `PATH`**
+  - If `opencode` lives outside `PATH`, set the `opencode-ui.opencodePath` setting to its absolute path. Editor restart required.
 
 If you use Remote SSH, **install `opencode` on the remote host** so the extension can launch `opencode serve` there.
 
@@ -192,6 +193,7 @@ Access settings via `OpenCode: Open Settings` or search for "OpenCode" in VS Cod
 
 ### Network Settings
 - **HTTP Proxy** (`opencode-ui.httpProxy`) - Configure HTTP proxy for opencode serve (requires restart)
+- **OpenCode Path** (`opencode-ui.opencodePath`) - Absolute path to the opencode executable when it lives outside `PATH` (requires restart)
 
 ## Tips & Tricks 💡
 

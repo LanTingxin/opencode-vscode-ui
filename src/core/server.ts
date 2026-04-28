@@ -1,6 +1,6 @@
 import * as cp from "node:child_process"
 import * as net from "node:net"
-import { getHttpProxy } from "./settings"
+import { getHttpProxy, getOpencodePath } from "./settings"
 import type { Client, SessionInfo, SessionStatus } from "./sdk"
 
 export type RuntimeState = "starting" | "ready" | "error" | "stopped" | "stopping"
@@ -121,6 +121,11 @@ export function startupFailure(proc: cp.ChildProcess) {
   }
 }
 
+export function resolveOpencodeCommand(configured: string) {
+  const trimmed = configured.trim()
+  return trimmed.length > 0 ? trimmed : "opencode"
+}
+
 export function spawn(dir: string, port: number) {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -137,7 +142,8 @@ export function spawn(dir: string, port: number) {
     clearEmptyProxyEnv(env)
   }
 
-  return cp.spawn("opencode", ["serve", "--port", String(port), "--hostname", "127.0.0.1"], {
+  const command = resolveOpencodeCommand(getOpencodePath())
+  return cp.spawn(command, ["serve", "--port", String(port), "--hostname", "127.0.0.1"], {
     cwd: dir,
     detached: process.platform !== "win32",
     env,
@@ -217,12 +223,17 @@ function wait(ms: number) {
 }
 
 function formatSpawnError(err: NodeJS.ErrnoException) {
+  const command = resolveOpencodeCommand(getOpencodePath())
+  const hint = command === "opencode"
+    ? ' (set "opencode-ui.opencodePath" to point at the opencode binary if it lives outside PATH)'
+    : ` (configured via "opencode-ui.opencodePath": ${command})`
+
   if (err.code === "ENOENT") {
-    return 'failed to start opencode: command "opencode" was not found on the current host PATH'
+    return `failed to start opencode: command "${command}" was not found on the current host PATH${hint}`
   }
 
   if (err.code === "EACCES") {
-    return 'failed to start opencode: command "opencode" is not executable on the current host'
+    return `failed to start opencode: command "${command}" is not executable on the current host${hint}`
   }
 
   const message = err.message || String(err)
