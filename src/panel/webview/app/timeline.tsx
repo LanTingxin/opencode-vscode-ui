@@ -5,7 +5,7 @@ import type { PanelTheme } from "../../../core/settings"
 import type { CommandInfo, FilePart, MessageInfo, MessagePart, SessionMessage, TextPart } from "../../../core/sdk"
 import { findSkillInvocationMatch } from "../../shared/skill-invocation"
 import { recordValue, stringValue } from "../lib/part-utils"
-import { toolFiles } from "../lib/tool-meta"
+import { isMcpTool, mcpName, toolFiles } from "../lib/tool-meta"
 import { commandPromptLabel, findCommandPromptInvocation, previewCommandPromptText, type CommandPromptCatalog } from "./command-prompt"
 import { CommandPill } from "./command-pill"
 import { CollapsiblePrompt } from "./collapsible-prompt"
@@ -414,7 +414,7 @@ function TimelineBlockView({
   const part = block.part
   if (part.type === "text") {
     const copyValue = assistantCopyText(part, { compactSkillInvocations, skillCatalog })
-    if (!copyValue || !showAssistantCopy) {
+    if (!copyValue || !showAssistantCopy || !assistantFooterMetaMessages) {
       return <PartView part={part} active={active} diffMode={diffMode} />
     }
 
@@ -422,7 +422,7 @@ function TimelineBlockView({
       <div className={assistantReplyWrapClassNames(panelTheme)}>
         <PartView part={part} active={active} diffMode={diffMode} />
         <div className={assistantReplyFooterClassNames(panelTheme)} aria-label="Reply actions">
-          {assistantFooterMetaMessages ? <AssistantReplyMeta AgentBadge={AgentBadge} messages={assistantFooterMetaMessages} /> : null}
+          <AssistantReplyMeta AgentBadge={AgentBadge} messages={assistantFooterMetaMessages} />
           <CopyMessageButton className="oc-assistantReplyCopyBtn" onCopy={() => onCopyAssistantText(copyValue)} />
         </div>
       </div>
@@ -813,13 +813,13 @@ function assistantFooterMetaMessages(
 function shouldHideAssistantMetaBlock(
   blocks: TimelineBlock[],
   index: number,
-  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+  _options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
 ) {
   const block = blocks[index]
   if (!block || block.kind !== "assistant-meta") {
     return false
   }
-  return !!finalAssistantCopyPartID(blocks, index, options)
+  return true
 }
 
 function finalAssistantCopyPartID(
@@ -1101,6 +1101,10 @@ function assistantMetaBlock(
   messages: SessionMessage[],
 ) {
   if (!assistantTurnMeta(messagesFromAssistants(messages))) {
+    return undefined
+  }
+  const lastMsg = messages[messages.length - 1]
+  if (lastMsg && !lastMsg.info.time.completed) {
     return undefined
   }
 
@@ -1410,6 +1414,7 @@ function codexActivitySummary(parts: AssistantActivityToolPart[]) {
   const explored = new Set<string>()
   let searches = 0
   let commands = 0
+  const mcpCounts = new Map<string, number>()
 
   for (const part of parts) {
     const kind = codexActivityKind(part)
@@ -1437,6 +1442,12 @@ function codexActivitySummary(parts: AssistantActivityToolPart[]) {
 
     if (kind === "command") {
       commands += 1
+      continue
+    }
+
+    if (kind === "mcp") {
+      const name = mcpName(part.tool)
+      mcpCounts.set(name, (mcpCounts.get(name) || 0) + 1)
     }
   }
 
@@ -1452,6 +1463,9 @@ function codexActivitySummary(parts: AssistantActivityToolPart[]) {
   }
   if (commands > 0) {
     segments.push(`Ran ${commands} ${commands === 1 ? "command" : "commands"}`)
+  }
+  for (const [name, count] of mcpCounts) {
+    segments.push(`${name}: ${count} ${count === 1 ? "call" : "calls"}`)
   }
 
   return sentenceCaseActivitySummary(segments.join(", "))
@@ -1473,6 +1487,9 @@ function codexActivityKind(part: AssistantActivityToolPart) {
   }
   if (part.tool === "bash") {
     return "command"
+  }
+  if (isMcpTool(part.tool)) {
+    return "mcp"
   }
   return ""
 }

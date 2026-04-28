@@ -471,15 +471,6 @@
   transform: translateY(0);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .oc-collapsiblePromptContent,
-  .oc-collapsiblePromptFade,
-  .oc-collapsiblePromptToggle {
-    transition: none;
-    transform: none;
-  }
-}
-
 .oc-part-inline {
   padding: 6px 10px;
   border: 0;
@@ -1013,10 +1004,3 @@
   overflow: hidden;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary,
-  .oc-shell[data-oc-theme="codex"] .oc-codexActivityDetails {
-    transition: none;
-    transform: none;
-  }
-}

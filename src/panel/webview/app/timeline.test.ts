@@ -199,6 +199,56 @@ describe("timeline block reconciliation", () => {
     assert.equal(textBlocks[1]?.kind, "assistant-part")
   })
 
+  test("groups MCP tools by server name in codex activity block", () => {
+    const assistant = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+      toolPart("p1", "m2", "websearch_web_search_exa"),
+      toolPart("p2", "m2", "websearch_web_search_exa"),
+      toolPart("p3", "m2", "websearch_web_search_exa"),
+      toolPart("p4", "m2", "grep_app_searchGitHub"),
+      toolPart("p5", "m2", "grep_app_searchGitHub"),
+    ])
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [assistant], {
+      ...defaultOptions,
+      panelTheme: "codex",
+    })
+
+    assert.equal(blocks[0]?.kind, "assistant-activity")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "Websearch: 3 calls, grep: 2 calls")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].parts.length : undefined, 5)
+  })
+
+  test("mixes MCP and built-in tools in a single codex activity block", () => {
+    const assistant = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+      toolPartWithState("p1", "m2", "read", { input: { filePath: "src/a.ts" } }),
+      toolPart("p2", "m2", "websearch_web_search_exa"),
+      toolPart("p3", "m2", "websearch_web_search_exa"),
+      toolPartWithState("p4", "m2", "grep", { input: { pattern: "foo" } }),
+      toolPart("p5", "m2", "grep_app_searchGitHub"),
+    ])
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [assistant], {
+      ...defaultOptions,
+      panelTheme: "codex",
+    })
+
+    assert.equal(blocks[0]?.kind, "assistant-activity")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "Explored 1 file, 1 search, websearch: 2 calls, grep: 1 call")
+    assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].parts.length : undefined, 5)
+  })
+
+  test("does not group MCP tools outside codex theme", () => {
+    const assistant = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
+      toolPart("p1", "m2", "websearch_web_search_exa"),
+      toolPart("p2", "m2", "websearch_web_search_exa"),
+    ])
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [assistant], defaultOptions)
+
+    assert.equal(blocks.filter((block) => block.kind === "assistant-activity").length, 0)
+    assert.equal(blocks.filter((block) => block.kind === "assistant-part").length, 2)
+  })
+
   test("keeps assistant tools on the existing part path outside codex theme", () => {
     const assistant = sessionMessage(messageInfo("m2", "assistant", { agent: "build" }), [
       toolPartWithState("p1", "m2", "read", { input: { filePath: "src/a.ts" } }),
@@ -233,6 +283,37 @@ describe("timeline block reconciliation", () => {
     assert.equal(blocks[0]?.kind, "assistant-activity")
     assert.equal(blocks[0]?.kind === "assistant-activity" ? blocks[0].summary : undefined, "Edited 2 files")
     assert.equal(blocks[1]?.kind, "assistant-meta")
+  })
+
+  test("suppresses assistant-meta block while the turn is still streaming", () => {
+    const user = sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")])
+    const streaming = sessionMessage(
+      messageInfo("m2", "assistant", { agent: "build", time: { created: 0, completed: undefined } }),
+      [textPart("p2", "m2", "partial response")],
+    )
+
+    const blocks = reconcileTimelineBlocks(createTimelineDerivationCache(), [user, streaming], defaultOptions)
+
+    assert.equal(blocks.filter((b) => b.kind === "assistant-meta").length, 0, "no meta block during streaming")
+  })
+
+  test("creates assistant-meta block once the turn completes", () => {
+    const user = sessionMessage(messageInfo("m1", "user"), [textPart("p1", "m1", "hello")])
+    const streaming = sessionMessage(
+      messageInfo("m2", "assistant", { agent: "build", time: { created: 0, completed: undefined } }),
+      [textPart("p2", "m2", "partial response")],
+    )
+
+    const cache = createTimelineDerivationCache()
+    const first = reconcileTimelineBlocks(cache, [user, streaming], defaultOptions)
+    assert.equal(first.filter((b) => b.kind === "assistant-meta").length, 0, "no meta while streaming")
+
+    const completed = sessionMessage(
+      messageInfo("m2", "assistant", { agent: "build", time: { created: 0, completed: 1 } }),
+      [textPart("p2", "m2", "final response")],
+    )
+    const second = reconcileTimelineBlocks(cache, [user, completed], defaultOptions)
+    assert.equal(second.filter((b) => b.kind === "assistant-meta").length, 1, "meta block after completion")
   })
 
   test("hides assistant placeholder text in every theme", () => {

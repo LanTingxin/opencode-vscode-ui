@@ -360,7 +360,7 @@ export function mcpDisplayTitle(part: Extract<MessagePart, { type: "tool" }>) {
   return args ? `${name} [${args}]` : name
 }
 
-function mcpName(tool: string) {
+export function mcpName(tool: string) {
   const idx = tool.indexOf("_")
   return idx > 0 ? tool.slice(0, idx) : tool
 }

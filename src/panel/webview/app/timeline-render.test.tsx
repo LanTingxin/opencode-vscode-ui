@@ -262,7 +262,7 @@ describe("Timeline user message rendering", () => {
     assert.equal(html.includes('data-tooltip="Redo"'), true)
   })
 
-  test("renders assistant message errors as a dedicated transcript block before metadata", () => {
+  test("renders assistant message errors as a dedicated transcript block without standalone metadata", () => {
     const html = renderToStaticMarkup(
       <Timeline
         bootstrapStatus="ready"
@@ -299,7 +299,7 @@ describe("Timeline user message rendering", () => {
 
     assert.equal(html.includes("unknown certificate verification error"), true)
     assert.equal(html.includes("oc-assistantError"), true)
-    assert.ok(html.indexOf("unknown certificate verification error") < html.indexOf("build"))
+    assert.equal(html.includes('<section class="oc-turnMeta"'), false)
   })
 
   test("renders a single automatic history hint instead of manual controls", () => {

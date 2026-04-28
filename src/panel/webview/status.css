@@ -679,18 +679,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .oc-composerStatusDot,
-  .oc-composerStatusTrackGlow {
-    animation: none;
-  }
-
-  .oc-composerStatusDot {
-    transform: none;
-    opacity: 1;
-  }
-}
-
 .oc-modelPicker {
   position: absolute;
   left: 0;
@@ -1729,11 +1717,3 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .oc-shell[data-oc-theme="codex"] .oc-composerBody,
-  .oc-shell[data-oc-theme="codex"] .oc-codexTodoPopover {
-    animation: none;
-    transition: none;
-    transform: none;
-  }
-}

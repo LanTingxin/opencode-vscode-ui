@@ -526,24 +526,6 @@ button.oc-toolTodoHeader {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .oc-shell[data-oc-theme="codex"] .oc-toolPanel,
-  .oc-shell[data-oc-theme="codex"] .oc-toolPanel.is-active {
-    transition: none;
-    transform: none;
-  }
-
-  .oc-shell[data-oc-theme="codex"] .oc-toolPanel.is-active::after {
-    animation-name: oc-codexToolSweep;
-    animation: none;
-  }
-
-  .oc-shell[data-oc-theme="codex"] .oc-codexActivitySummary,
-  .oc-shell[data-oc-theme="codex"] .oc-codexActivityToggle {
-    transition: none;
-    transform: none;
-  }
-}
 
 .oc-shell[data-oc-theme="codex"] .oc-outputWindowContent-shell,
 .oc-shell[data-oc-theme="codex"] .oc-outputWindowContent-diff {
@@ -1343,17 +1325,3 @@ button.oc-toolTodoHeader {
   line-height: 1.58;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .oc-shellBlockBody,
-  .oc-toolTodoList,
-  .oc-outputWindowBody.is-collapsible {
-    transition: none;
-  }
-
-  .oc-shellBlockToggleIcon,
-  .oc-shell[data-oc-theme="claude"] .oc-toolTodoToggleIcon,
-  .oc-outputWindowToggleIcon {
-    transition: none;
-    transform: none;
-  }
-}

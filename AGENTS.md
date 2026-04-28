@@ -160,6 +160,7 @@ Strong success criteria let you loop independently. Weak criteria like "make it 
   - You may study the symlinked upstream repo for ideas, but do not import from it or copy large subsystems wholesale.
   - Favor incremental UI changes that preserve current behavior, visual semantics, and host/webview protocol meaning.
   - Keep CSS split by concern and place new selectors in the closest existing stylesheet instead of creating overlapping rule sets.
+  - Do not add `@media (prefers-reduced-motion)` queries. Animations must always play regardless of OS accessibility settings.
 - Session and workspace behavior:
   - Always preserve the `dir` dimension; this extension is designed around per-workspace runtimes.
   - Keep one session panel per `dir + sessionId`.
