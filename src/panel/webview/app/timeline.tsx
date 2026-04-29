@@ -68,6 +68,7 @@ type TimelineProps = {
   onUndoUserMessage: (message: SessionMessage) => void
   revertDiff?: string
   revertID?: string
+  sessionRunning?: boolean
   showInternals: boolean
   showThinking: boolean
   panelTheme?: PanelTheme
@@ -108,6 +109,7 @@ export const Timeline = React.memo(function Timeline({
   onUndoUserMessage,
   revertDiff,
   revertID,
+  sessionRunning = false,
   showInternals,
   showThinking,
   panelTheme = "classic",
@@ -160,7 +162,7 @@ export const Timeline = React.memo(function Timeline({
           </div>
         ) : null}
         {blocks.map((block, index) => {
-          const footerOptions = { compactSkillInvocations, skillCatalog }
+          const footerOptions = { compactSkillInvocations, sessionRunning, skillCatalog }
           const content = (
             <MemoTimelineBlockView
               key={block.key}
@@ -790,10 +792,13 @@ function AssistantTurnMeta({ AgentBadge, messages }: { AgentBadge: ({ name }: { 
 function showAssistantCopy(
   blocks: TimelineBlock[],
   index: number,
-  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+  options: { compactSkillInvocations: boolean; sessionRunning: boolean; skillCatalog: SkillCatalogEntry[] },
 ) {
   const block = blocks[index]
   if (!block || block.kind !== "assistant-part" || block.part.type !== "text") {
+    return false
+  }
+  if (isInActiveTailAssistantTurn(blocks, index, options)) {
     return false
   }
   return finalAssistantCopyPartID(blocks, index, options) === block.part.id
@@ -802,7 +807,7 @@ function showAssistantCopy(
 function assistantFooterMetaMessages(
   blocks: TimelineBlock[],
   index: number,
-  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+  options: { compactSkillInvocations: boolean; sessionRunning: boolean; skillCatalog: SkillCatalogEntry[] },
 ) {
   if (!showAssistantCopy(blocks, index, options)) {
     return undefined
@@ -813,7 +818,7 @@ function assistantFooterMetaMessages(
 function shouldHideAssistantMetaBlock(
   blocks: TimelineBlock[],
   index: number,
-  _options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+  _options: { compactSkillInvocations: boolean; sessionRunning: boolean; skillCatalog: SkillCatalogEntry[] },
 ) {
   const block = blocks[index]
   if (!block || block.kind !== "assistant-meta") {
@@ -825,7 +830,7 @@ function shouldHideAssistantMetaBlock(
 function finalAssistantCopyPartID(
   blocks: TimelineBlock[],
   index: number,
-  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+  options: { compactSkillInvocations: boolean; sessionRunning: boolean; skillCatalog: SkillCatalogEntry[] },
 ) {
   const [start, end] = assistantTurnRange(blocks, index)
   for (let i = end; i >= start; i -= 1) {
@@ -868,7 +873,7 @@ function assistantTurnRange(blocks: TimelineBlock[], index: number): [number, nu
 function assistantChainClassName(
   blocks: TimelineBlock[],
   index: number,
-  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+  options: { compactSkillInvocations: boolean; sessionRunning: boolean; skillCatalog: SkillCatalogEntry[] },
 ) {
   const block = blocks[index]
   if (!block || block.kind === "user-message") {
@@ -899,7 +904,7 @@ function adjacentVisibleTimelineBlock(
   blocks: TimelineBlock[],
   index: number,
   direction: -1 | 1,
-  options: { compactSkillInvocations: boolean; skillCatalog: SkillCatalogEntry[] },
+  options: { compactSkillInvocations: boolean; sessionRunning: boolean; skillCatalog: SkillCatalogEntry[] },
 ) {
   for (let i = index + direction; i >= 0 && i < blocks.length; i += direction) {
     if (shouldHideAssistantMetaBlock(blocks, i, options)) {
@@ -912,6 +917,42 @@ function adjacentVisibleTimelineBlock(
 
 function isAssistantChainable(block?: TimelineBlock) {
   return !!block && block.kind !== "user-message"
+}
+
+function isInActiveTailAssistantTurn(
+  blocks: TimelineBlock[],
+  index: number,
+  options: { compactSkillInvocations: boolean; sessionRunning: boolean; skillCatalog: SkillCatalogEntry[] },
+) {
+  if (!options.sessionRunning) {
+    return false
+  }
+
+  const activeIndex = activeTailAssistantBlockIndex(blocks)
+  if (activeIndex < 0) {
+    return false
+  }
+
+  const [start, end] = assistantTurnRange(blocks, activeIndex)
+  return index >= start && index <= end
+}
+
+function activeTailAssistantBlockIndex(blocks: TimelineBlock[]) {
+  let index = blocks.length - 1
+  while (index >= 0) {
+    const block = blocks[index]
+    if (block?.kind === "user-message" && block.queued) {
+      index -= 1
+      continue
+    }
+    break
+  }
+
+  if (index < 0) {
+    return -1
+  }
+
+  return blocks[index]?.kind === "user-message" ? -1 : index
 }
 
 export function reconcileTimelineBlocks(cache: TimelineDerivationCache, messages: SessionMessage[], options: TimelineDerivationOptions) {

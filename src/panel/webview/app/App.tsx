@@ -1648,6 +1648,7 @@ export function App() {
                     onUndoUserMessage={undoUserMessage}
                     revertID={state.snapshot.session?.revert?.messageID}
                     revertDiff={state.snapshot.session?.revert?.diff}
+                    sessionRunning={composerRunning}
                     showInternals={state.snapshot.display.showInternals}
                     showThinking={state.snapshot.display.showThinking}
                     panelTheme={panelTheme}

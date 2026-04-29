@@ -423,6 +423,88 @@ describe("Timeline user message rendering", () => {
     assert.ok(html.indexOf("text:Final output") < html.indexOf('aria-label="Copy"'))
   })
 
+  test("does not render assistant footer actions for the active tail turn while the session is still running", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[
+          sessionMessage(messageInfo("m1", "assistant", {
+            agent: "ultraworker",
+            model: { providerID: "anthropic", modelID: "claude-opus-4.6" },
+            time: { created: 0, completed: 42000 },
+          }), [textPart("p1", "m1", "Partial output")]),
+        ]}
+        sessionRunning={true}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.includes("oc-assistantReplyFooter"), false)
+    assert.equal(html.includes("oc-assistantReplyMeta"), false)
+    assert.equal(html.includes('aria-label="Copy"'), false)
+  })
+
+  test("keeps footer actions on earlier completed turns while suppressing only the active tail turn", () => {
+    const html = renderToStaticMarkup(
+      <Timeline
+        bootstrapStatus="ready"
+        compactSkillInvocations={true}
+        diffMode="unified"
+        messages={[
+          sessionMessage(messageInfo("u1", "user"), [textPart("up1", "u1", "first question")]),
+          sessionMessage(messageInfo("a1", "assistant", {
+            agent: "ultraworker",
+            model: { providerID: "anthropic", modelID: "claude-opus-4.6" },
+            time: { created: 0, completed: 21000 },
+          }), [textPart("ap1", "a1", "Earlier output")]),
+          sessionMessage(messageInfo("u2", "user"), [textPart("up2", "u2", "second question")]),
+          sessionMessage(messageInfo("a2", "assistant", {
+            agent: "ultraworker",
+            model: { providerID: "anthropic", modelID: "claude-opus-4.6" },
+            time: { created: 22000, completed: 42000 },
+          }), [textPart("ap2", "a2", "Latest partial")]),
+        ]}
+        sessionRunning={true}
+        onCopyUserMessage={() => {}}
+        onForkUserMessage={() => {}}
+        onOpenFileAttachment={() => {}}
+        onPreviewImageAttachment={() => {}}
+        onRedoSession={() => {}}
+        onUndoUserMessage={() => {}}
+        showInternals={false}
+        showThinking={true}
+        panelTheme="codex"
+        skillCatalog={[]}
+        AgentBadge={({ name }) => <span>{name}</span>}
+        CompactionDivider={() => <div>divider</div>}
+        EmptyState={({ title, text }) => <div>{title}:{text}</div>}
+        MarkdownBlock={({ content, className }) => <div className={className}>{content}</div>}
+        PartView={({ part }) => <div>{part.type === "text" ? `text:${part.text}` : part.type}</div>}
+      />,
+    )
+
+    assert.equal(html.match(/aria-label="Reply actions"/g)?.length, 1)
+    assert.equal(html.match(/aria-label="Copy"/g)?.length, 3)
+    assert.ok(html.indexOf("text:Earlier output") < html.indexOf("oc-assistantReplyFooter"))
+    assert.ok(html.indexOf("text:Latest partial") > html.indexOf("oc-assistantReplyFooter"))
+  })
+
   test("renders codex assistant meta in the final text hover footer with copy", () => {
     const html = renderToStaticMarkup(
       <Timeline
