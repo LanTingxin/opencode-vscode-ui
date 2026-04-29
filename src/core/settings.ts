@@ -34,7 +34,7 @@ export function getDisplaySettings(): DisplaySettings {
     diffMode: config.get<DiffMode>(DIFF_MODE_KEY, "unified") === "split" ? "split" : "unified",
     compactSkillInvocations: config.get<boolean>(COMPACT_SKILL_INVOCATIONS_KEY, true),
     showSkillsInSlashAutocomplete: config.get<boolean>(SHOW_SKILLS_IN_SLASH_AUTOCOMPLETE_KEY, false),
-    panelTheme: normalizePanelTheme(config.get<string>(PANEL_THEME_KEY, "codex")),
+    panelTheme: normalizePanelTheme(config.get<string>(PANEL_THEME_KEY, "classic")),
     panelColorScheme: normalizePanelColorScheme(config.get<string>(PANEL_COLOR_SCHEME_KEY, "default")),
   }
 }
@@ -108,7 +108,7 @@ function normalizePanelTheme(value: string): PanelTheme {
     case "default":
       return "classic"
     default:
-      return "codex"
+      return "classic"
   }
 }
 

@@ -26,10 +26,10 @@ function persisted(overrides: Partial<PersistedAppState> = {}): PersistedAppStat
 }
 
 describe("panel webview persisted state", () => {
-  test("defaults the snapshot display panel theme to codex", () => {
+  test("defaults the snapshot display panel theme to classic", () => {
     const state = createInitialState(initialRef)
 
-    assert.equal(state.snapshot.display.panelTheme, "codex")
+    assert.equal(state.snapshot.display.panelTheme, "classic")
     assert.equal(state.snapshot.display.panelColorScheme, "default")
     assert.equal(state.snapshot.display.showSkillsInSlashAutocomplete, false)
   })
@@ -193,7 +193,7 @@ describe("normalizeSnapshotPayload", () => {
         showThinking: true,
         diffMode: "unified",
         compactSkillInvocations: true,
-        panelTheme: "codex",
+        panelTheme: "classic",
       },
       messages: [],
       childMessages: {},
@@ -214,10 +214,10 @@ describe("normalizeSnapshotPayload", () => {
       navigation: {},
     } satisfies SessionSnapshot
 
-    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "codex")
+    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "classic")
   })
 
-  test("defaults missing panelTheme to codex when normalizing older snapshots", () => {
+  test("defaults missing panelTheme to classic when normalizing older snapshots", () => {
     const snapshot = {
       status: "ready",
       workspaceName: "workspace",
@@ -251,7 +251,7 @@ describe("normalizeSnapshotPayload", () => {
       navigation: {},
     } as unknown as SessionSnapshot
 
-    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "codex")
+    assert.equal(normalizeSnapshotPayload(snapshot).display.panelTheme, "classic")
   })
 
   test("defaults missing showSkillsInSlashAutocomplete to false when normalizing older snapshots", () => {

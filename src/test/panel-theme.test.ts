@@ -61,7 +61,7 @@ describe("panel theme settings", () => {
     assert.equal(getDisplaySettings().panelColorScheme, "orchid")
   })
 
-  test("normalizes removed opencode-web panel theme values to codex", () => {
+  test("normalizes removed opencode-web panel theme values to classic", () => {
     ;(vscode.workspace as typeof vscode.workspace & {
       getConfiguration: typeof vscode.workspace.getConfiguration
     }).getConfiguration = ((section?: string) => ({
@@ -73,7 +73,7 @@ describe("panel theme settings", () => {
       },
     })) as typeof vscode.workspace.getConfiguration
 
-    assert.equal(getDisplaySettings().panelTheme, "codex")
+    assert.equal(getDisplaySettings().panelTheme, "classic")
   })
 
   test("normalizes legacy default panel theme values to classic", () => {
@@ -91,7 +91,7 @@ describe("panel theme settings", () => {
     assert.equal(getDisplaySettings().panelTheme, "classic")
   })
 
-  test("normalizes invalid panelTheme values to codex", () => {
+  test("normalizes invalid panelTheme values to classic", () => {
     ;(vscode.workspace as typeof vscode.workspace & {
       getConfiguration: typeof vscode.workspace.getConfiguration
     }).getConfiguration = ((section?: string) => ({
@@ -103,7 +103,7 @@ describe("panel theme settings", () => {
       },
     })) as typeof vscode.workspace.getConfiguration
 
-    assert.equal(getDisplaySettings().panelTheme, "codex")
+    assert.equal(getDisplaySettings().panelTheme, "classic")
   })
 
   test("normalizes invalid panelColorScheme values to default", () => {
@@ -148,8 +148,8 @@ describe("panel theme settings", () => {
   test("resolves the panel root theme attribute value", () => {
     assert.equal(resolvePanelThemeValue("classic"), "classic")
     assert.equal(resolvePanelThemeValue("codex"), "codex")
-    assert.equal(resolvePanelThemeValue("opencode-web" as never), "codex")
-    assert.equal(resolvePanelThemeValue(undefined), "codex")
+    assert.equal(resolvePanelThemeValue("opencode-web" as never), "classic")
+    assert.equal(resolvePanelThemeValue(undefined), "classic")
   })
 
   test("resolves the panel root color attribute value", () => {
@@ -212,7 +212,7 @@ describe("panel theme settings", () => {
     }
 
     const panelTheme = pkg.contributes?.configuration?.properties?.["opencode-ui.panelTheme"]
-    assert.equal(panelTheme?.default, "codex")
+    assert.equal(panelTheme?.default, "classic")
     assert.deepEqual(panelTheme?.enum, ["classic", "codex", "claude"])
   })
 

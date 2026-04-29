@@ -230,7 +230,7 @@ export function resolvePanelThemeValue(theme?: PanelTheme): PanelTheme {
     case "claude":
       return theme
     default:
-      return "codex"
+      return "classic"
   }
 }
 
