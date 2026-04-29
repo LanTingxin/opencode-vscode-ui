@@ -1,6 +1,7 @@
 # OpenCode Enhanced UI
 
-**An enhanced VS Code extension that brings OpenCode sessions into your editor with powerful organization, visual customization, and workflow tools.**
+
+**An enhanced VS Code extension that brings OpenCode sessions into your editor with powerful organization, visual customization, and workflow tools. Based on [opencode-vscode-ui](https://github.com/a710128/opencode-vscode-ui.git) by [@a710128](https://github.com/a710128)**
 
 > **Built for productive AI-assisted development:** browse sessions with a **workspace-aware sidebar**, customize your **panel themes**, track **subagents and todos**, organize with **tags and search**, and keep everything visible while you code—whether you work locally or over **Remote SSH**.
 
@@ -10,16 +11,15 @@ Stay in the editor, keep context intact, and manage OpenCode where the code alre
 
 This enhanced version extends the original OpenCode UI with:
 
-- **🎨 Panel Theme System** - Choose from multiple visual presets (classic, codex, claude) with automatic light/dark mode support
-- **🤖 Subagents Companion View** - Track and monitor subagent sessions in a dedicated sidebar panel
-- **🏷️ Session Tagging & Filtering** - Organize sessions with custom tags and filter by tag directly in the sidebar
-- **🔍 Session Search** - Quickly find sessions within each workspace with built-in search
-- **📋 Enhanced Todo View** - Task tracking with grouped sections and better organization
-- **📊 Modified Files Tracking** - See exactly which files changed during each session
-- **💬 Compact Skill Rendering** - Cleaner, more readable skill invocation display
-- **🎯 Context Menu Actions** - Right-click to ask about selections, files, or explorer items
+- **🎨 Panel Theme System** - Three visual presets (classic, codex, claude) × 7 color schemes, auto light/dark
+- **🤖 Subagents Companion View** - Track subagent sessions in a dedicated sidebar panel
+- **🏷️ Session Tagging & Search** - Custom tags, tag filtering, and workspace-scoped text search
+- **📋 Enhanced Todo & Diff Views** - Grouped task sections and per-session modified files tracking
+- **⚡ Slash Commands** - `/theme` and `/session` for quick in-panel switching
+- **🎯 Context Menu Actions** - Right-click selections, files, or explorer items to start a session
 - **🔗 Session Sharing** - Share and unshare sessions with team members
-- **🌐 HTTP Proxy Support** - Configure proxy settings for opencode serve
+- **🌐 Network & Environment** - HTTP proxy, custom opencode binary path, cross-platform shell support
+- **✨ Transcript Polish** - Collapsible shell output, tool activity summaries, image previews, copy actions, and more
 
 ## Why use it 🚀
 
@@ -98,25 +98,24 @@ Open the dedicated session view in VS Code's secondary sidebar for a focused con
 - A dedicated panel for each workspace-session pair
 
 ### Visual Customization
-- Three panel theme presets: classic, codex, and claude
+- Three panel theme presets (classic, codex, claude) × seven color schemes
 - Automatic light/dark mode adaptation
-- Configurable diff rendering (unified or split view)
-- Optional thinking block visibility
-- Compact skill invocation rendering
+- Configurable diff rendering, thinking block visibility, and compact skill display
+- Collapsible shell output and animated panel sections
 
 ### Workflow Tools
 - Subagents companion view for tracking child sessions
-- Enhanced todo view with grouped sections
-- Modified files tracking scoped to active session
+- Enhanced todo view with grouped sections and modified files tracking
 - Session context side panel with usage breakdown and raw message inspection
-- Context menu actions for selections and files
+- Slash commands (`/theme`, `/session`) for in-panel quick actions
+- Context menu actions, assistant reply copy, image previews
 - Session sharing and collaboration support
 
 ### Developer Experience
 - Built-in environment checks with clear setup feedback
-- HTTP proxy configuration support
-- Status bar integration for quick access
-- Persistent panel state across restarts
+- HTTP proxy and custom opencode binary path support
+- Cross-platform shell execution (Windows, macOS, Linux)
+- Status bar integration and persistent panel state
 
 ## Remote SSH ready 🌐
 
