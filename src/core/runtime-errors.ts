@@ -45,6 +45,7 @@ export async function checkOpencodeAvailable() {
   const command = resolveOpencodeCommand(getOpencodePath())
   return await new Promise<{ ok: true; output: string } | { ok: false; message: string }>((resolve) => {
     const proc = cp.spawn(command, ["--version"], {
+      shell: true,
       env: {
         ...process.env,
         OPENCODE_CALLER: "vscode-ui",

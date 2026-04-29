@@ -88,9 +88,20 @@ describe("opencode binary path setting", () => {
     const result = await checkOpencodeAvailable()
     assert.equal(result.ok, false)
     if (!result.ok) {
-      // Either ENOENT or a spawn error; the key is that it actually attempted to use our configured path.
-      assert.match(result.message, /not found|ENOENT|spawn/i)
+      // Either ENOENT, a spawn error, or a shell-level "not found" message (which on
+      // Windows may be a localized string from cmd.exe).  The key assertion is result.ok === false.
+      assert.ok(result.message.length > 0, "error message should not be empty")
     }
+  })
+
+  test("spawn uses shell: true so .cmd/.bat files resolve on Windows", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/core/server.ts"), "utf8")
+    assert.match(source, /shell:\s*true/, "server.ts spawn should include shell: true for cross-platform binary resolution")
+  })
+
+  test("checkOpencodeAvailable uses shell: true so .cmd/.bat files resolve on Windows", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/core/runtime-errors.ts"), "utf8")
+    assert.match(source, /shell:\s*true/, "runtime-errors.ts spawn should include shell: true for cross-platform binary resolution")
   })
 
   test("declares opencode-ui.opencodePath in the extension configuration", () => {

@@ -146,6 +146,7 @@ export function spawn(dir: string, port: number) {
   return cp.spawn(command, ["serve", "--port", String(port), "--hostname", "127.0.0.1"], {
     cwd: dir,
     detached: process.platform !== "win32",
+    shell: true,
     env,
   })
 }
